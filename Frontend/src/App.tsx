@@ -10,6 +10,7 @@ import LineChart from "./pages/Charts/LineChart";
 import Home from "./pages/Dashboard/Home";
 import FormElements from "./pages/Forms/FormElements";
 import FixGrammar from "./pages/Grammar/FixGrammar";
+import Vocabulary from "./pages/Dictionary/Vocabulary";
 import NotFound from "./pages/OtherPage/NotFound";
 import BasicTables from "./pages/Tables/BasicTables";
 import Alerts from "./pages/UiElements/Alerts";
@@ -28,6 +29,7 @@ export default function App() {
         <Routes>
           {/* Dashboard Layout */}
           <Route element={<AppLayout />}>
+            <Route path="/dictionary" element={<Vocabulary />} />
             <Route index path="/" element={<Home />} />
 
             {/* Others Page */}
