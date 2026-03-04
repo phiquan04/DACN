@@ -1,138 +1,91 @@
 import { useState } from "react";
 import PageMeta from "../../components/common/PageMeta";
-import InputField from "../../components/form/input/InputField";
 import Button from "../../components/ui/button/Button";
 
-// Mock dữ liệu từ vựng
-const mockVocabulary = [
-  {
-    id: 1,
-    word: "日本語", 
-    reading: "にほんご",
-    meaning: "tiếng Nhật",
-    example: "日本語を勉強します。",
-    exampleMeaning: "Tôi học tiếng Nhật.",
-  },
-  {
-    id: 2,
-    word: "勉強",
-    reading: "べんきょう",
-    meaning: "học tập",
-    example: "毎日勉強します。",
-    exampleMeaning: "Học mỗi ngày.",
-  },
-  {
-    id: 3,
-    word: "食べる",
-    reading: "たべる",
-    meaning: "ăn",
-    example: "ご飯を食べます。",
-    exampleMeaning: "Ăn cơm.",
-  },
-  {
-    id: 4,
-    word: "可愛い",
-    reading: "かわいい",
-    meaning: "dễ thương",
-    example: "この猫は可愛いです。",
-    exampleMeaning: "Con mèo này dễ thương.",
-  },
-  {
-    id: 5,
-    word: "綺麗",
-    reading: "きれい",
-    meaning: "đẹp, sạch sẽ",
-    example: "綺麗な部屋ですね。",
-    exampleMeaning: "Căn phòng đẹp nhỉ.",
-  },
-];
+export default function FixGrammar() {
+  const [sentence, setSentence] = useState("");
 
-export default function Vocabulary() {
-  const [searchTerm, setSearchTerm] = useState("");
-  const [results, setResults] = useState(mockVocabulary);
+  // Mock handlers (chưa xử lý thực tế)
+  const handleCheck = () => {
+    console.log("Check grammar for:", sentence);
+  };
 
-  const handleSearch = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!searchTerm.trim()) {
-      setResults(mockVocabulary);
-      return;
-    }
-    const filtered = mockVocabulary.filter(
-      (item) =>
-        item.word.includes(searchTerm) ||
-        item.reading.includes(searchTerm) ||
-        item.meaning.includes(searchTerm)
-    );
-    setResults(filtered);
+  const handleAlternative = () => {
+    console.log("Find alternative expressions");
   };
 
   return (
     <>
       <PageMeta
-        title="Tra cứu từ vựng tiếng Nhật"
-        description="Trang tra cứu từ điển Nhật - Việt"
+        title="Kiểm tra ngữ pháp tiếng Nhật"
+        description="Nhập câu tiếng Nhật để kiểm tra ngữ pháp và nhận gợi ý sửa lỗi"
       />
       <div className="space-y-6">
-        <form onSubmit={handleSearch} className="flex gap-3 items-end">
-          <div className="flex-1">
-            <label
-              htmlFor="search"
-              className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1"
-            >
-              Tìm kiếm từ vựng
-            </label>
-            <InputField
-              id="search"
-              type="text"
-              placeholder="Nhập từ, phiên âm hoặc nghĩa..."
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-            />
+        {/* Input area */}
+        <div className="rounded-lg border border-gray-200 bg-white p-5 shadow-sm dark:border-gray-700 dark:bg-gray-900">
+          <h2 className="mb-4 text-lg font-semibold text-gray-800 dark:text-white/90">
+            Nhập câu tiếng Nhật cần kiểm tra
+          </h2>
+          <textarea
+            value={sentence}
+            onChange={(e) => setSentence(e.target.value)}
+            placeholder="Ví dụ: 私は昨日映画を見ます。"
+            rows={5}
+            className="w-full rounded-lg border border-gray-300 bg-gray-50 p-3 text-gray-900 focus:border-brand-500 focus:outline-none focus:ring-1 focus:ring-brand-500 dark:border-gray-600 dark:bg-gray-800 dark:text-white/90 dark:focus:border-brand-400"
+          />
+          <div className="mt-4 flex justify-end">
+            <Button size="sm" onClick={handleCheck}>
+              Kiểm tra ngữ pháp
+            </Button>
           </div>
-          {/* Sửa: bỏ prop type, thêm onClick để submit form */}
-          <Button 
-            size="sm"
-            onClick={() => handleSearch} // Hoặc có thể dùng form's onSubmit thay vì onClick
-          >
-            Tra cứu
-          </Button>
-        </form>
-
-        {/* Kết quả */}
-        <div className="grid grid-cols-1 gap-5 md:grid-cols-2 lg:grid-cols-3">
-          {results.map((item) => (
-            <div
-              key={item.id}
-              className="rounded-lg border border-gray-200 bg-white p-5 shadow-sm dark:border-gray-700 dark:bg-gray-900"
-            >
-              <div className="mb-3 flex items-center justify-between">
-                <h3 className="text-xl font-bold text-gray-900 dark:text-white">
-                  {item.word}
-                </h3>
-                <span className="text-sm text-gray-500 dark:text-gray-400">
-                  {item.reading}
-                </span>
-              </div>
-              <p className="mb-2 text-base text-gray-800 dark:text-gray-200">
-                {item.meaning}
-              </p>
-              <div className="mt-3 rounded-md bg-gray-50 p-3 dark:bg-gray-800">
-                <p className="text-sm italic text-gray-700 dark:text-gray-300">
-                  “{item.example}”
-                </p>
-                <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
-                  {item.exampleMeaning}
-                </p>
-              </div>
-            </div>
-          ))}
         </div>
 
-        {results.length === 0 && (
-          <div className="py-10 text-center text-gray-500">
-            Không tìm thấy từ vựng phù hợp.
+        {/* Error explanation area */}
+        <div className="rounded-lg border border-gray-200 bg-white p-5 shadow-sm dark:border-gray-700 dark:bg-gray-900">
+          <h2 className="mb-4 text-lg font-semibold text-gray-800 dark:text-white/90">
+            Lỗi sai và giải thích
+          </h2>
+          <div className="space-y-3">
+            {/* Mock error item 1 */}
+            <div className="rounded-md bg-red-50 p-4 dark:bg-red-500/10">
+              <p className="text-sm font-medium text-red-800 dark:text-red-400">
+                Lỗi thì động từ
+              </p>
+              <p className="mt-1 text-sm text-gray-700 dark:text-gray-300">
+                Câu của bạn dùng "見ます" (thể lịch sự hiện tại) nhưng ngữ cảnh là quá khứ (hôm qua). Cần dùng thể quá khứ "見ました".
+              </p>
+            </div>
+            {/* Mock error item 2 */}
+            <div className="rounded-md bg-red-50 p-4 dark:bg-red-500/10">
+              <p className="text-sm font-medium text-red-800 dark:text-red-400">
+                Thiếu trợ từ
+              </p>
+              <p className="mt-1 text-sm text-gray-700 dark:text-gray-300">
+                Sau "昨日" nên có trợ từ "は" để đánh dấu chủ đề: "昨日は".
+              </p>
+            </div>
           </div>
-        )}
+        </div>
+
+        {/* Corrected sentence area */}
+        <div className="rounded-lg border border-gray-200 bg-white p-5 shadow-sm dark:border-gray-700 dark:bg-gray-900">
+          <div className="flex items-center justify-between">
+            <h2 className="text-lg font-semibold text-gray-800 dark:text-white/90">
+              Câu đã sửa
+            </h2>
+            <Button size="sm" variant="outline" onClick={handleAlternative}>
+              Tìm cách diễn đạt khác
+            </Button>
+          </div>
+          <div className="mt-4 rounded-md bg-green-50 p-4 dark:bg-green-500/10">
+            <p className="text-base text-gray-900 dark:text-white">
+              私は昨日映画を見ました。
+            </p>
+          </div>
+          <p className="mt-2 text-sm text-gray-500 dark:text-gray-400">
+            Câu đã được sửa lỗi ngữ pháp và thì.
+          </p>
+        </div>
       </div>
     </>
   );
