@@ -7,7 +7,7 @@ import Button from "../../components/ui/button/Button";
 const mockVocabulary = [
   {
     id: 1,
-    word: "日本語",
+    word: "日本語", 
     reading: "にほんご",
     meaning: "tiếng Nhật",
     example: "日本語を勉強します。",
