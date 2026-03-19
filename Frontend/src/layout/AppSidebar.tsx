@@ -9,7 +9,7 @@ import {
   ChevronDownIcon,
   GridIcon,
   HorizontaLDots,
-  ListIcon,
+  ChatbotIcon,
   PageIcon,
   PieChartIcon,
   PlugInIcon,
@@ -52,9 +52,9 @@ const navItems: NavItem[] = [
     path: "/profile",
   },
   {
-    name: "Forms",
-    icon: <ListIcon />,
-    subItems: [{ name: "Form Elements", path: "/form-elements", pro: false }],
+    name: "Chatbot",
+    icon: <ChatbotIcon />,
+    path: "/chat-bot",
   },
   {
     name: "Tables",

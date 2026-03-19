@@ -48,39 +48,22 @@ export default function FixGrammar() {
     setAlternatives([]);
 
     try {
-      const response = await fetch("https://api.anthropic.com/v1/messages", {
+      const response = await fetch("http://127.0.0.1:8080/alternative", {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "anthropic-version": "2023-06-01",
-          "anthropic-dangerous-direct-browser-access": "true",
-          "x-api-key": import.meta.env.ANTHROPIC_API_KEY,
-        },
-        body: JSON.stringify({
-          model: "claude-sonnet-4-20250514",
-          max_tokens: 1000,
-          messages: [
-            {
-              role: "user",
-              content: `以下の日本語の文を、意味を変えずに3つの異なる表現で言い換えてください。
-              元の文: 「${result.correctedText}」
-
-              以下のJSON形式のみで返答してください（説明不要）:
-              {"alternatives": ["言い換え1", "言い換え2", "言い換え3"]}`,
-            },
-          ],
-        }),
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ text: result.correctedText }),
       });
 
-      if (!response.ok) throw new Error(`API error: ${response.status}`);
+      if (!response.ok) {
+        const errData = await response.json();
+        console.error("Alternative API error:", JSON.stringify(errData));
+        throw new Error(errData?.error || `Server error: ${response.status}`);
+      }
 
       const data = await response.json();
-      const text = data.content.map((i: any) => i.text || "").join("");
-      const clean = text.replace(/```json|```/g, "").trim();
-      const parsed = JSON.parse(clean);
-      setAlternatives(parsed.alternatives);
+      setAlternatives(data.alternatives);
     } catch (err) {
-      setAltError("Không thể tạo cách diễn đạt khác. Vui lòng thử lại.");
+      setAltError(err instanceof Error ? err.message : "Không thể tạo cách diễn đạt khác.");
     } finally {
       setAltLoading(false);
     }
