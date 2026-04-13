@@ -1,6 +1,6 @@
 
 import React, { useState, useRef, useEffect, useCallback } from "react";
-import AvatarCanvas from "../../components/AvatarCanvas";
+import VideoAvatar from "../../components/VideoAvatar";
 import ChatMessage from "../../components/ChatMessage";
 import ChatInput from "../../components/ChatInput";
 import { useSpeech } from "../../hooks/useSpeech";
@@ -27,6 +27,21 @@ export default function ChatBot() {
   const chatEndRef = useRef<HTMLDivElement>(null);
   const { speak, stop, isSpeaking } = useSpeech();
 
+  // Initialize voice input first (before using in callback)
+  const handleVoiceResultRef = useRef<(transcript: string) => void | null>(null);
+  
+  const {
+    isListening,
+    transcript,
+    startListening,
+    stopListening,
+    supported: voiceSupported,
+  } = useVoiceInput((text) => {
+    if (handleVoiceResultRef.current && text.trim()) {
+      handleVoiceResultRef.current(text);
+    }
+  });
+
   // Check backend on mount
   useEffect(() => {
     checkHealth().then((ok) => {
@@ -45,6 +60,7 @@ export default function ChatBot() {
       if (!text.trim() || isLoading) return;
 
       stop(); // Stop any ongoing speech
+      stopListening(); // Stop voice recording
 
       const userMsg: ChatMsg = { role: "user", content: text, timestamp: Date.now() };
       setMessages((prev) => [...prev, userMsg]);
@@ -77,23 +93,15 @@ export default function ChatBot() {
         setIsLoading(false);
       }
     },
-    [isLoading, messages, speak, stop]
+    [isLoading, messages, speak, stop, stopListening]
   );
 
-  const handleVoiceResult = useCallback(
-    (transcript: string) => {
+  // Update ref for voice result handler
+  useEffect(() => {
+    handleVoiceResultRef.current = (transcript: string) => {
       if (transcript.trim()) handleSend(transcript);
-    },
-    [handleSend]
-  );
-
-  const {
-    isListening,
-    transcript,
-    startListening,
-    stopListening,
-    supported: voiceSupported,
-  } = useVoiceInput(handleVoiceResult);
+    };
+  }, [handleSend]);
 
   const handleClearChat = () => {
     stop();
@@ -122,7 +130,7 @@ export default function ChatBot() {
 
           <div className="avatar-stage">
             <div className="avatar-glow" />
-            <AvatarCanvas
+            <VideoAvatar
               mouthOpen={mouthOpen}
               isSpeaking={isSpeaking}
               isThinking={isThinking}
