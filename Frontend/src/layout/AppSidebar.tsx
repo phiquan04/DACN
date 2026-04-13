@@ -11,10 +11,10 @@ import {
   HorizontaLDots,
   ChatbotIcon,
   PageIcon,
-  PieChartIcon,
   PlugInIcon,
   TableIcon,
   UserCircleIcon,
+  VideoIcon,
 } from "../icons";
 import SidebarWidget from "./SidebarWidget";
 
@@ -73,10 +73,10 @@ const navItems: NavItem[] = [
 
 const othersItems: NavItem[] = [
   {
-    icon: <PieChartIcon />,
-    name: "Charts",
+    icon: <VideoIcon />,
+    name: "Youtube Learning",
     subItems: [
-      { name: "Line Chart", path: "/line-chart", pro: false },
+      { name: "Learning with scripts", path: "/line-chart", pro: false },
       { name: "Bar Chart", path: "/bar-chart", pro: false },
     ],
   },
