@@ -5,3 +5,6 @@ fugashi
 unidic-lite
 torch
 Flask
+ffmpeg-python
+openai-whisper
+yt-dlp

@@ -5,10 +5,10 @@ import SignIn from "./pages/AuthPages/SignIn";
 import SignUp from "./pages/AuthPages/SignUp";
 import Blank from "./pages/Blank";
 import Calendar from "./pages/Calendar";
-import BarChart from "./pages/Charts/BarChart";
-import LineChart from "./pages/Charts/LineChart";
+import BarChart from "./pages/VideoLearn/BarChart";
+import LineChart from "./pages/VideoLearn/JapaneseWatch";
 import Home from "./pages/Dashboard/Home";
-import FormElements from "./pages/Forms/FormElements";
+import ChatBot from "./pages/Chatbot/ChatBot";
 import FixGrammar from "./pages/Grammar/FixGrammar";
 import Vocabulary from "./pages/Dictionary/Vocabulary";
 import NotFound from "./pages/OtherPage/NotFound";
@@ -37,9 +37,7 @@ export default function App() {
             <Route path="/profile" element={<UserProfiles />} />
             <Route path="/calendar" element={<Calendar />} />
             <Route path="/blank" element={<Blank />} />
-
-            {/* Forms */}
-            <Route path="/form-elements" element={<FormElements />} />
+            <Route path="/chat-bot" element={<ChatBot />} />
 
             {/* Tables */}
             <Route path="/basic-tables" element={<BasicTables />} />

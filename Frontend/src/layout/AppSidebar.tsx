@@ -9,12 +9,12 @@ import {
   ChevronDownIcon,
   GridIcon,
   HorizontaLDots,
-  ListIcon,
+  ChatbotIcon,
   PageIcon,
-  PieChartIcon,
   PlugInIcon,
   TableIcon,
   UserCircleIcon,
+  VideoIcon,
 } from "../icons";
 import SidebarWidget from "./SidebarWidget";
 
@@ -52,9 +52,9 @@ const navItems: NavItem[] = [
     path: "/profile",
   },
   {
-    name: "Forms",
-    icon: <ListIcon />,
-    subItems: [{ name: "Form Elements", path: "/form-elements", pro: false }],
+    name: "Chatbot",
+    icon: <ChatbotIcon />,
+    path: "/chat-bot",
   },
   {
     name: "Tables",
@@ -73,10 +73,10 @@ const navItems: NavItem[] = [
 
 const othersItems: NavItem[] = [
   {
-    icon: <PieChartIcon />,
-    name: "Charts",
+    icon: <VideoIcon />,
+    name: "Youtube Learning",
     subItems: [
-      { name: "Line Chart", path: "/line-chart", pro: false },
+      { name: "Learning with scripts", path: "/line-chart", pro: false },
       { name: "Bar Chart", path: "/bar-chart", pro: false },
     ],
   },
