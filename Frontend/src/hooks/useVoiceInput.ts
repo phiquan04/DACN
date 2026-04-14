@@ -1,5 +1,3 @@
-// src/hooks/useVoiceInput.ts
-// Japanese speech recognition — gửi sau khi im lặng 1.5 giây
 
 import { useCallback, useRef, useState } from "react";
 
@@ -62,7 +60,7 @@ export function useVoiceInput(
     recognition.lang = "ja-JP";
     recognition.interimResults = true;   // hiển thị text tạm thời
     recognition.maxAlternatives = 1;
-    recognition.continuous = true;       // tiếp tục lắng nghe liên tục
+    recognition.continuous = false;      // dừng tự động sau khi im lặng
 
     recognition.onresult = (event) => {
       let interimText = "";
