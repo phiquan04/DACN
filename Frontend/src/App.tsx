@@ -20,6 +20,9 @@ import Buttons from "./pages/UiElements/Buttons";
 import Images from "./pages/UiElements/Images";
 import Videos from "./pages/UiElements/Videos";
 import UserProfiles from "./pages/UserProfiles";
+import MeetingLobby from "./pages/Meeting/MeetingLobby";
+import MeetingRoom from "./pages/Meeting/MeetingRoom";
+
 
 export default function App() {
   return (
@@ -34,6 +37,7 @@ export default function App() {
 
             {/* Others Page */}
             <Route path="/fixgrammar" element={<FixGrammar />} /> 
+            <Route path="/meeting" element={<MeetingLobby />} />
             <Route path="/profile" element={<UserProfiles />} />
             <Route path="/calendar" element={<Calendar />} />
             <Route path="/blank" element={<Blank />} />
@@ -54,6 +58,7 @@ export default function App() {
             <Route path="/line-chart" element={<LineChart />} />
             <Route path="/bar-chart" element={<BarChart />} />
           </Route>
+           <Route path="/meeting/room/:roomID" element={<MeetingRoom />} />
 
           {/* Auth Layout */}
           <Route path="/signin" element={<SignIn />} />
