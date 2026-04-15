@@ -58,3 +58,30 @@ export async function checkHealth(): Promise<boolean> {
     return false;
   }
 }
+
+export interface DictionaryDefinition {
+  meaning: string;
+  pos: string;
+}
+
+export interface DictionaryResult {
+  word: string;
+  reading: string;
+  definitions: DictionaryDefinition[];
+  examples: { japanese: string; vietnamese: string }[]; // thêm dòng này
+  jlpt: string;
+  frequency: string;
+}
+
+export async function lookupWord(word: string): Promise<DictionaryResult> {
+  const res = await fetch(`${BASE_URL}/api/dictionary/lookup`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ word }),
+  });
+  if (!res.ok) {
+    const err = await res.json();
+    throw new Error(err.error || "Dictionary lookup failed");
+  }
+  return res.json();
+}

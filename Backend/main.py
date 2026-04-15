@@ -4,8 +4,10 @@ import re
 import os
 import tempfile
 import requests as req
+from jamdict import Jamdict
 from difflib import ndiff
 from datetime import datetime, timedelta
+from googletrans import Translator
 
 from flask import Flask, render_template, request, jsonify
 from flask_cors import CORS
@@ -14,6 +16,7 @@ from dotenv import load_dotenv
 from model import GEC
 
 load_dotenv()
+translator = Translator()
 
 app = Flask(__name__)
 CORS(app, resources={
@@ -109,7 +112,162 @@ def alternative():
         print(f'Alternative error: {e}')
         return jsonify({'error': str(e)}), 500
 
+def translate_to_vietnamese(text: str) -> str:
+    """Dịch văn bản tiếng Anh sang tiếng Việt, nếu lỗi thì trả về nguyên bản."""
+    if not text or not isinstance(text, str):
+        return ""
+    try:
+        result = translator.translate(text, src='en', dest='vi')
+        return result.text
+    except Exception as e:
+        print(f"Translation error: {e}", flush=True)
+        return text
+# Khởi tạo Jamdict một lần khi app start (thêm sau dòng: gec = GEC(...))
+try:
+    jmdict = Jamdict()
+    print("JMdict loaded successfully", flush=True)
+except Exception as e:
+    print(f"Warning: JMdict failed to load: {e}", flush=True)
+    jmdict = None
 
+
+@app.route('/api/dictionary/lookup', methods=['POST'])
+def dictionary_lookup():
+    """
+    Tra từ điển Nhật - Việt (JMdict) qua Jamdict, trả về:
+    - word: dạng kanji
+    - reading: cách đọc
+    - definitions: list {meaning (tiếng Việt), pos (từ loại)}
+    - examples: list {japanese (câu Nhật), meaning (bản dịch tiếng Việt)}
+    - jlpt, frequency
+    """
+    try:
+        word = request.json.get('word', '').strip()
+        if not word:
+            return jsonify({'error': 'Missing word parameter'}), 400
+
+        if not jmdict:
+            return jsonify({'error': 'Dictionary service not available'}), 503
+
+        print(f"[Jamdict] Lookup: '{word}'", flush=True)
+        result = jmdict.lookup(word)
+
+        if not result.entries:
+            return jsonify({
+                'word': word,
+                'reading': '',
+                'definitions': [],
+                'examples': [],
+                'jlpt': 'N/A',
+                'frequency': 'N/A'
+            }), 200
+
+        entry = result.entries[0]
+
+        # --- 1. Lấy dạng viết (kanji hoặc kana) ---
+        kanji = word
+        if entry.kanji_forms:
+            kanji = entry.kanji_forms[0].text
+        elif entry.kana_forms:
+            kanji = entry.kana_forms[0].text
+
+        # --- 2. Lấy cách đọc ---
+        reading = ''
+        if entry.kana_forms:
+            reading = entry.kana_forms[0].text
+
+        # --- 3. Lấy definitions (nghĩa) và dịch sang tiếng Việt ---
+        definitions = []
+        if entry.senses:
+            for sense in entry.senses[:5]:  # giới hạn 5 nghĩa
+                # Lấy các gloss tiếng Anh
+                english_glosses = []
+                if hasattr(sense, 'gloss') and sense.gloss:
+                    english_glosses = [g.text for g in sense.gloss if g.text]
+                if not english_glosses:
+                    continue
+
+                english_text = ', '.join(english_glosses)
+                vietnamese_text = translate_to_vietnamese(english_text)
+
+                # Lấy từ loại
+                pos = ''
+                if hasattr(sense, 'pos') and sense.pos:
+                    pos = ', '.join(sense.pos)
+
+                definitions.append({
+                    'meaning': vietnamese_text,
+                    'pos': pos
+                })
+
+        # --- 4. Lấy examples (câu ví dụ) từ sense ---
+        examples = []
+        if entry.senses:
+            for sense in entry.senses:
+                # Kiểm tra xem sense có examples không
+                if hasattr(sense, 'examples') and sense.examples:
+                    for ex in sense.examples[:3]:  # giới hạn 3 ví dụ mỗi sense
+                        jp_text = ''
+                        vi_text = ''
+                        # ex thường là object có .japanese và .english
+                        if hasattr(ex, 'japanese') and ex.japanese:
+                            jp_text = ex.japanese
+                        if hasattr(ex, 'english') and ex.english:
+                            # Dịch câu tiếng Anh sang tiếng Việt
+                            vi_text = translate_to_vietnamese(ex.english)
+                        if jp_text:
+                            examples.append({
+                                'japanese': jp_text,
+                                'vietnamese': vi_text
+                            })
+                # Một số version Jamdict để examples trong `sentence_examples`
+                elif hasattr(sense, 'sentence_examples') and sense.sentence_examples:
+                    for ex in sense.sentence_examples[:3]:
+                        jp_text = ex.japanese if hasattr(ex, 'japanese') else ''
+                        en_text = ex.english if hasattr(ex, 'english') else ''
+                        vi_text = translate_to_vietnamese(en_text) if en_text else ''
+                        if jp_text:
+                            examples.append({
+                                'japanese': jp_text,
+                                'vietnamese': vi_text
+                            })
+
+        # Nếu không có examples trong senses, thử lấy từ entry.examples
+        if not examples and hasattr(entry, 'examples') and entry.examples:
+            for ex in entry.examples[:5]:
+                jp_text = ex.japanese if hasattr(ex, 'japanese') else ''
+                en_text = ex.english if hasattr(ex, 'english') else ''
+                vi_text = translate_to_vietnamese(en_text) if en_text else ''
+                if jp_text:
+                    examples.append({
+                        'japanese': jp_text,
+                        'vietnamese': vi_text
+                    })
+
+        # --- 5. Lấy JLPT và frequency (nếu có) ---
+        jlpt = 'N/A'
+        frequency = 'N/A'
+        if hasattr(entry, 'jlpt_old') and entry.jlpt_old:
+            jlpt = str(entry.jlpt_old)
+        elif hasattr(entry, 'jlpt') and entry.jlpt:
+            jlpt = str(entry.jlpt)
+        if hasattr(entry, 'frequency') and entry.frequency:
+            frequency = str(entry.frequency)
+
+        print(f"[Jamdict] Found '{kanji}' ({reading}) - {len(definitions)} definitions, {len(examples)} examples", flush=True)
+
+        return jsonify({
+            'word': kanji,
+            'reading': reading,
+            'definitions': definitions,
+            'examples': examples,
+            'jlpt': jlpt,
+            'frequency': frequency
+        }), 200
+
+    except Exception as e:
+        print(f'Dictionary lookup error: {e}', flush=True)
+        return jsonify({'error': str(e)}), 500
 
 def _parse_iso8601_duration(duration: str) -> str:
     """Convert ISO 8601 duration (PT1H2M3S) to MM:SS or HH:MM:SS."""
