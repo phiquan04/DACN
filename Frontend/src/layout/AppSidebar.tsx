@@ -6,10 +6,10 @@ import { useSidebar } from "../context/SidebarContext";
 import {
   BoxCubeIcon,
   CalenderIcon,
+  ChatbotIcon,
   ChevronDownIcon,
   GridIcon,
   HorizontaLDots,
-  ChatbotIcon,
   PageIcon,
   PlugInIcon,
   TableIcon,
@@ -36,11 +36,15 @@ const navItems: NavItem[] = [
     name: "Dashboard", 
     subItems: [{ name: "Ecommerce", path: "/", pro: false }],
   },
-  
   {
     icon: <GridIcon />,
     name: "Check Grammar",
     path: "/fixgrammar",
+  },
+  {
+    icon: <GridIcon />,
+    name: "Check Pronunciation",
+    path: "/check-pronunciation",
   },
   {
     icon: <GridIcon />,
