@@ -4,7 +4,15 @@ numpy==1.23.5
 fugashi
 unidic-lite
 torch
-Flask
+Flask==2.3.0
+Flask-SQLAlchemy==3.0.0
+Flask-CORS==4.0.0
+SQLAlchemy==2.0.0
 ffmpeg-python
 openai-whisper
 yt-dlp
+requests==2.31.0
+python-dotenv==1.0.0
+faster-whisper==0.10.0
+pdfplumber
+pymupdf
