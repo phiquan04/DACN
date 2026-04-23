@@ -24,7 +24,7 @@ export default function FixGrammar() {
     setAlternatives([]);
 
     try {
-      const response = await fetch("http://127.0.0.1:8080/correct", {
+      const response = await fetch("http://127.0.0.1:8080/api/correct", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ text: sentence }),
@@ -48,7 +48,7 @@ export default function FixGrammar() {
     setAlternatives([]);
 
     try {
-      const response = await fetch("http://127.0.0.1:8080/alternative", {
+      const response = await fetch("http://127.0.0.1:8080/api/alternative", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ text: result.correctedText }),
