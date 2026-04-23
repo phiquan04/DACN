@@ -1,21 +1,23 @@
-from flask import Blueprint
+from fastapi import APIRouter
 
-# Import blueprints
-from .health import health_bp
-from .correct import correct_bp
-from .alternative import alternative_bp
-from .chat import chat_bp
-from .youtube import youtube_bp
-from .transcribe import transcribe_bp
-from .tts import tts_bp
-from .practice_test import practice_bp   
-# Register all blueprints
-def register_blueprints(app):
-    app.register_blueprint(health_bp, url_prefix='/api')
-    app.register_blueprint(correct_bp, url_prefix='/api')
-    app.register_blueprint(alternative_bp, url_prefix='/api')
-    app.register_blueprint(chat_bp, url_prefix='/api')
-    app.register_blueprint(youtube_bp, url_prefix='/api')
-    app.register_blueprint(transcribe_bp, url_prefix='/api')
-    app.register_blueprint(tts_bp, url_prefix='/api')
-    app.register_blueprint(practice_bp, url_prefix='/api')
+from .health import router as health_router
+from .correct import router as correct_router
+from .alternative import router as alternative_router
+from .chat import router as chat_router
+from .youtube import router as youtube_router
+from .transcribe import router as transcribe_router
+from .tts import router as tts_router
+from .practice_test import router as practice_router
+from .auth import router as auth_router
+
+# Register all routers
+def register_routers(app):
+    app.include_router(auth_router, prefix="/api")
+    app.include_router(health_router, prefix="/api")
+    app.include_router(correct_router, prefix="/api")
+    app.include_router(alternative_router, prefix="/api")
+    app.include_router(chat_router, prefix="/api")
+    app.include_router(youtube_router, prefix="/api")
+    app.include_router(transcribe_router, prefix="/api")
+    app.include_router(tts_router, prefix="/api")
+    app.include_router(practice_router, prefix="/api")

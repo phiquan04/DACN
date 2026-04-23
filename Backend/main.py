@@ -1,55 +1,66 @@
 import os
-from flask import Flask, render_template
-from flask_cors import CORS
+from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse
+from fastapi.staticfiles import StaticFiles
 from dotenv import load_dotenv
 
 from config import get_config
 from app.models import init_db
-from app.routes import register_blueprints
+from app.routes import register_routers
 
 load_dotenv()
 
-def create_app(config_name=None):
+def app(config_name=None):
     """Application factory"""
     if config_name is None:
-        config_name = os.getenv('FLASK_ENV', 'development')
+        config_name = os.getenv('ENVIRONMENT', 'development')
     
-    app = Flask(__name__)
-    app.config.from_object(get_config(config_name))
+    app = FastAPI(
+        title="Japanese VA Backend",
+        description="Backend API for Japanese Learning Virtual Assistant",
+        version="1.0.0"
+    )
     
-    # Setup CORS
-    CORS(app, resources={
-        r"/*": {
-            "origins": "*",
-            "methods": ["GET", "POST", "OPTIONS"],
-            "allow_headers": ["Content-Type"],
-            "expose_headers": ["Content-Type"],
-        }
-    })
+    # Setup CORS Middleware
+    app.add_middleware(
+        CORSMiddleware,
+        allow_origins=["*"],
+        allow_credentials=True,
+        allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+        allow_headers=["*"],
+        expose_headers=["Content-Type"],
+    )
     
     # Initialize database
     init_db(app)
     
-    # Register all blueprints
-    register_blueprints(app)
+    # Register all routers
+    register_routers(app)
     
-    # Home route
-    @app.route('/', methods=['GET'])
-    def index():
-        return render_template('index.html')
+    # Health check endpoint
+    @app.get("/")
+    def root():
+        return {
+            "message": "Welcome to Japanese VA Backend",
+            "docs": "/docs",
+            "status": "running"
+        }
     
-    # Error handler
-    @app.errorhandler(Exception)
-    def handle_exception(e):
-        print(f"Unhandled exception: {e}", flush=True)
-        from flask import jsonify
-        return jsonify({"error": str(e)}), 500
+    # Global exception handler
+    @app.exception_handler(Exception)
+    async def global_exception_handler(request, exc):
+        print(f"Unhandled exception: {exc}", flush=True)
+        return JSONResponse(
+            status_code=500,
+            content={"error": str(exc)}
+        )
     
     return app
 
 
 if __name__ == '__main__':
-    app = create_app()
+    app = app()
     app.run(
         host='127.0.0.1',
         port=8080,

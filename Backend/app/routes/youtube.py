@@ -1,12 +1,12 @@
 import os
 import re
 import requests as req
-from flask import Blueprint, request, jsonify
+from fastapi import APIRouter, HTTPException
+from typing import Optional
 
-youtube_bp = Blueprint('youtube', __name__)
+router = APIRouter()
 
 def _parse_iso8601_duration(duration: str) -> str:
-    """Convert ISO 8601 duration (PT1H2M3S) to MM:SS or HH:MM:SS."""
     match = re.match(r'PT(?:(\d+)H)?(?:(\d+)M)?(?:(\d+)S)?', duration)
     if not match:
         return ""
@@ -18,19 +18,17 @@ def _parse_iso8601_duration(duration: str) -> str:
     return f"{m}:{s:02d}"
 
 
-@youtube_bp.route('/youtube-search', methods=['GET'])
-def youtube_search():
-    """Search YouTube videos for learning content"""
+@router.get('/youtube-search')
+async def youtube_search(q: str = "日本語", lang: str = "ja", maxResults: int = 12):
     try:
         api_key = os.environ.get('YOUTUBE_API_KEY')
         if not api_key:
-            return jsonify({'error': 'YouTube API not configured'}), 500
+            raise HTTPException(status_code=500, detail='YouTube API not configured')
 
-        q = request.args.get('q', '日本語').strip() or '日本語'
-        lang = request.args.get('lang', 'ja')
-        max_results = min(int(request.args.get('maxResults', 12)), 50)
+        q = q.strip() or '日本語'
+        maxResults = min(maxResults, 50)
 
-        print(f"YouTube search: q={q}, maxResults={max_results}", flush=True)
+        print(f"YouTube search: q={q}, maxResults={maxResults}", flush=True)
         
         # Step 1: Search videos
         search_res = req.get(
@@ -41,7 +39,7 @@ def youtube_search():
                 'type': 'video',
                 'relevanceLanguage': lang,
                 'videoCaption': 'any',
-                'maxResults': max_results,
+                'maxResults': maxResults,
                 'key': api_key,
             },
             timeout=15
@@ -52,7 +50,7 @@ def youtube_search():
         items = search_data.get('items', [])
         if not items:
             print("No items found", flush=True)
-            return jsonify({'videos': []})
+            return {'videos': []}
 
         video_ids = [item['id']['videoId'] for item in items]
         print(f"Found {len(video_ids)} videos", flush=True)
@@ -100,13 +98,13 @@ def youtube_search():
             })
 
         print(f"Returning {len(videos)} videos", flush=True)
-        return jsonify({'videos': videos}), 200
+        return {'videos': videos}
 
     except req.exceptions.Timeout:
-        return jsonify({'error': 'YouTube API timeout'}), 504
+        raise HTTPException(status_code=504, detail='YouTube API timeout')
     except req.exceptions.RequestException as e:
         print(f'YouTube API error: {e}', flush=True)
-        return jsonify({'error': 'YouTube API error'}), 503
+        raise HTTPException(status_code=503, detail='YouTube API error')
     except Exception as e:
         print(f'YouTube search error: {e}', flush=True)
-        return jsonify({'error': str(e)}), 500
+        raise HTTPException(status_code=500, detail=str(e))

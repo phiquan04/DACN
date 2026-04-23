@@ -1,7 +1,10 @@
-from flask import Blueprint, request, jsonify
+from fastapi import APIRouter, HTTPException
+from pydantic import BaseModel
 
-tts_bp = Blueprint('tts', __name__)
+router = APIRouter()
 
+class TTSRequest(BaseModel):
+    text: str
 
 def generate_lipsync_keyframes(text: str, duration_ms: int) -> list:
     """Generate lipsync keyframes for avatar animation"""
@@ -16,14 +19,13 @@ def generate_lipsync_keyframes(text: str, duration_ms: int) -> list:
     return keyframes
 
 
-@tts_bp.route("/tts", methods=["POST"])
-def text_to_speech():
+@router.post("/tts")
+async def text_to_speech(request: TTSRequest):
     """Generate TTS audio and lipsync keyframes"""
     try:
-        data = request.get_json()
-        text = data.get("text", "")
+        text = request.text
         if not text:
-            return jsonify({"error": "Missing 'text' field"}), 400
+            raise HTTPException(status_code=400, detail="Missing 'text' field")
 
         # Estimate duration based on text length
         char_count = len(text)
@@ -32,13 +34,13 @@ def text_to_speech():
         # Generate lipsync keyframes
         keyframes = generate_lipsync_keyframes(text, estimated_duration_ms)
 
-        return jsonify({
+        return {
             "text": text,
             "duration_ms": estimated_duration_ms,
             "lipsync_keyframes": keyframes,
             "tts_method": "web_speech_api",
-        }), 200
+        }
 
     except Exception as e:
         print(f"TTS error: {e}")
-        return jsonify({"error": str(e)}), 500
+        raise HTTPException(status_code=500, detail=str(e))

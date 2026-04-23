@@ -5,22 +5,24 @@ import json
 import base64
 import psycopg2
 import pdfplumber
-from flask import Blueprint, request, jsonify
+from fastapi import APIRouter, HTTPException, File, UploadFile
+from pydantic import BaseModel
 import requests as req
 from psycopg2.extras import execute_values
 from PIL import Image, ImageFilter, ImageEnhance
 import fitz
 import io
 import numpy as np
+from typing import Optional, List
 
-practice_bp = Blueprint('practice_test', __name__)
+router = APIRouter()
 
 NOISE_PATTERNS = [
     r'小程序[：:].+', r'日[语語]轻松考', r'打开小程序.+',
     r'真题[、，,].+', r'有解析.+', r'想要高效.+',
     r'使用小程序.+', r'日[语語]能力考', r'模拟题',
     r'练习题', r'可收藏', r'可分享',
-    r'申し訳ありません.+',        # model từ chối
+    r'申し訳ありません.+',        
     r"I'?m sorry.+",
     r'解释[：:].+',               # giải thích tiếng Trung lẫn vào
     r'正解[：:].+',
@@ -53,10 +55,6 @@ def clean_text(raw: str) -> str:
 
 
 def remove_watermark_overlay(img: Image.Image) -> Image.Image:
-    """
-    Xóa watermark bằng cách phát hiện vùng có màu sắc đặc biệt (thường là đỏ/xanh)
-    và tô trắng, giữ lại vùng text đen trên nền trắng.
-    """
     img_rgb = img.convert('RGB')
     arr = np.array(img_rgb, dtype=np.int16)
 
@@ -156,7 +154,8 @@ def extract_text_from_pdf(file_storage, page_type: str = 'exam') -> str:
     api_key = os.environ.get("OPENROUTER_API_KEY", "")
 
     with tempfile.NamedTemporaryFile(delete=False, suffix='.pdf') as tmp:
-        file_storage.save(tmp.name)
+        contents = file_storage.read() if hasattr(file_storage, 'read') else file_storage
+        tmp.write(contents)
         tmp_path = tmp.name
 
     doc = None  # khai báo trước để finally an toàn
@@ -314,21 +313,19 @@ def save_exam_to_db(data: dict) -> int:
         conn.close()
 
 
-@practice_bp.route('/import-exam', methods=['POST'])
-def import_exam():
+@router.post('/import-exam')
+async def import_exam(exam: UploadFile = File(...), answer: UploadFile = File(...)):
+    """Import exam PDFs and parse them"""
     try:
-        if 'exam' not in request.files or 'answer' not in request.files:
-            return jsonify({'error': "Cần upload 2 file: 'exam' và 'answer'"}), 400
-
-        exam_file = request.files['exam']
-        answer_file = request.files['answer']
-
         print("Extracting text from PDFs...", flush=True)
-        exam_text = extract_text_from_pdf(exam_file, page_type='exam')
-        answer_text = extract_text_from_pdf(answer_file, page_type='answer')
+        exam_bytes = await exam.read()
+        answer_bytes = await answer.read()
+        
+        exam_text = extract_text_from_pdf(exam_bytes, page_type='exam')
+        answer_text = extract_text_from_pdf(answer_bytes, page_type='answer')
 
         if not exam_text.strip():
-            return jsonify({'error': 'Không đọc được text từ file đề thi'}), 422
+            raise HTTPException(status_code=422, detail='Không đọc được text từ file đề thi')
 
         print("Parsing with AI...", flush=True)
         parsed = parse_exam_with_claude(exam_text, answer_text)
@@ -340,27 +337,28 @@ def import_exam():
         exam_id = save_exam_to_db(parsed)
 
         print(f"Saved exam_id={exam_id}", flush=True)
-        return jsonify({
+        return {
             'success': True,
             'exam_id': exam_id,
             'title': parsed.get('title'),
             'questions_imported': question_count
-        }), 201
+        }
 
     except json.JSONDecodeError as e:
         print(f"JSON parse error: {e}", flush=True)
-        return jsonify({'error': f'AI trả về JSON không hợp lệ: {str(e)}'}), 500
+        raise HTTPException(status_code=500, detail=f'AI trả về JSON không hợp lệ: {str(e)}')
     except psycopg2.Error as e:
         print(f"DB error: {e}", flush=True)
-        return jsonify({'error': f'Database error: {str(e)}'}), 500
+        raise HTTPException(status_code=500, detail=f'Database error: {str(e)}')
     except Exception as e:
         import traceback
         print(traceback.format_exc(), flush=True)
-        return jsonify({'error': str(e)}), 500
+        raise HTTPException(status_code=500, detail=str(e))
 
 
-@practice_bp.route('/exams', methods=['GET'])
-def get_exams():
+@router.get('/exams')
+async def get_exams():
+    """Get all exams"""
     try:
         conn = psycopg2.connect(os.environ.get("DATABASE_URL"))
         with conn:
@@ -380,13 +378,14 @@ def get_exams():
              'year': r[3], 'month': r[4], 'question_count': r[5]}
             for r in rows
         ]
-        return jsonify({'exams': exams})
+        return {'exams': exams}
     except Exception as e:
-        return jsonify({'error': str(e)}), 500
+        raise HTTPException(status_code=500, detail=str(e))
 
 
-@practice_bp.route('/exams/<int:exam_id>/questions', methods=['GET'])
-def get_exam_questions(exam_id):
+@router.get('/exams/{exam_id}/questions')
+async def get_exam_questions(exam_id: int):
+    """Get all questions for an exam"""
     try:
         conn = psycopg2.connect(os.environ.get("DATABASE_URL"))
         with conn:
@@ -419,6 +418,6 @@ def get_exam_questions(exam_id):
                         'explanation': row[5]
                     })
         conn.close()
-        return jsonify({'exam_id': exam_id, 'questions': result})
+        return {'exam_id': exam_id, 'questions': result}
     except Exception as e:
-        return jsonify({'error': str(e)}), 500
+        raise HTTPException(status_code=500, detail=str(e))

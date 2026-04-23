@@ -1,8 +1,12 @@
 import os
 import requests as req
-from flask import Blueprint, request, jsonify
+from fastapi import APIRouter, HTTPException
+from pydantic import BaseModel
 
-chat_bp = Blueprint('chat', __name__)
+router = APIRouter()
+
+class ChatRequest(BaseModel):
+    message: str
 
 SYSTEM_PROMPT = """あなたは日本語の会話パートナーです。
 以下のルールを守ってください：
@@ -12,17 +16,16 @@ SYSTEM_PROMPT = """あなたは日本語の会話パートナーです。
 - 返答は2〜4文程度にしてください
 - ユーザーの話題に合わせて自然に会話を続けてください"""
 
-@chat_bp.route('/chat', methods=['POST'])
-def chat():
-    """Chat endpoint using OpenRouter AI"""
+@router.post('/chat')
+async def chat(request: ChatRequest):
     try:
         api_key = os.environ.get('OPENROUTER_API_KEY')
         if not api_key:
-            return jsonify({'error': 'OPENROUTER_API_KEY not configured'}), 500
+            raise HTTPException(status_code=500, detail='OPENROUTER_API_KEY not configured')
 
-        user_message = request.json.get("message", "")
+        user_message = request.message.strip()
         if not user_message:
-            return jsonify({"error": "Empty message"}), 400
+            raise HTTPException(status_code=400, detail="Empty message")
 
         messages = [
             {"role": "system", "content": SYSTEM_PROMPT},
@@ -47,13 +50,13 @@ def chat():
         data = response.json()
         reply = data["choices"][0]["message"]["content"]
 
-        return jsonify({"reply": reply}), 200
+        return {"reply": reply}
 
     except req.exceptions.Timeout:
-        return jsonify({"error": "Request timeout"}), 504
+        raise HTTPException(status_code=504, detail="Request timeout")
     except req.exceptions.RequestException as e:
         print(f"Chat API error: {e}")
-        return jsonify({"error": "API error"}), 503
+        raise HTTPException(status_code=503, detail="API error")
     except Exception as e:
         print(f"Chat error: {e}")
-        return jsonify({"error": str(e)}), 500
+        raise HTTPException(status_code=500, detail=str(e))

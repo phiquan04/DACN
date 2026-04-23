@@ -1,15 +1,14 @@
 import os
-from flask import Blueprint, jsonify
+from fastapi import APIRouter
 
-health_bp = Blueprint('health', __name__)
+router = APIRouter()
 
-@health_bp.route('/health', methods=['GET'])
-def health():
-    """Check backend health and API configurations"""
-    return jsonify({
+@router.get("/health")
+async def health():
+    return {
         "status": "ok",
         "service": "Japanese VA Backend",
         "youtube_api": "configured" if os.environ.get('YOUTUBE_API_KEY') else "NOT CONFIGURED",
         "openai_api": "configured" if os.environ.get('OPENAI_API_KEY') else "NOT CONFIGURED",
         "openrouter_api": "configured" if os.environ.get('OPENROUTER_API_KEY') else "NOT CONFIGURED",
-    }), 200
+    }

@@ -1,20 +1,22 @@
 import unicodedata
 from difflib import ndiff
-from flask import Blueprint, request, jsonify
+from fastapi import APIRouter, HTTPException
+from pydantic import BaseModel
 from model import GEC
 
-correct_bp = Blueprint('correct', __name__)
+router = APIRouter()
 
-# Initialize GEC model
+class CorrectRequest(BaseModel):
+    text: str
+
 gec_model = GEC(pretrained_weights_path='data/model/model_checkpoint')
 
-@correct_bp.route('/correct', methods=['POST'])
-def correct():
-    """Correct Japanese grammar errors using BERT-based GEC"""
+@router.post('/correct')
+async def correct(request: CorrectRequest):
     try:
-        text = request.json.get('text', '')
+        text = request.text
         if not text:
-            return jsonify({'error': 'Missing text parameter'}), 400
+            raise HTTPException(status_code=400, detail='Missing text parameter')
         
         # Normalize and clean text
         text = unicodedata.normalize('NFKC', text).replace(' ', '')
@@ -27,12 +29,12 @@ def correct():
         
         print(f'Correction: {text} -> {correct_text}')
         
-        return jsonify({
+        return {
             'correctedText': correct_text,
             'diffs': diffs,
             'original': text
-        }), 200
+        }
         
     except Exception as e:
         print(f'Correction error: {e}')
-        return jsonify({'error': str(e)}), 500
+        raise HTTPException(status_code=500, detail=str(e))

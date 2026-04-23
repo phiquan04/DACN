@@ -1,13 +1,68 @@
 import { useState } from "react";
-import { Link } from "react-router";
+import { Link, useNavigate } from "react-router";
 import { ChevronLeftIcon, EyeCloseIcon, EyeIcon } from "../../icons";
 import Label from "../form/Label";
 import Input from "../form/input/InputField";
 import Checkbox from "../form/input/Checkbox";
+import { signUp } from "../../services/api";
 
 export default function SignUpForm() {
+  const navigate = useNavigate();
   const [showPassword, setShowPassword] = useState(false);
   const [isChecked, setIsChecked] = useState(false);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
+  
+  const [formData, setFormData] = useState({
+    firstName: "",
+    lastName: "",
+    email: "",
+    username: "",
+    password: "",
+  });
+
+  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const { name, value } = e.target;
+    setFormData(prev => ({
+      ...prev,
+      [name]: value
+    }));
+  };
+
+  const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+    setError("");
+    
+    if (!isChecked) {
+      setError("Please agree to Terms and Conditions");
+      return;
+    }
+
+    if (formData.password.length < 8) {
+      setError("Password must be at least 8 characters");
+      return;
+    }
+
+    setLoading(true);
+    
+    try {
+      await signUp({
+        username: formData.username,
+        email: formData.email,
+        password: formData.password,
+        first_name: formData.firstName,
+        last_name: formData.lastName,
+      });
+      
+      navigate("/signin");
+    } catch (err) {
+      const errorMessage = err instanceof Error ? err.message : "Sign up failed";
+      setError(errorMessage);
+    } finally {
+      setLoading(false);
+    }
+  };
+
   return (
     <div className="flex flex-col flex-1 w-full overflow-y-auto lg:w-1/2 no-scrollbar">
       <div className="w-full max-w-md mx-auto mb-5 sm:pt-10">
@@ -29,9 +84,16 @@ export default function SignUpForm() {
               Enter your email and password to sign up!
             </p>
           </div>
+          
+          {error && (
+            <div className="mb-4 p-3 bg-red-100 border border-red-400 text-red-700 rounded-lg text-sm">
+              {error}
+            </div>
+          )}
+          
           <div>
             <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 sm:gap-5">
-              <button className="inline-flex items-center justify-center gap-3 py-3 text-sm font-normal text-gray-700 transition-colors bg-gray-100 rounded-lg px-7 hover:bg-gray-200 hover:text-gray-800 dark:bg-white/5 dark:text-white/90 dark:hover:bg-white/10">
+              <button type="button" className="inline-flex items-center justify-center gap-3 py-3 text-sm font-normal text-gray-700 transition-colors bg-gray-100 rounded-lg px-7 hover:bg-gray-200 hover:text-gray-800 dark:bg-white/5 dark:text-white/90 dark:hover:bg-white/10">
                 <svg
                   width="20"
                   height="20"
@@ -58,7 +120,7 @@ export default function SignUpForm() {
                 </svg>
                 Sign up with Google
               </button>
-              <button className="inline-flex items-center justify-center gap-3 py-3 text-sm font-normal text-gray-700 transition-colors bg-gray-100 rounded-lg px-7 hover:bg-gray-200 hover:text-gray-800 dark:bg-white/5 dark:text-white/90 dark:hover:bg-white/10">
+              <button type="button" className="inline-flex items-center justify-center gap-3 py-3 text-sm font-normal text-gray-700 transition-colors bg-gray-100 rounded-lg px-7 hover:bg-gray-200 hover:text-gray-800 dark:bg-white/5 dark:text-white/90 dark:hover:bg-white/10">
                 <svg
                   width="21"
                   className="fill-current"
@@ -82,7 +144,7 @@ export default function SignUpForm() {
                 </span>
               </div>
             </div>
-            <form>
+            <form onSubmit={handleSubmit}>
               <div className="space-y-5">
                 <div className="grid grid-cols-1 gap-5 sm:grid-cols-2">
                   {/* <!-- First Name --> */}
@@ -92,8 +154,10 @@ export default function SignUpForm() {
                     </Label>
                     <Input
                       type="text"
-                      id="fname"
-                      name="fname"
+                      id="firstName"
+                      name="firstName"
+                      value={formData.firstName}
+                      onChange={handleInputChange}
                       placeholder="Enter your first name"
                     />
                   </div>
@@ -104,11 +168,29 @@ export default function SignUpForm() {
                     </Label>
                     <Input
                       type="text"
-                      id="lname"
-                      name="lname"
+                      id="lastName"
+                      name="lastName"
+                      value={formData.lastName}
+                      onChange={handleInputChange}
                       placeholder="Enter your last name"
                     />
                   </div>
+                </div>
+                {/* <!-- Username --> */}
+                <div>
+                  <Label>
+                    Username<span className="text-error-500">*</span>
+                  </Label>
+                  <Input
+                    type="text"
+                    id="username"
+                    name="username"
+                    value={formData.username}
+                    onChange={handleInputChange}
+                    placeholder="Enter your username"
+                    required
+                    minLength={3}
+                  />
                 </div>
                 {/* <!-- Email --> */}
                 <div>
@@ -119,7 +201,10 @@ export default function SignUpForm() {
                     type="email"
                     id="email"
                     name="email"
+                    value={formData.email}
+                    onChange={handleInputChange}
                     placeholder="Enter your email"
+                    required
                   />
                 </div>
                 {/* <!-- Password --> */}
@@ -129,8 +214,14 @@ export default function SignUpForm() {
                   </Label>
                   <div className="relative">
                     <Input
-                      placeholder="Enter your password"
+                      placeholder="Enter your password (min 8 characters)"
                       type={showPassword ? "text" : "password"}
+                      id="password"
+                      name="password"
+                      value={formData.password}
+                      onChange={handleInputChange}
+                      required
+                      minLength={8}
                     />
                     <span
                       onClick={() => setShowPassword(!showPassword)}
@@ -164,8 +255,12 @@ export default function SignUpForm() {
                 </div>
                 {/* <!-- Button --> */}
                 <div>
-                  <button className="flex items-center justify-center w-full px-4 py-3 text-sm font-medium text-white transition rounded-lg bg-brand-500 shadow-theme-xs hover:bg-brand-600">
-                    Sign Up
+                  <button 
+                    type="submit"
+                    disabled={loading}
+                    className="flex items-center justify-center w-full px-4 py-3 text-sm font-medium text-white transition rounded-lg bg-brand-500 shadow-theme-xs hover:bg-brand-600 disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    {loading ? "Signing Up..." : "Sign Up"}
                   </button>
                 </div>
               </div>

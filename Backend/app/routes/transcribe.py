@@ -3,13 +3,13 @@ import re
 import json
 import tempfile
 import requests as req
-from flask import Blueprint, request, jsonify
+from typing import Optional
+from fastapi import APIRouter, HTTPException, File, UploadFile, Form
 
-transcribe_bp = Blueprint('transcribe', __name__)
+router = APIRouter()
 
 
 def download_youtube_audio(youtube_url: str) -> str:
-    """Download audio from YouTube video"""
     import yt_dlp
 
     tmp_dir = tempfile.mkdtemp()
@@ -37,7 +37,7 @@ def download_youtube_audio(youtube_url: str) -> str:
 
         files = os.listdir(tmp_dir)
         print(f"Files in temp dir: {files}", flush=True)
-        
+
         for fname in files:
             if fname.startswith(video_id):
                 full_path = os.path.join(tmp_dir, fname)
@@ -58,22 +58,20 @@ def download_youtube_audio(youtube_url: str) -> str:
 
 
 def transcribe_with_whisper(audio_path: str) -> list:
-    """Transcribe audio using Whisper"""
     try:
         print(f"Transcribing audio: {audio_path}", flush=True)
-        
+
         try:
             from faster_whisper import WhisperModel
             print("Loading faster-whisper model...", flush=True)
             model = WhisperModel("base", device="cpu")
-
             segs, info = model.transcribe(
                 audio_path,
                 language="ja",
                 word_timestamps=False,
                 vad_filter=True,
                 vad_parameters={"min_silence_duration_ms": 500},
-                beam_size=5,
+                beam_size=1,
                 condition_on_previous_text=True,
             )
             segments = [
@@ -111,7 +109,7 @@ def transcribe_with_whisper(audio_path: str) -> list:
         api_key = os.environ.get("OPENAI_API_KEY", "")
         if not api_key:
             raise ValueError("No transcription backend available")
-            
+
         with open(audio_path, "rb") as f:
             response = req.post(
                 "https://api.openai.com/v1/audio/transcriptions",
@@ -191,47 +189,51 @@ Trả về đúng định dạng JSON:
         raise ValueError(f"Invalid translation response format: {str(e)}")
 
 
-@transcribe_bp.route("/transcribe", methods=["POST"])
-def transcribe():
-    """Transcribe and translate YouTube videos or audio files"""
+@router.post("/transcribe")
+async def transcribe(
+    youtube_url: Optional[str] = Form(None),
+    file: Optional[UploadFile] = File(None),
+):
     tmp_path = None
     tmp_dir = None
-    
+
     try:
-        if request.is_json and request.json.get("youtube_url"):
-            youtube_url = request.json["youtube_url"]
+        if youtube_url and youtube_url.strip():
             print(f"Transcribing YouTube URL: {youtube_url}", flush=True)
-            tmp_path = download_youtube_audio(youtube_url)
+            tmp_path = download_youtube_audio(youtube_url.strip())
             tmp_dir = os.path.dirname(tmp_path)
 
-        elif "file" in request.files:
-            file = request.files["file"]
-            suffix = os.path.splitext(file.filename)[1] or ".mp4"
+        elif file:
+            suffix = os.path.splitext(file.filename or "")[1] or ".mp4"
             tmp = tempfile.NamedTemporaryFile(delete=False, suffix=suffix)
-            file.save(tmp.name)
+            contents = await file.read()
+            tmp.write(contents)
             tmp.close()
             tmp_path = tmp.name
 
         else:
-            return jsonify({"error": "Provide 'youtube_url' in JSON body or upload a file"}), 400
+            raise HTTPException(
+                status_code=400,
+                detail="Provide 'youtube_url' as form field or upload a file"
+            )
 
         print(f"Audio file: {tmp_path}", flush=True)
         if not tmp_path or not os.path.exists(tmp_path):
-            return jsonify({"error": "Không thể tải audio từ YouTube"}), 500
+            raise HTTPException(status_code=500, detail="Không thể tải audio từ YouTube")
 
         try:
             print("Starting transcription...", flush=True)
             segments = transcribe_with_whisper(tmp_path)
             print(f"Transcribed {len(segments)} segments", flush=True)
-            
+
             if not segments:
-                return jsonify({"error": "Không phát hiện được giọng nói trong video"}), 422
+                raise HTTPException(status_code=422, detail="Không phát hiện được giọng nói trong video")
 
             print("Starting translation...", flush=True)
             translated = translate_segments(segments)
             print(f"Translated {len(translated)} segments", flush=True)
-            
-            return jsonify({"segments": translated}), 200
+
+            return {"segments": translated}
         finally:
             if tmp_path and os.path.exists(tmp_path):
                 try:
@@ -246,6 +248,8 @@ def transcribe():
                 except OSError as e:
                     print(f"Failed to delete {tmp_dir}: {e}", flush=True)
 
+    except HTTPException:
+        raise
     except Exception as e:
         print(f"Transcribe error: {e}", flush=True)
         if tmp_path and os.path.exists(tmp_path):
@@ -258,4 +262,10 @@ def transcribe():
                 os.rmdir(tmp_dir)
             except:
                 pass
-        return jsonify({"error": str(e)}), 500
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.post("/transcribe/url")
+async def transcribe_url(youtube_url: str):
+    """Transcribe từ YouTube URL - nhận plain string query param"""
+    return await transcribe(youtube_url=youtube_url, file=None)
