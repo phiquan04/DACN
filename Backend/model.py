@@ -6,7 +6,7 @@ from tensorflow import keras
 from tensorflow.keras import layers
 from transformers import TFAutoModel, AutoTokenizer, AdamWeightDecay
 
-from utils.helpers import Vocab
+from app.utils.helpers import Vocab
 
 
 class GEC:

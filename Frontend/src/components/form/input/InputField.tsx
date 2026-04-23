@@ -16,6 +16,8 @@ interface InputProps {
   success?: boolean;
   error?: boolean;
   hint?: string;
+  required?: boolean;
+  minLength?: number;
 }
 
 const Input: FC<InputProps> = ({
