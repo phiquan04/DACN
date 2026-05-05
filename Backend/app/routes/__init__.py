@@ -10,6 +10,7 @@ from .tts import router as tts_router
 from .practice_test import router as practice_router
 from .auth import router as auth_router
 from .pronunciation import router as pronunciation_router
+from .dictionary import router as dictionary_router
 
 # Register all routers
 def register_routers(app):
@@ -23,3 +24,4 @@ def register_routers(app):
     app.include_router(tts_router, prefix="/api")
     app.include_router(practice_router, prefix="/api")
     app.include_router(pronunciation_router, prefix="/api")
+    app.include_router(dictionary_router, prefix="/api")
