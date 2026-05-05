@@ -23,6 +23,7 @@ import UserProfiles from "./pages/UserProfiles";
 import JLPTPracticePage from "./pages/PracticeTest/TestPage";
 import MeetingLobby from "./pages/Meeting/MeetingLobby";
 import MeetingRoom from "./pages/Meeting/MeetingRoom";
+import CheckPronunciation from "./pages/Pronunciation/CheckPronunciation";
 
 
 export default function App() {
@@ -38,6 +39,7 @@ export default function App() {
 
             {/* Others Page */}
             <Route path="/fixgrammar" element={<FixGrammar />} /> 
+            <Route path="/check-pronunciation" element={<CheckPronunciation />} /> 
             <Route path="/meeting" element={<MeetingLobby />} />
             <Route path="/profile" element={<UserProfiles />} />
             <Route path="/calendar" element={<Calendar />} />
