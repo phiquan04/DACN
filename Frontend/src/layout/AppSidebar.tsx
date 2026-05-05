@@ -68,24 +68,26 @@ const navItems: NavItem[] = [
     subItems: [{ name: "Basic Tables", path: "/basic-tables", pro: false }],
   },
   {
-    name: "Pages",
-    icon: <PageIcon />,
-    subItems: [
-      { name: "Blank Page", path: "/blank", pro: false },
-      { name: "404 Error", path: "/error-404", pro: false },
-    ],
+    name: "Youtube Learning",
+    icon: <VideoIcon />,
+    path: "/line-chart",
+  },
+  {
+    name: "JLPT Tests",
+    icon: <VideoIcon />,
+    path: "/jlpt-practice",
   },
 ];
 
 const othersItems: NavItem[] = [
-  {
-    icon: <VideoIcon />,
-    name: "Youtube Learning",
-    subItems: [
-      { name: "Learning with scripts", path: "/line-chart", pro: false },
-      { name: "Bar Chart", path: "/bar-chart", pro: false },
-    ],
-  },
+  // {
+  //   icon: <VideoIcon />,
+  //   name: "Youtube Learning",
+  //   subItems: [
+  //     { name: "Learning with scripts", path: "/line-chart", pro: false },
+  //     { name: "Bar Chart", path: "/bar-chart", pro: false },
+  //   ],
+  // },
   {
     icon: <BoxCubeIcon />,
     name: "UI Elements",

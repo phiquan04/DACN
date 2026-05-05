@@ -408,13 +408,14 @@ export default function JapaneseVideoTranscript() {
     try {
       const controller = new AbortController();
       const timeoutId = setTimeout(() => controller.abort(), 180000); 
+      const formData = new FormData();
+        formData.append("youtube_url", `https://www.youtube.com/watch?v=${selectedVideo.id}`);
 
-      const res = await fetch(`${API_BASE}/api/transcribe`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ youtube_url: `https://www.youtube.com/watch?v=${selectedVideo.id}` }),
-        signal: controller.signal,
-      });
+        const res = await fetch(`${API_BASE}/api/transcribe`, {
+          method: "POST",
+          body: formData,
+          signal: controller.signal,
+        });
 
       clearTimeout(timeoutId);
 
