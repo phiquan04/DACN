@@ -200,3 +200,17 @@ class Answer(Base):
     def __repr__(self):
         return f'<Answer correct={self.correct_no} (question={self.question_id})>'
     
+    
+class SearchHistory(Base):
+    __tablename__ = 'search_history'
+
+    id = Column(Integer, primary_key=True)
+    user_id = Column(Integer, ForeignKey('users.id'), nullable=False)
+    word = Column(String(255), nullable=False)
+    reading = Column(String(255), nullable=True)
+    meaning = Column(Text, nullable=True)          # Nghĩa tiếng Việt (lấy từ definition đầu tiên)
+    examples = Column(JSON, default=list)          # Lưu list [{japanese, vietnamese}]
+    synonyms = Column(JSON, default=list)          # Lưu list [string]
+    created_at = Column(DateTime, default=datetime.utcnow)
+
+    user = relationship('User', backref='search_history')

@@ -91,9 +91,7 @@ export async function getCurrentUser(): Promise<User | null> {
   
   const res = await fetch(`${BASE_URL}/api/auth/me`, {
     method: "GET",
-    headers: {
-      "Authorization": `Bearer ${token}`,
-    },
+    headers: { "Authorization": `Bearer ${token}` },
   });
   
   if (!res.ok) {
@@ -113,6 +111,16 @@ export function logout(): void {
 
 export function getToken(): string | null {
   return localStorage.getItem("access_token");
+}
+
+export function getStoredUser(): User | null {
+  const raw = localStorage.getItem("user");
+  if (!raw) return null;
+  try {
+    return JSON.parse(raw) as User;
+  } catch {
+    return null;
+  }
 }
 
 export async function sendChatMessage(
@@ -171,10 +179,21 @@ export interface DictionaryDefinition {
 export interface DictionaryResult {
   word: string;
   reading: string;
-  definitions: DictionaryDefinition[];
-  examples: { japanese: string; vietnamese: string }[]; // thêm dòng này
+  definitions: Array<{ meaning: string; pos: string }>;
+  examples: Array<{ japanese: string; vietnamese: string }>;
+  synonyms: string[];
   jlpt: string;
   frequency: string;
+}
+
+export interface SearchHistoryItem {
+  id: number;
+  word: string;
+  reading: string;
+  meaning: string;
+  examples: Array<{ japanese: string; vietnamese: string }>;
+  synonyms: string[];
+  created_at: string;
 }
 
 export async function lookupWord(word: string): Promise<DictionaryResult> {
@@ -188,4 +207,81 @@ export async function lookupWord(word: string): Promise<DictionaryResult> {
     throw new Error(err.error || "Dictionary lookup failed");
   }
   return res.json();
+}
+
+export async function fetchExamples(word: string): Promise<{ japanese: string; vietnamese: string }[]> {
+  const token = getToken();
+  const res = await fetch(`${BASE_URL}/api/dictionary/examples/${encodeURIComponent(word)}`, {
+    headers: token ? { "Authorization": `Bearer ${token}` } : {},
+  });
+  if (!res.ok) {
+    const err = await res.json();
+    throw new Error(err.detail || "Failed to load examples");
+  }
+  return res.json();
+}
+
+export async function fetchSynonyms(word: string): Promise<string[]> {
+  const token = getToken();
+  const res = await fetch(`${BASE_URL}/api/dictionary/synonyms/${encodeURIComponent(word)}`, {
+    headers: token ? { "Authorization": `Bearer ${token}` } : {},
+  });
+  if (!res.ok) {
+    const err = await res.json();
+    throw new Error(err.detail || "Failed to load synonyms");
+  }
+  return res.json();
+}
+
+// ---------- Search History ----------
+export async function saveSearchHistory(params: {
+  userId: number;
+  word: string;
+  reading?: string;
+  meaning?: string;
+  examples?: Array<{ japanese: string; vietnamese: string }>;
+  synonyms?: string[];
+}): Promise<void> {
+  const token = getToken();
+  await fetch(`${BASE_URL}/api/dictionary/history/save`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      ...(token && { "Authorization": `Bearer ${token}` }),
+    },
+    body: JSON.stringify({
+      user_id: params.userId,
+      word: params.word,
+      reading: params.reading ?? "",
+      meaning: params.meaning ?? "",
+      examples: params.examples ?? [],
+      synonyms: params.synonyms ?? [],
+    }),
+  });
+  // Silently ignore errors — history save is best-effort
+}
+
+export async function fetchSearchHistory(userId: number): Promise<SearchHistoryItem[]> {
+  const token = getToken();
+  const res = await fetch(`${BASE_URL}/api/dictionary/history/${userId}`, {
+    headers: token ? { "Authorization": `Bearer ${token}` } : {},
+  });
+  if (!res.ok) return [];
+  return res.json();
+}
+
+export async function deleteHistoryItem(userId: number, historyId: number): Promise<void> {
+  const token = getToken();
+  await fetch(`${BASE_URL}/api/dictionary/history/${userId}/${historyId}`, {
+    method: "DELETE",
+    headers: token ? { "Authorization": `Bearer ${token}` } : {},
+  });
+}
+
+export async function clearHistory(userId: number): Promise<void> {
+  const token = getToken();
+  await fetch(`${BASE_URL}/api/dictionary/history/${userId}`, {
+    method: "DELETE",
+    headers: token ? { "Authorization": `Bearer ${token}` } : {},
+  });
 }
