@@ -49,7 +49,7 @@ def transcribe_with_whisper(audio_path: str) -> list:
             min_silence_duration_ms=500,
             speech_pad_ms=300,
         ),
-        initial_prompt="以下は日本語の発音練習です。",
+        initial_prompt="以下は日本語の発音練習です",
     )
     result = []
     for seg in segments:
