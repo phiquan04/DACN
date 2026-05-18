@@ -8,6 +8,28 @@ export interface User {
   is_active: boolean;
 }
 
+export interface UserProfile {
+  email: string;
+  username: string;
+  first_name?: string;
+  last_name?: string;
+  phone?: string;
+  facebook_link?: string;
+  instagram_link?: string;
+  country?: string;
+  city?: string;
+}
+
+export interface UserProfileUpdate {
+  first_name?: string;
+  last_name?: string;
+  phone?: string;
+  facebook_link?: string;
+  instagram_link?: string;
+  country?: string;
+  city?: string;
+}
+
 export interface SignUpRequest {
   username: string;
   email: string;
@@ -101,6 +123,43 @@ export async function getCurrentUser(): Promise<User | null> {
     return null;
   }
   
+  return res.json();
+}
+
+export async function getUserProfile(): Promise<UserProfile> {
+  const token = getToken();
+  const res = await fetch(`${BASE_URL}/api/user/profile`, {
+    method: "GET",
+    headers: {
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
+    },
+  });
+
+  if (!res.ok) {
+    const err = await res.json();
+    throw new Error(err.detail || "Failed to fetch user profile");
+  }
+
+  return res.json();
+}
+
+export async function updateUserProfile(data: UserProfileUpdate): Promise<UserProfile> {
+  console.log("Sending update:", data);
+  const token = getToken();
+  const res = await fetch(`${BASE_URL}/api/user/profile`, {
+    method: "PUT",
+    headers: {
+      "Content-Type": "application/json",
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
+    },
+    body: JSON.stringify(data),
+  });
+
+  if (!res.ok) {
+    const err = await res.json();
+    throw new Error(err.detail || "Failed to update profile");
+  }
+
   return res.json();
 }
 
