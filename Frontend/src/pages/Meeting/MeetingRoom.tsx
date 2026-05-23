@@ -35,23 +35,20 @@ export default function MeetingRoom() {
   const userName = getUserNameFromURL();
   const userID = useRef(getSessionUserId()).current;
 
-  // --- Đảm bảo giao diện toàn màn hình, không header/sidebar ---
+  // Fullscreen logic
   useEffect(() => {
-    // Lưu lại style gốc của body và html để phục hồi sau
     const originalHtmlOverflow = document.documentElement.style.overflow;
     const originalBodyMargin = document.body.style.margin;
     const originalBodyPadding = document.body.style.padding;
     const originalHtmlHeight = document.documentElement.style.height;
     const originalBodyHeight = document.body.style.height;
 
-    // Ghi đè style để fullscreen
     document.documentElement.style.overflow = "hidden";
     document.documentElement.style.height = "100%";
     document.body.style.margin = "0";
     document.body.style.padding = "0";
     document.body.style.height = "100%";
 
-    // Nếu có layout wrapper (ví dụ #root, .app-layout) - ẩn margin/padding
     const root = document.getElementById("root");
     if (root) {
       root.style.margin = "0";
@@ -59,7 +56,6 @@ export default function MeetingRoom() {
       root.style.height = "100%";
     }
 
-    // Cleanup khi rời khỏi trang (nếu component unmount)
     return () => {
       document.documentElement.style.overflow = originalHtmlOverflow;
       document.documentElement.style.height = originalHtmlHeight;
@@ -76,7 +72,7 @@ export default function MeetingRoom() {
 
   useEffect(() => {
     if (!APP_ID || !SERVER_SECRET) {
-      setErrorMsg("Chưa cấu hình VITE_ZEGO_APP_ID hoặc VITE_ZEGO_SERVER_SECRET");
+      setErrorMsg("Chưa cấu hình Zego App ID hoặc Server Secret");
       setStatus("error");
       return;
     }
@@ -116,9 +112,7 @@ export default function MeetingRoom() {
           showTurnOffRemoteCameraButton: true,
           showTurnOffRemoteMicrophoneButton: true,
           onLeaveRoom: () => {
-            // Đóng tab khi rời phòng thay vì navigate (vì là tab riêng)
             window.close();
-            // fallback nếu không đóng được
             navigate("/meeting");
           },
         });
@@ -126,7 +120,7 @@ export default function MeetingRoom() {
         if (isMounted) setStatus("ready");
       } catch (err) {
         if (isMounted) {
-          console.error("❌ Lỗi joinRoom:", err);
+          console.error("Lỗi joinRoom:", err);
           setErrorMsg(err instanceof Error ? err.message : "Lỗi không xác định");
           setStatus("error");
         }
@@ -145,17 +139,12 @@ export default function MeetingRoom() {
             zpRef.current.leaveRoom();
           }
         } catch (e) {
-          console.warn("Cleanup Zego error:", e);
+          console.warn("Cleanup error:", e);
         }
         zpRef.current = null;
       }
     };
   }, [roomID, userName, userID, navigate]);
-
-  const copyRoomID = () => {
-    navigator.clipboard.writeText(roomID || "");
-    alert("Đã copy mã phòng: " + roomID);
-  };
 
   return (
     <div className="w-full h-screen bg-gray-900">

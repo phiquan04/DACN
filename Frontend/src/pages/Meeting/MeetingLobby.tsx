@@ -1,37 +1,83 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
+import { getStoredUser, getUserProfile, UserProfile } from "../../services/api";
 
 export default function MeetingLobby() {
   const navigate = useNavigate();
   const [roomID, setRoomID] = useState("");
-  const [userName, setUserName] = useState("");
   const [mode, setMode] = useState<"create" | "join">("create");
+  const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    const loadUser = async () => {
+      const storedUser = getStoredUser();
+      if (!storedUser) {
+        alert("Vui lòng đăng nhập để sử dụng tính năng họp trực tuyến");
+        navigate("/signin");
+        return;
+      }
+      try {
+        const profile = await getUserProfile();
+        setUserProfile(profile);
+      } catch (error) {
+        console.error("Failed to load profile", error);
+        // Fallback: dùng thông tin từ storedUser
+        setUserProfile({
+          email: storedUser.email,
+          username: storedUser.username,
+        });
+      } finally {
+        setLoading(false);
+      }
+    };
+    loadUser();
+  }, [navigate]);
+
+  const getFullName = (): string => {
+    if (!userProfile) return "Người dùng";
+    const firstName = userProfile.first_name || "";
+    const lastName = userProfile.last_name || "";
+    const fullName = `${lastName} ${firstName}`.trim();
+    return fullName || userProfile.username;
+  };
 
   const handleStart = () => {
-  if (!userName.trim()) {
-    alert("Vui lòng nhập tên của bạn!");
-    return;
+    if (!userProfile) {
+      alert("Chưa có thông tin người dùng");
+      return;
+    }
+
+    const finalRoomID =
+      mode === "create"
+        ? Math.random().toString(36).substring(2, 9).toUpperCase()
+        : roomID.trim().toUpperCase();
+
+    if (!finalRoomID) {
+      alert("Vui lòng nhập mã phòng!");
+      return;
+    }
+
+    const fullName = getFullName();
+    const avatarUrl = userProfile.avatar_url || "";
+
+    // Mở tab mới với URL bao gồm roomID, userName và avatarUrl
+    const url = `/meeting/room/${finalRoomID}?userName=${encodeURIComponent(fullName)}&avatarUrl=${encodeURIComponent(avatarUrl)}`;
+    window.open(url, "_blank");
+  };
+
+  if (loading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="w-8 h-8 border-4 border-blue-500 border-t-transparent rounded-full animate-spin" />
+      </div>
+    );
   }
-
-  const finalRoomID =
-    mode === "create"
-      ? Math.random().toString(36).substring(2, 9).toUpperCase()
-      : roomID.trim().toUpperCase();
-
-  if (!finalRoomID) {
-    alert("Vui lòng nhập mã phòng!");
-    return;
-  }
-
-  // Mở tab mới với URL bao gồm roomID và userName
-  const url = `/meeting/room/${finalRoomID}?userName=${encodeURIComponent(userName.trim())}`;
-  window.open(url, "_blank");
-};
 
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-gray-900 flex items-center justify-center p-4">
       <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-xl w-full max-w-md p-8">
-        {/* Header */}
+        {/* Header giữ nguyên */}
         <div className="text-center mb-8">
           <div className="inline-flex items-center justify-center w-16 h-16 bg-blue-100 dark:bg-blue-900 rounded-2xl mb-4">
             <svg className="w-8 h-8 text-blue-600 dark:text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -62,19 +108,19 @@ export default function MeetingLobby() {
 
         {/* Form */}
         <div className="space-y-4">
-          {/* Tên */}
-          <div>
-            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-              Tên của bạn
-            </label>
-            <input
-              type="text"
-              value={userName}
-              onChange={(e) => setUserName(e.target.value)}
-              onKeyDown={(e) => e.key === "Enter" && handleStart()}
-              placeholder="Nhập tên hiển thị..."
-              className="w-full px-4 py-3 rounded-xl border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 transition"
-            />
+          {/* Thông tin người dùng (chỉ hiển thị, không cho sửa) */}
+          <div className="bg-gray-50 dark:bg-gray-700/50 rounded-xl p-3 flex items-center gap-3">
+            {userProfile?.avatar_url ? (
+              <img src={userProfile.avatar_url} alt="Avatar" className="w-10 h-10 rounded-full object-cover" />
+            ) : (
+              <div className="w-10 h-10 rounded-full bg-blue-500 flex items-center justify-center text-white font-bold">
+                {getFullName().charAt(0).toUpperCase()}
+              </div>
+            )}
+            <div>
+              <p className="text-sm font-medium text-gray-900 dark:text-white">{getFullName()}</p>
+              <p className="text-xs text-gray-500 dark:text-gray-400">{userProfile?.email}</p>
+            </div>
           </div>
 
           {/* Mã phòng (chỉ khi join) */}

@@ -1,10 +1,10 @@
 import { useState } from "react";
 import { Link, useNavigate } from "react-router";
 import { ChevronLeftIcon, EyeCloseIcon, EyeIcon } from "../../icons";
-import Label from "../form/Label";
-import Input from "../form/input/InputField";
-import Checkbox from "../form/input/Checkbox";
 import { signIn } from "../../services/api";
+import Label from "../form/Label";
+import Checkbox from "../form/input/Checkbox";
+import Input from "../form/input/InputField";
 
 export default function SignInForm() {
   const navigate = useNavigate();
@@ -38,7 +38,7 @@ export default function SignInForm() {
       });
       
       // Redirect to dashboard on successful signin
-      navigate("/");
+      navigate("/dictionary");
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : "Sign in failed";
       setError(errorMessage);
@@ -178,12 +178,6 @@ export default function SignInForm() {
                       Keep me logged in
                     </span>
                   </div>
-                  <Link
-                    to="/reset-password"
-                    className="text-sm text-brand-500 hover:text-brand-600 dark:text-brand-400"
-                  >
-                    Forgot password?
-                  </Link>
                 </div>
                 <div>
                   <button 

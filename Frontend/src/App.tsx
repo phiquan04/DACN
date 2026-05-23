@@ -5,13 +5,14 @@ import SignIn from "./pages/AuthPages/SignIn";
 import SignUp from "./pages/AuthPages/SignUp";
 import Blank from "./pages/Blank";
 import Calendar from "./pages/Calendar";
-import BarChart from "./pages/VideoLearn/BarChart";
-import LineChart from "./pages/VideoLearn/JapaneseWatch";
-import Home from "./pages/Dashboard/Home";
 import ChatBot from "./pages/Chatbot/ChatBot";
-import FixGrammar from "./pages/Grammar/FixGrammar";
 import Vocabulary from "./pages/Dictionary/Vocabulary";
+import FixGrammar from "./pages/Grammar/FixGrammar";
+import MeetingLobby from "./pages/Meeting/MeetingLobby";
+import MeetingRoom from "./pages/Meeting/MeetingRoom";
 import NotFound from "./pages/OtherPage/NotFound";
+import JLPTPracticePage from "./pages/PracticeTest/TestPage";
+import CheckPronunciation from "./pages/Pronunciation/CheckPronunciation";
 import BasicTables from "./pages/Tables/BasicTables";
 import Alerts from "./pages/UiElements/Alerts";
 import Avatars from "./pages/UiElements/Avatars";
@@ -20,10 +21,8 @@ import Buttons from "./pages/UiElements/Buttons";
 import Images from "./pages/UiElements/Images";
 import Videos from "./pages/UiElements/Videos";
 import UserProfiles from "./pages/UserProfiles";
-import JLPTPracticePage from "./pages/PracticeTest/TestPage";
-import MeetingLobby from "./pages/Meeting/MeetingLobby";
-import MeetingRoom from "./pages/Meeting/MeetingRoom";
-import CheckPronunciation from "./pages/Pronunciation/CheckPronunciation";
+import BarChart from "./pages/VideoLearn/BarChart";
+import LineChart from "./pages/VideoLearn/JapaneseWatch";
 
 
 export default function App() {
@@ -35,7 +34,7 @@ export default function App() {
           {/* Dashboard Layout */}
           <Route element={<AppLayout />}>
             <Route path="/dictionary" element={<Vocabulary />} />
-            <Route index path="/" element={<Home />} />
+            <Route index path="/" element={<Vocabulary />} />
 
             {/* Others Page */}
             <Route path="/fixgrammar" element={<FixGrammar />} /> 
