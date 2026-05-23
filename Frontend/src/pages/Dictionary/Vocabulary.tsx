@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from "react";
+import { useNavigate } from "react-router-dom"; // ✅ thêm useNavigate
 import PageMeta from "../../components/common/PageMeta";
 import InputField from "../../components/form/input/InputField";
 import Button from "../../components/ui/button/Button";
@@ -16,6 +17,8 @@ import {
 } from "../../services/api";
 
 export default function Vocabulary() {
+  const navigate = useNavigate(); // ✅ dùng để điều hướng
+
   const [searchTerm, setSearchTerm] = useState("");
   const [results, setResults] = useState<DictionaryResult[]>([]);
   const [loading, setLoading] = useState(false);
@@ -57,7 +60,7 @@ export default function Vocabulary() {
     await performSearch(searchTerm);
   };
 
-  // ── Load examples (có thể gọi thủ công để làm mới) ──
+  // ── Load examples ──
   const loadExamples = useCallback(async (word: string, result?: DictionaryResult) => {
     if (!word) return;
     setLoadingExamples(true);
@@ -83,7 +86,7 @@ export default function Vocabulary() {
     }
   }, [currentUser]);
 
-  // ── Load synonyms (có thể gọi thủ công để làm mới) ──
+  // ── Load synonyms ──
   const loadSynonyms = useCallback(async (word: string, result?: DictionaryResult) => {
     if (!word) return;
     setLoadingSynonyms(true);
@@ -147,7 +150,7 @@ export default function Vocabulary() {
           loadHistory(); // không await, chạy ngầm
         }
 
-        // Tự động tải ví dụ và từ đồng nghĩa SONG SONG, không block UI
+        // Tự động tải ví dụ và từ đồng nghĩa
         loadExamples(result.word, result);
         loadSynonyms(result.word, result);
       } else {
@@ -161,6 +164,20 @@ export default function Vocabulary() {
     } finally {
       setLoading(false);
     }
+  };
+
+  // ✅ Hàm điều hướng sang trang luyện phát âm
+  const handlePracticePronunciation = (word: string, reading: string, meaning: string) => {
+    // Có thể lưu lại lịch sử nếu chưa có (tuỳ chọn)
+    if (currentUser) {
+      saveSearchHistory({
+        userId: currentUser.id,
+        word,
+        reading,
+        meaning,
+      }).catch(console.error);
+    }
+    navigate(`/check-pronunciation?word=${encodeURIComponent(word)}&reading=${encodeURIComponent(reading)}&meaning=${encodeURIComponent(meaning)}`);
   };
 
   const handleHistoryClick = (item: SearchHistoryItem) => {
@@ -240,14 +257,22 @@ export default function Vocabulary() {
                   key={idx}
                   className="w-full max-w-full overflow-hidden rounded-lg border border-gray-200 bg-white p-5 shadow-sm dark:border-gray-700 dark:bg-gray-900"
                 >
-                  {/* Word and Reading */}
+                  {/* Word and Reading - thêm nút luyện phát âm */}
                   <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
-                    <h3 className="text-xl font-bold text-gray-900 dark:text-white break-words">
-                      {item.word}
-                    </h3>
-                    <span className="text-sm text-gray-500 dark:text-gray-400 break-words">
-                      {item.reading}
-                    </span>
+                    <div className="flex flex-wrap items-center gap-3">
+                      <h3 className="text-xl font-bold text-gray-900 dark:text-white break-words">
+                        {item.word}
+                      </h3>
+                      <span className="text-sm text-gray-500 dark:text-gray-400 break-words">
+                        {item.reading}
+                      </span>
+                    </div>
+                    <button
+                      onClick={() => handlePracticePronunciation(item.word, item.reading, item.definitions[0]?.meaning || "")}
+                      className="px-3 py-1.5 text-xs bg-brand-500 text-white rounded-md hover:bg-brand-600 transition shadow-sm"
+                    >
+                      🎤 Luyện phát âm
+                    </button>
                   </div>
 
                   {/* JLPT & Frequency */}
@@ -283,7 +308,6 @@ export default function Vocabulary() {
                       <h4 className="text-sm font-semibold text-gray-700 dark:text-gray-300">
                         📌 Ví dụ (N4)
                       </h4>
-                      {/* Chỉ hiện nút Làm mới khi đã có dữ liệu */}
                       {examplesData.length > 0 && !loadingExamples && (
                         <Button size="sm" onClick={() => loadExamples(currentWord, item)}>
                           Làm mới
@@ -322,7 +346,6 @@ export default function Vocabulary() {
                       <h4 className="text-sm font-semibold text-gray-700 dark:text-gray-300">
                         🔗 Từ đồng nghĩa / liên quan
                       </h4>
-                      {/* Chỉ hiện nút Làm mới khi đã có dữ liệu */}
                       {synonymsData.length > 0 && !loadingSynonyms && (
                         <Button size="sm" onClick={() => loadSynonyms(currentWord, item)}>
                           Làm mới
@@ -435,7 +458,6 @@ export default function Vocabulary() {
                           </p>
                         )}
                       </div>
-                      {/* Delete button */}
                       <button
                         onClick={(e) => handleDeleteHistoryItem(e, item)}
                         className="opacity-0 group-hover:opacity-100 shrink-0 text-gray-300 hover:text-red-400 dark:text-gray-600 dark:hover:text-red-400 transition-all mt-0.5"

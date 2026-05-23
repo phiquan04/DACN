@@ -18,6 +18,7 @@ export interface UserProfile {
   instagram_link?: string;
   country?: string;
   city?: string;
+  avatar_url?: string;
 }
 
 export interface UserProfileUpdate {
@@ -123,6 +124,24 @@ export async function getCurrentUser(): Promise<User | null> {
     return null;
   }
   
+  return res.json();
+}
+
+export async function uploadAvatar(file: File): Promise<{ avatar_url: string }> {
+  const token = getToken();
+  const formData = new FormData();
+  formData.append("file", file);
+  const res = await fetch(`${BASE_URL}/api/user/avatar`, {
+    method: "POST",
+    headers: {
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
+    },
+    body: formData,
+  });
+  if (!res.ok) {
+    const err = await res.json();
+    throw new Error(err.detail || "Upload failed");
+  }
   return res.json();
 }
 
@@ -343,4 +362,13 @@ export async function clearHistory(userId: number): Promise<void> {
     method: "DELETE",
     headers: token ? { "Authorization": `Bearer ${token}` } : {},
   });
+}
+
+export async function fetchHistoryWords(userId: number): Promise<{ word: string; reading: string; meaning: string }[]> {
+  const token = getToken();
+  const res = await fetch(`${BASE_URL}/api/dictionary/history/words/${userId}`, {
+    headers: token ? { "Authorization": `Bearer ${token}` } : {},
+  });
+  if (!res.ok) return [];
+  return res.json();
 }

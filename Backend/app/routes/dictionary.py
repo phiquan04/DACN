@@ -10,6 +10,8 @@ from typing import List, Optional
 from jamdict import Jamdict
 from deep_translator import GoogleTranslator
 from sqlalchemy.orm import Session
+import httpx
+import os
 
 _backend_root = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 if _backend_root not in sys.path:
@@ -30,8 +32,10 @@ _cache: dict = {}
 _translation_cache: dict = {}
 _example_cache: dict = {}
 _synonym_cache: dict = {}
+_meaning_search_cache: dict = {}
 
 GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
+OPENROUTER_API_KEY = os.getenv("OPENROUTER_API_KEY")
 
 try:
     jmdict = Jamdict()
@@ -42,6 +46,7 @@ except Exception as e:
 
 translator = GoogleTranslator(source='en', target='vi')
 
+# ---------- Request/Response Models ----------
 class LookupRequest(BaseModel):
     word: str
 
@@ -79,35 +84,31 @@ class HistoryItem(BaseModel):
     synonyms: Optional[List[str]] = []
     created_at: str
 
-# ---------- Helper: Gemini call ----------
-async def call_gemini(prompt: str) -> str:
-    """Call Gemini API and return the text response."""
-    if not GEMINI_API_KEY:
-        print("Warning: GEMINI_API_KEY is not set", flush=True)
-        return ""
+class VietnameseMeaningRequest(BaseModel):
+    vietnamese: str
 
-    url = (
-        f"https://generativelanguage.googleapis.com/v1beta/models/"
-        f"gemini-2.5-flash-lite:generateContent?key={GEMINI_API_KEY}"
-    )
-    payload = {
-        "contents": [{"parts": [{"text": prompt}]}],
-        "generationConfig": {"maxOutputTokens": 500, "temperature": 0.7},
+async def call_ai(prompt: str) -> str:
+    url = "https://openrouter.ai/api/v1/chat/completions"
+    
+    headers = {
+        "Authorization": f"Bearer {OPENROUTER_API_KEY}",
+        "Content-Type": "application/json",
     }
-    try:
-        loop = asyncio.get_event_loop()
-        response = await loop.run_in_executor(
-            None,
-            lambda: requests.post(url, json=payload, timeout=8),  # timeout 8s
-        )
-        if response.status_code == 200:
-            data = response.json()
-            return data["candidates"][0]["content"]["parts"][0]["text"].strip()
-        else:
-            print(f"Gemini error: {response.status_code} - {response.text}", flush=True)
-            return ""
-    except Exception as e:
-        print(f"Gemini exception: {e}", flush=True)
+
+    payload = {
+        "model": "openai/gpt-4o-mini",
+        "messages": [
+            {"role": "user", "content": prompt}
+        ],
+    }
+
+    async with httpx.AsyncClient() as client:
+        res = await client.post(url, headers=headers, json=payload)
+
+    if res.status_code == 200:
+        return res.json()["choices"][0]["message"]["content"]
+    else:
+        print("OpenRouter error:", res.text)
         return ""
 
 # ---------- Translation ----------
@@ -151,11 +152,9 @@ async def fetch_definitions(entry) -> List[Definition]:
 # ---------- Examples endpoint ----------
 @router.get("/examples/{word}")
 async def get_examples(word: str):
-    """Generate example sentences using Gemini."""
     word = word.strip()
     if not word:
         return []
-
     if word in _example_cache:
         return _example_cache[word]
 
@@ -168,11 +167,9 @@ async def get_examples(word: str):
         f'Không thêm bất kỳ văn bản nào khác ngoài JSON.\n'
         f'Ví dụ: [{{"japanese": "今日はいい天気ですね。", "vietnamese": "Hôm nay thời tiết đẹp nhỉ."}}]'
     )
-
-    response = await call_gemini(prompt)
+    response = await call_ai(prompt)
     if not response:
         return []
-
     try:
         json_match = re.search(r'\[.*\]', response, re.DOTALL)
         if json_match:
@@ -189,11 +186,9 @@ async def get_examples(word: str):
 # ---------- Synonyms endpoint ----------
 @router.get("/synonyms/{word}")
 async def get_synonyms(word: str):
-    """Generate synonyms/related words using Gemini."""
     word = word.strip()
     if not word:
         return []
-
     if word in _synonym_cache:
         return _synonym_cache[word]
 
@@ -202,11 +197,9 @@ async def get_synonyms(word: str):
         f'Chỉ trả về một mảng JSON các chuỗi, không có văn bản khác.\n'
         f'Ví dụ: ["言葉", "単語", "用語"]'
     )
-
-    response = await call_gemini(prompt)
+    response = await call_ai(prompt)
     if not response:
         return []
-
     try:
         json_match = re.search(r'\[.*\]', response, re.DOTALL)
         if json_match:
@@ -220,15 +213,55 @@ async def get_synonyms(word: str):
         print(f"Failed to parse synonyms: {e}\nResponse: {response}", flush=True)
     return []
 
+# ---------- Search by Vietnamese meaning (Gemini) ----------
+@router.post("/search-by-meaning")
+async def search_words_by_vietnamese(req: VietnameseMeaningRequest):
+    """Dùng Gemini: nhập tiếng Việt, trả về danh sách các từ tiếng Nhật phù hợp (tối đa 5 từ)"""
+    viet = req.vietnamese.strip()
+    if not viet:
+        return []
+
+    # Kiểm tra cache
+    cache_key = f"vimeaning:{viet}"
+    if cache_key in _meaning_search_cache:
+        return _meaning_search_cache[cache_key]
+
+    prompt = f"""
+    Người dùng nhập nghĩa tiếng Việt: "{viet}".
+    Hãy tìm 3-5 từ tiếng Nhật phổ biến có nghĩa tương ứng (có thể là từ đơn, từ ghép).
+    Trả về một mảng JSON, mỗi phần tử là một object có các trường:
+    - "word": từ tiếng Nhật (viết bằng kanji/hiragana)
+    - "reading": cách đọc (hiragana)
+    - "meaning": nghĩa tiếng Việt (giữ nguyên "{viet}" hoặc có thể mô tả thêm)
+    Chỉ trả về mảng JSON, không giải thích thêm.
+    Ví dụ: [{{"word": "開発", "reading": "かいはつ", "meaning": "phát triển"}}, ...]
+    """
+    response = await call_ai(prompt)
+    if not response:
+        return []
+
+    try:
+        json_match = re.search(r'\[.*\]', response, re.DOTALL)
+        if json_match:
+            data = json.loads(json_match.group())
+        else:
+            data = json.loads(response)
+        if isinstance(data, list):
+            # Lọc các item có đủ trường
+            result = [item for item in data if "word" in item and "reading" in item]
+            _meaning_search_cache[cache_key] = result
+            return result
+    except Exception as e:
+        print(f"Error parsing search-by-meaning: {e}\nResponse: {response}", flush=True)
+    return []
+
 # ---------- Search History endpoints ----------
 @router.post("/history/save")
 async def save_search_history(req: SaveHistoryRequest, db: Session = Depends(get_db)):
-    """Save a word lookup to user's search history. Upsert by user+word."""
     existing = db.query(SearchHistory).filter(
         SearchHistory.user_id == req.user_id,
         SearchHistory.word == req.word
     ).first()
-
     if existing:
         existing.reading = req.reading
         existing.meaning = req.meaning
@@ -251,7 +284,6 @@ async def save_search_history(req: SaveHistoryRequest, db: Session = Depends(get
         db.add(record)
         db.commit()
         db.refresh(record)
-
     return {"success": True, "id": record.id}
 
 @router.get("/history/{user_id}")
@@ -293,6 +325,31 @@ async def clear_history(user_id: int, db: Session = Depends(get_db)):
     db.query(SearchHistory).filter(SearchHistory.user_id == user_id).delete()
     db.commit()
     return {"success": True}
+
+# ---------- Get unique words for pronunciation practice ----------
+@router.get("/history/words/{user_id}")
+async def get_history_words(user_id: int, db: Session = Depends(get_db)):
+    """Lấy danh sách các từ đã tra cứu (word, reading, meaning) phục vụ luyện phát âm"""
+    from sqlalchemy import func
+    subq = db.query(
+        SearchHistory.word,
+        func.max(SearchHistory.created_at).label('latest')
+    ).filter(SearchHistory.user_id == user_id).group_by(SearchHistory.word).subquery()
+    
+    records = db.query(SearchHistory).join(
+        subq,
+        (SearchHistory.word == subq.c.word) & (SearchHistory.created_at == subq.c.latest)
+    ).order_by(SearchHistory.created_at.desc()).all()
+    
+    unique_words = {}
+    for r in records:
+        if r.word not in unique_words:
+            unique_words[r.word] = {
+                "word": r.word,
+                "reading": r.reading or "",
+                "meaning": r.meaning or ""
+            }
+    return list(unique_words.values())
 
 # ---------- Main lookup ----------
 @router.post("/lookup", response_model=LookupResponse)

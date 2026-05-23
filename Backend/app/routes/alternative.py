@@ -13,31 +13,38 @@ class AlternativeRequest(BaseModel):
 
 
 def _call_openrouter(api_key: str, prompt: str, retries: int = 3) -> str:
+    url = "https://openrouter.ai/api/v1/chat/completions"
+
+    headers = {
+        "Authorization": f"Bearer {api_key}",
+        "Content-Type": "application/json",
+        "HTTP-Referer": "http://localhost:3000",
+        "X-Title": "My App",
+    }
+
+    data = {
+        "model": "openai/gpt-4o-mini",  # 🔥 đổi model
+        "messages": [
+            {"role": "user", "content": prompt}
+        ],
+        "temperature": 0.7,
+    }
+
     for attempt in range(retries):
-        response = req.post(
-            'https://openrouter.ai/api/v1/chat/completions',
-            headers={
-                'Authorization': f'Bearer {api_key}',
-                'Content-Type': 'application/json',
-            },
-            json={
-                'model': 'google/gemma-3-4b-it:free',
-                'messages': [{'role': 'user', 'content': prompt}],
-                'temperature': 0.7,
-            },
-            timeout=30
-        )
+        response = req.post(url, headers=headers, json=data, timeout=30)
+
+        print("STATUS:", response.status_code)
+        print("RESPONSE:", response.text)
 
         if response.status_code == 429:
-            wait = 2 ** attempt  # 1s, 2s, 4s
-            print(f'Rate limited (429), retry {attempt + 1}/{retries} after {wait}s...', flush=True)
+            wait = 2 ** attempt
             time.sleep(wait)
             continue
 
         response.raise_for_status()
-        return response.json()['choices'][0]['message']['content'].strip()
+        return response.json()["choices"][0]["message"]["content"].strip()
 
-    raise HTTPException(status_code=429, detail='OpenRouter rate limit - vui lòng thử lại sau vài giây')
+    raise Exception("OpenRouter lỗi sau nhiều lần retry")
 
 
 @router.post('/alternative')

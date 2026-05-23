@@ -227,6 +227,7 @@ class UserInformation(Base):
     instagram_link = Column(String(255), nullable=True)
     country = Column(String(100), nullable=True)
     city = Column(String(100), nullable=True)
+    avatar_url = Column(String(512), nullable=True)
     created_at = Column(DateTime, default=datetime.utcnow)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
