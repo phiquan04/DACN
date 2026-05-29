@@ -40,32 +40,6 @@ function getSupportedMimeType(): string {
   return "";
 }
 
-// Hàm mô phỏng đánh giá cho VoiceMode (dùng Web Speech API)
-const simulateVoiceEvaluation = (recognizedText: string): EvaluationResult => {
-  if (!recognizedText.trim()) {
-    return {
-      overall: 0,
-      accent: 0,
-      intonation: 0,
-      speed: 0,
-      tip: "Không nhận diện được giọng nói. Hãy thử lại với âm lượng lớn hơn và nói rõ ràng.",
-    };
-  }
-  const lengthFactor = Math.min(85, 60 + recognizedText.length * 2);
-  const accent = Math.floor(Math.random() * 30) + 65;
-  const intonation = Math.floor(Math.random() * 35) + 60;
-  const speed = Math.floor(Math.random() * 25) + 70;
-  const overall = Math.floor((accent + intonation + speed + lengthFactor) / 4);
-
-  let tip = "";
-  if (recognizedText.length < 3) tip = "Câu nói quá ngắn, hãy thử nói một câu dài hơn.";
-  else if (intonation < 65) tip = "Ngữ điệu chưa tự nhiên, hãy nghe lại phát âm chuẩn.";
-  else if (accent < 70) tip = "Cần chú ý trọng âm của từng từ.";
-  else tip = "Phát âm tốt, hãy luyện thêm để cải thiện ngữ điệu.";
-
-  return { overall, accent, intonation, speed, tip };
-};
-
 // Component hiển thị kết quả đánh giá (dùng chung)
 const EvaluationDisplay = ({
   evaluation,
@@ -191,7 +165,7 @@ const EvaluationDisplay = ({
 };
 
 // =====================================================================
-// Component cho chế độ từ có sẵn
+// Component cho chế độ từ có sẵn (giữ nguyên)
 // =====================================================================
 const PredefinedMode = () => {
   const [evaluation, setEvaluation] = useState<EvaluationResult | null>(null);
@@ -210,7 +184,7 @@ const PredefinedMode = () => {
   const audioChunksRef = useRef<Blob[]>([]);
   const mimeTypeRef = useRef<string>("");
 
-  const currentUser = getStoredUser();
+  const [currentUser] = useState(() => getStoredUser());
   const BASE_URL = import.meta.env.VITE_API_URL || "http://localhost:8080";
 
   // Tải danh sách từ từ history khi mount
@@ -231,7 +205,7 @@ const PredefinedMode = () => {
       }
     };
     loadWords();
-  }, [currentUser]);
+  }, [currentUser?.id]);
 
   // Đọc từ được chọn từ sessionStorage (khi từ trang từ điển chuyển sang)
   useEffect(() => {
@@ -273,56 +247,45 @@ const PredefinedMode = () => {
       audioChunksRef.current = [];
 
       mediaRecorder.ondataavailable = (event) => {
-        if (event.data && event.data.size > 0) {
-          console.log(`Chunk size: ${event.data.size} bytes`);
+        if (event.data.size > 0) {
           audioChunksRef.current.push(event.data);
         }
       };
 
       mediaRecorder.onstop = async () => {
-        const actualMime = mimeTypeRef.current || "audio/webm";
-        const audioBlob = new Blob(audioChunksRef.current, { type: actualMime });
-        console.log(`Final blob size: ${audioBlob.size} bytes`);
-
-        if (audioBlob.size < 5000) {
-          alert("File ghi âm quá nhỏ (có thể do lỗi microphone). Hãy thử lại và nói to hơn.");
-          setIsRecording(false);
+        setIsRecording(false);
+        if (audioChunksRef.current.length === 0) {
+          alert("Không có dữ liệu ghi âm. Vui lòng thử lại.");
           setIsProcessing(false);
           return;
         }
 
+        const audioBlob = new Blob(audioChunksRef.current, {
+          type: mimeTypeRef.current || "audio/webm",
+        });
         const formData = new FormData();
-        const ext = actualMime.includes("ogg") ? "ogg" : "webm";
-        formData.append("audio", audioBlob, `recording.${ext}`);
+        formData.append("audio", audioBlob, "recording.webm");
         formData.append("expected_text", selectedWord.word);
 
         setIsProcessing(true);
         try {
-          const response = await fetch(`${BASE_URL}/api/pronunciation/assess`, {
-            method: "POST",
-            body: formData,
-          });
+          const response = await fetch(
+            `${BASE_URL}/api/pronunciation/assess`,
+            { method: "POST", body: formData }
+          );
           const data = await response.json();
           if (response.ok) {
-            setEvaluation({
-              overall: data.overall,
-              accent: data.accent,
-              intonation: data.intonation,
-              speed: data.speed,
-              tip: data.tip,
-              recognized_text: data.recognized_text,
-              wrong_word: data.wrong_word ?? false,
-            });
+            setEvaluation(data);
           } else {
-            alert(data.error || "Lỗi đánh giá phát âm");
+            console.error("API error:", data);
+            alert(data.error || "Không thể đánh giá phát âm");
           }
         } catch (err) {
-          console.error(err);
-          alert("Không thể kết nối backend");
+          console.error("Lỗi khi gửi:", err);
+          alert("Lỗi kết nối. Vui lòng thử lại.");
         } finally {
           setIsProcessing(false);
-          setIsRecording(false);
-          stream.getTracks().forEach(track => track.stop());
+          stream.getTracks().forEach((track) => track.stop());
         }
       };
 
@@ -330,7 +293,11 @@ const PredefinedMode = () => {
       setIsRecording(true);
     } catch (err) {
       console.error("Lỗi khi bắt đầu ghi âm:", err);
-      alert("Không thể truy cập microphone.");
+      alert("Không thể truy cập microphone. Vui lòng kiểm tra quyền.");
+      
+      // FIX: Reset state khi có lỗi
+      setIsRecording(false);
+      setIsProcessing(false);
     }
   };
 
@@ -488,7 +455,7 @@ const PredefinedMode = () => {
           )}
 
           {isProcessing && (
-            <div className="text-center text-sm text-gray-500 dark:text-gray-400">
+            <div className="text-center text-sm text-gray-500 dark:text-gray-400 mb-4">
               Đang xử lý...
             </div>
           )}
@@ -501,115 +468,162 @@ const PredefinedMode = () => {
 };
 
 // =====================================================================
-// Component cho chế độ nhận diện giọng nói (dùng Web Speech API)
+// Component cho chế độ nhận diện giọng nói 
 // =====================================================================
 const VoiceMode = () => {
-  const [isListening, setIsListening] = useState(false);
-  const [recognizedText, setRecognizedText] = useState("");
+  const [expectedText, setExpectedText] = useState("");
+  const [isRecording, setIsRecording] = useState(false);
+  const [isProcessing, setIsProcessing] = useState(false);
   const [evaluation, setEvaluation] = useState<EvaluationResult | null>(null);
+  const [webSpeechText, setWebSpeechText] = useState(""); // chỉ để hiển thị
+  const mediaRecorderRef = useRef<MediaRecorder | null>(null);
+  const audioChunksRef = useRef<Blob[]>([]);
   const recognitionRef = useRef<any>(null);
+  const BASE_URL = import.meta.env.VITE_API_URL || "http://localhost:8080";
 
+  // Khởi tạo Web Speech API (chỉ để hiển thị, không dùng để chấm điểm)
   useEffect(() => {
     if (!("webkitSpeechRecognition" in window) && !("SpeechRecognition" in window)) {
-      alert(
-        "Trình duyệt của bạn không hỗ trợ nhận diện giọng nói. Hãy dùng Chrome, Edge hoặc Safari."
-      );
+      console.warn("Trình duyệt không hỗ trợ Web Speech API");
       return;
     }
-    const SpeechRecognition =
-      (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
-    recognitionRef.current = new SpeechRecognition();
-    recognitionRef.current.continuous = false;
-    recognitionRef.current.interimResults = false;
-    recognitionRef.current.lang = "ja-JP";
-
-    recognitionRef.current.onresult = (event: any) => {
+    const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
+    const recognition = new SpeechRecognition();
+    recognition.continuous = false;
+    recognition.interimResults = false;
+    recognition.lang = "ja-JP";
+    recognition.onresult = (event: any) => {
       const transcript = event.results[0][0].transcript;
-      setRecognizedText(transcript);
-      setIsListening(false);
-      const result = simulateVoiceEvaluation(transcript);
-      setEvaluation(result);
+      setWebSpeechText(transcript);
     };
-
-    recognitionRef.current.onerror = (event: any) => {
-      console.error("Speech recognition error", event.error);
-      setIsListening(false);
-      alert("Lỗi nhận diện giọng nói: " + event.error);
+    recognition.onerror = (event: any) => {
+      console.error("Web Speech error", event.error);
     };
-
-    recognitionRef.current.onend = () => {
-      setIsListening(false);
-    };
-
-    return () => {
-      if (recognitionRef.current) {
-        recognitionRef.current.abort();
-      }
-    };
+    recognitionRef.current = recognition;
   }, []);
 
-  const handleStartListening = () => {
-    if (!recognitionRef.current) {
+  const startWebSpeech = () => {
+    if (recognitionRef.current) {
+      recognitionRef.current.start();
+    } else {
       alert("Trình duyệt không hỗ trợ nhận diện giọng nói.");
-      return;
     }
-    setRecognizedText("");
-    setEvaluation(null);
-    setIsListening(true);
-    recognitionRef.current.start();
   };
 
-  const handleStopListening = () => {
-    if (recognitionRef.current) {
-      recognitionRef.current.stop();
+  const startRecording = async () => {
+    if (!expectedText.trim()) {
+      alert("Vui lòng nhập câu tiếng Nhật muốn luyện trước.");
+      return;
     }
-    setIsListening(false);
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      const mimeType = getSupportedMimeType();
+      const options = mimeType ? { mimeType } : {};
+      const mediaRecorder = new MediaRecorder(stream, options);
+      mediaRecorderRef.current = mediaRecorder;
+      audioChunksRef.current = [];
+
+      mediaRecorder.ondataavailable = (event) => {
+        if (event.data.size > 0) audioChunksRef.current.push(event.data);
+      };
+
+      mediaRecorder.onstop = async () => {
+        setIsRecording(false);
+        if (audioChunksRef.current.length === 0) {
+          alert("Không có dữ liệu ghi âm.");
+          setIsProcessing(false);
+          return;
+        }
+        const audioBlob = new Blob(audioChunksRef.current, { type: mimeType || "audio/webm" });
+        const formData = new FormData();
+        formData.append("audio", audioBlob, "recording.webm");
+        formData.append("expected_text", expectedText);
+
+        setIsProcessing(true);
+        try {
+          const response = await fetch(`${BASE_URL}/api/pronunciation/assess`, {
+            method: "POST",
+            body: formData,
+          });
+          const data = await response.json();
+          if (response.ok) {
+            setEvaluation(data);
+          } else {
+            console.error("API error:", data);
+            alert(data.error || "Không thể đánh giá phát âm");
+          }
+        } catch (err) {
+          console.error("Lỗi gửi:", err);
+          alert("Lỗi kết nối. Vui lòng thử lại.");
+        } finally {
+          setIsProcessing(false);
+          stream.getTracks().forEach(track => track.stop());
+        }
+      };
+
+      mediaRecorder.start(1000);
+      setIsRecording(true);
+    } catch (err) {
+      console.error("Lỗi bắt đầu ghi âm:", err);
+      alert("Không thể truy cập microphone.");
+      setIsRecording(false);
+    }
+  };
+
+  const stopRecording = () => {
+    if (mediaRecorderRef.current && mediaRecorderRef.current.state !== "inactive") {
+      mediaRecorderRef.current.stop();
+    }
   };
 
   const handleTryAgain = () => {
-    if (recognizedText) {
-      const result = simulateVoiceEvaluation(recognizedText);
-      setEvaluation(result);
-    } else {
-      alert("Hãy nói vào microphone trước.");
-    }
+    setEvaluation(null);
+    setWebSpeechText("");
+    setIsRecording(false);
+    setIsProcessing(false);
   };
 
   return (
     <div className="space-y-6">
-      <div className="rounded-lg border border-gray-200 bg-white p-8 shadow-sm dark:border-gray-700 dark:bg-gray-900">
-        <p className="mb-8 text-sm text-gray-600 dark:text-gray-400">
-          Nhấn nút mic bên dưới và nói một câu tiếng Nhật. Hệ thống sẽ nhận diện và đánh giá phát âm
-          của bạn.
-        </p>
-
-        <div className="flex flex-col items-center justify-center gap-6 mb-8">
-          <button
-            onClick={!isListening ? handleStartListening : handleStopListening}
-            className={`p-6 rounded-full transition-all ${
-              isListening
-                ? "bg-red-100 hover:bg-red-200 text-red-600 dark:bg-red-900/30 dark:hover:bg-red-900/50 dark:text-red-400 animate-pulse"
-                : "bg-gray-100 hover:bg-gray-200 text-gray-600 dark:bg-gray-800 dark:hover:bg-gray-700 dark:text-gray-400"
-            }`}
-          >
-            <svg className="w-8 h-8" fill="currentColor" viewBox="0 0 24 24">
-              <path d="M12 14c1.66 0 3-1.34 3-3V5c0-1.66-1.34-3-3-3S9 3.34 9 5v6c0 1.66 1.34 3 3 3z M17.3 11c.4-1.45.7-2.85.7-4.3 0-.35-.03-.69-.07-1.02.21.57.35 1.18.35 1.82v2c0 2.64-1.35 4.95-3.38 6.38.4.53.88.88.88.88.56 0 4.41-3.58 4.41-3.58v-.3c0-.35-.07-.68-.16-1 .12.81.37 1.59.74 2.32l2.04.01c-.02-.42-.3-4.01-1.57-5.9zM12 16c2.21 0 4-1.79 4-4h2c0 3.31-2.69 6-6 6s-6-2.69-6-6h2c0 2.21 1.79 4 4 4z" />
-            </svg>
-          </button>
-
-          <p className="text-sm text-gray-600 dark:text-gray-400">
-            {isListening ? "Đang nghe..." : "Nhấn để bắt đầu"}
-          </p>
+      <div className="rounded-lg border border-gray-200 bg-white p-6 shadow-sm dark:border-gray-700 dark:bg-gray-900">
+        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+          Câu tiếng Nhật muốn luyện
+        </label>
+        <input
+          type="text"
+          value={expectedText}
+          onChange={(e) => setExpectedText(e.target.value)}
+          placeholder="Ví dụ: こんにちは、お元気ですか"
+          className="w-full p-2 border border-gray-300 rounded-lg dark:bg-gray-800 dark:border-gray-600 dark:text-white"
+        />
+        <div className="flex flex-wrap gap-4 mt-4">
+          {!isRecording ? (
+            <button
+              onClick={startRecording}
+              disabled={isProcessing}
+              className="px-4 py-2 bg-red-500 text-white rounded-lg hover:bg-red-600 disabled:opacity-50"
+            >
+              Ghi âm & Đánh giá
+            </button>
+          ) : (
+            <button
+              onClick={stopRecording}
+              className="px-4 py-2 bg-gray-500 text-white rounded-lg hover:bg-gray-600"
+            >
+              ⏹️ Dừng ghi âm
+            </button>
+          )}
         </div>
-
-        {recognizedText && (
-          <div className="rounded-lg bg-blue-50 p-4 dark:bg-blue-500/10 text-center mb-6">
-            <p className="text-xs text-blue-600 dark:text-blue-400 mb-2">Nhận diện được:</p>
-            <p className="text-sm font-semibold text-gray-900 dark:text-white">{recognizedText}</p>
+        {webSpeechText && (
+          <div className="mt-4 p-3 bg-blue-50 dark:bg-blue-500/10 rounded-lg">
+            <p className="text-xs text-blue-600 dark:text-blue-400">Web Speech nhận diện:</p>
+            <p className="text-sm font-semibold text-gray-900 dark:text-white">{webSpeechText}</p>
           </div>
         )}
+        {isProcessing && (
+          <div className="mt-4 text-center text-sm text-gray-500">Đang xử lý...</div>
+        )}
       </div>
-
       <EvaluationDisplay evaluation={evaluation} onTryAgain={handleTryAgain} />
     </div>
   );
@@ -661,7 +675,7 @@ export default function CheckPronunciation() {
           >
             <div className="font-semibold">Nhận diện giọng nói</div>
             <div className={`text-sm ${activeMode === "voice" ? "text-white/80" : "text-gray-500 dark:text-gray-400"}`}>
-              Nói để nhận diện và luyện tập
+              Nhập câu và ghi âm để đánh giá
             </div>
           </button>
         </div>

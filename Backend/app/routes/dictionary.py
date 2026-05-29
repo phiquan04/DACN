@@ -4,7 +4,7 @@ import sys
 import asyncio
 import json
 import requests
-from fastapi import APIRouter, HTTPException, Depends
+from fastapi import APIRouter, HTTPException, Depends, Response
 from pydantic import BaseModel
 from typing import List, Optional
 from jamdict import Jamdict
@@ -394,3 +394,54 @@ async def dictionary_lookup(req: LookupRequest):
     )
     _cache[word] = response
     return response
+
+@router.get("/examples/{word}")
+async def get_examples(word: str, db: Session = Depends(get_db)):
+    word = word.strip()
+    if not word:
+        return Response(content="[]", media_type="application/json; charset=utf-8")
+
+    # trả nhanh từ cache nhớ nếu có
+    if word in _example_cache:
+        json_text = json.dumps(_example_cache[word], ensure_ascii=False)
+        return Response(content=json_text, media_type="application/json; charset=utf-8")
+
+    # nếu trong DB có SearchHistory chứa ví dụ (mới nhất) -> trả luôn
+    try:
+        record = None
+        if 'SearchHistory' in globals():
+            record = db.query(SearchHistory).filter(SearchHistory.word == word).order_by(SearchHistory.created_at.desc()).first()
+        if record and record.examples:
+            examples = record.examples
+            _example_cache[word] = examples
+            json_text = json.dumps(examples, ensure_ascii=False)
+            return Response(content=json_text, media_type="application/json; charset=utf-8")
+    except Exception as e:
+        print(f"[Examples DB lookup] Error: {e}", flush=True)
+
+    # --- fallback: gọi AI tạo examples như trước ---
+    prompt = (
+        f'Hãy tạo 3 câu ví dụ bằng tiếng Nhật cho từ \"{word}\". '
+        f'Mỗi câu ví dụ phải có:\n'
+        f'- Một câu tiếng Nhật tự nhiên, trình độ N4-N3.\n'
+        f'- Bản dịch tiếng Việt bên dưới.\n'
+        f'Xuất kết quả dưới dạng JSON list, mỗi object có key \"japanese\" và \"vietnamese\". '
+        f'Không thêm bất kỳ văn bản nào khác ngoài JSON.\n'
+        f'Ví dụ: [{{\"japanese\": \"今日はいい天気ですね。\", \"vietnamese\": \"Hôm nay thời tiết đẹp nhỉ.\"}}]'
+    )
+    response = await call_ai(prompt)
+    if not response:
+        return Response(content="[]", media_type="application/json; charset=utf-8")
+    try:
+        json_match = re.search(r'\[.*\]', response, re.DOTALL)
+        if json_match:
+            examples = json.loads(json_match.group())
+        else:
+            examples = json.loads(response)
+        if isinstance(examples, list) and all("japanese" in e and "vietnamese" in e for e in examples):
+            _example_cache[word] = examples
+            json_text = json.dumps(examples, ensure_ascii=False)
+            return Response(content=json_text, media_type="application/json; charset=utf-8")
+    except Exception as e:
+        print(f"Failed to parse examples: {e}\nResponse: {response}", flush=True)
+    return Response(content="[]", media_type="application/json; charset=utf-8")
