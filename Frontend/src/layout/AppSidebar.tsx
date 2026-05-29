@@ -4,17 +4,17 @@ import { Link, useLocation } from "react-router";
 // Assume these icons are imported from an icon library
 import { useSidebar } from "../context/SidebarContext";
 import {
-  BoxCubeIcon,
   CalenderIcon,
   ChatbotIcon,
   ChevronDownIcon,
-  GridIcon,
   HorizontaLDots,
   PageIcon,
-  PlugInIcon,
-  TableIcon,
   UserCircleIcon,
   VideoIcon,
+  CheckLineIcon,
+  AudioIcon,
+  GroupIcon,
+  TaskIcon,
 } from "../icons";
 import SidebarWidget from "./SidebarWidget";
 
@@ -32,17 +32,17 @@ const navItems: NavItem[] = [
     path: "/dictionary",
   },
   {
-    icon: <GridIcon />,
+    icon: <CheckLineIcon />,
     name: "Check Grammar",
     path: "/fixgrammar",
   },
   {
-    icon: <GridIcon />,
+    icon: <AudioIcon />,
     name: "Check Pronunciation",
     path: "/check-pronunciation",
   },
   {
-    icon: <GridIcon />,
+    icon: <GroupIcon />,
     name: "Meeting",
     path: "/meeting",
   },
@@ -58,7 +58,7 @@ const navItems: NavItem[] = [
   },
   {
     name: "JLPT Tests",
-    icon: <VideoIcon />,
+    icon: <TaskIcon />,
     path: "/jlpt-practice",
   },
   {
@@ -74,34 +74,6 @@ const navItems: NavItem[] = [
 ];
 
 const othersItems: NavItem[] = [
-  // {
-  //   icon: <VideoIcon />,
-  //   name: "Youtube Learning",
-  //   subItems: [
-  //     { name: "Learning with scripts", path: "/line-chart", pro: false },
-  //     { name: "Bar Chart", path: "/bar-chart", pro: false },
-  //   ],
-  // },
-  // {
-  //   icon: <BoxCubeIcon />,
-  //   name: "UI Elements",
-  //   subItems: [
-  //     { name: "Alerts", path: "/alerts", pro: false },
-  //     { name: "Avatar", path: "/avatars", pro: false },
-  //     { name: "Badge", path: "/badge", pro: false },
-  //     { name: "Buttons", path: "/buttons", pro: false },
-  //     { name: "Images", path: "/images", pro: false },
-  //     { name: "Videos", path: "/videos", pro: false },
-  //   ],
-  // },
-  // {
-  //   icon: <PlugInIcon />,
-  //   name: "Authentication",
-  //   subItems: [
-  //     { name: "Sign In", path: "/signin", pro: false },
-  //     { name: "Sign Up", path: "/signup", pro: false },
-  //   ],
-  // },
 ];
 
 const AppSidebar: React.FC = () => {

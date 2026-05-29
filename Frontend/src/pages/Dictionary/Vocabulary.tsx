@@ -222,12 +222,6 @@ export default function Vocabulary() {
           {/* Search bar */}
           <form onSubmit={handleSearch} className="flex gap-3 items-end">
             <div className="flex-1">
-              <label
-                htmlFor="search"
-                className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1"
-              >
-                Tìm kiếm từ vựng (JMdict-EDICT)
-              </label>
               <InputField
                 id="search"
                 type="text"
@@ -271,7 +265,7 @@ export default function Vocabulary() {
                       onClick={() => handlePracticePronunciation(item.word, item.reading, item.definitions[0]?.meaning || "")}
                       className="px-3 py-1.5 text-xs bg-brand-500 text-white rounded-md hover:bg-brand-600 transition shadow-sm"
                     >
-                      🎤 Luyện phát âm
+                      Luyện phát âm
                     </button>
                   </div>
 
@@ -291,7 +285,7 @@ export default function Vocabulary() {
 
                   {/* Definitions */}
                   <div className="space-y-2 mb-4">
-                    <h4 className="text-sm font-semibold text-gray-700 dark:text-gray-300">📖 Nghĩa</h4>
+                    <h4 className="text-sm font-semibold text-gray-700 dark:text-gray-300">Nghĩa:</h4>
                     {item.definitions.map((def, defIdx) => (
                       <div key={defIdx} className="text-sm">
                         <p className="text-gray-800 dark:text-gray-200 break-words">{def.meaning}</p>
@@ -306,13 +300,8 @@ export default function Vocabulary() {
                   <div className="mb-4 p-3 rounded-md bg-gray-50 dark:bg-gray-800">
                     <div className="flex justify-between items-center mb-2 flex-wrap gap-2">
                       <h4 className="text-sm font-semibold text-gray-700 dark:text-gray-300">
-                        📌 Ví dụ (N4)
+                        Ví dụ:
                       </h4>
-                      {examplesData.length > 0 && !loadingExamples && (
-                        <Button size="sm" onClick={() => loadExamples(currentWord, item)}>
-                          Làm mới
-                        </Button>
-                      )}
                     </div>
 
                     {loadingExamples && (
@@ -344,13 +333,8 @@ export default function Vocabulary() {
                   <div className="p-3 rounded-md bg-gray-50 dark:bg-gray-800">
                     <div className="flex justify-between items-center mb-2 flex-wrap gap-2">
                       <h4 className="text-sm font-semibold text-gray-700 dark:text-gray-300">
-                        🔗 Từ đồng nghĩa / liên quan
-                      </h4>
-                      {synonymsData.length > 0 && !loadingSynonyms && (
-                        <Button size="sm" onClick={() => loadSynonyms(currentWord, item)}>
-                          Làm mới
-                        </Button>
-                      )}
+                        Từ đồng nghĩa:
+                      </h4> 
                     </div>
 
                     {loadingSynonyms && (
