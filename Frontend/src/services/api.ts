@@ -269,8 +269,11 @@ export interface SearchHistoryItem {
   word: string;
   reading: string;
   meaning: string;
+  definitions: Array<{ meaning: string; pos: string }>;
   examples: Array<{ japanese: string; vietnamese: string }>;
   synonyms: string[];
+  jlpt: string;
+  frequency: string;
   created_at: string;
 }
 
@@ -317,8 +320,11 @@ export async function saveSearchHistory(params: {
   word: string;
   reading?: string;
   meaning?: string;
+  definitions?: Array<{ meaning: string; pos: string }>;
   examples?: Array<{ japanese: string; vietnamese: string }>;
   synonyms?: string[];
+  jlpt?: string;
+  frequency?: string;
 }): Promise<void> {
   const token = getToken();
   await fetch(`${BASE_URL}/api/dictionary/history/save`, {
@@ -332,8 +338,11 @@ export async function saveSearchHistory(params: {
       word: params.word,
       reading: params.reading ?? "",
       meaning: params.meaning ?? "",
+      definitions: params.definitions ?? [],
       examples: params.examples ?? [],
       synonyms: params.synonyms ?? [],
+      jlpt: params.jlpt ?? "",
+      frequency: params.frequency ?? "",
     }),
   });
   // Silently ignore errors — history save is best-effort

@@ -21,6 +21,11 @@ def download_youtube_audio(youtube_url: str) -> str:
         'quiet': False,
         'no_warnings': False,
         'socket_timeout': 30,
+        'extractor_args': {
+            # 'android_vr' (yt-dlp's default pick) has been getting 403s from
+            # YouTube; these clients are more reliable for audio-only formats.
+            'youtube': {'player_client': ['android', 'web', 'tv']},
+        },
         'postprocessors': [{
             'key': 'FFmpegExtractAudio',
             'preferredcodec': 'mp3',

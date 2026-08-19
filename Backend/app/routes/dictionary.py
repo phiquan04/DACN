@@ -10,7 +10,6 @@ from typing import List, Optional
 from jamdict import Jamdict
 from deep_translator import GoogleTranslator
 from sqlalchemy.orm import Session
-from fastapi.concurrency import run_in_threadpool
 import httpx
 import os
 
@@ -73,16 +72,22 @@ class SaveHistoryRequest(BaseModel):
     word: str
     reading: Optional[str] = ""
     meaning: Optional[str] = ""
+    definitions: Optional[List[dict]] = []
     examples: Optional[List[dict]] = []
     synonyms: Optional[List[str]] = []
+    jlpt: Optional[str] = ""
+    frequency: Optional[str] = ""
 
 class HistoryItem(BaseModel):
     id: int
     word: str
     reading: Optional[str] = ""
     meaning: Optional[str] = ""
+    definitions: Optional[List[dict]] = []
     examples: Optional[List[dict]] = []
     synonyms: Optional[List[str]] = []
+    jlpt: Optional[str] = ""
+    frequency: Optional[str] = ""
     created_at: str
 
 class VietnameseMeaningRequest(BaseModel):
@@ -264,10 +269,22 @@ def save_search_history(req: SaveHistoryRequest, db: Session = Depends(get_db)):
         SearchHistory.word == req.word
     ).first()
     if existing:
-        existing.reading = req.reading
-        existing.meaning = req.meaning
-        existing.examples = req.examples or []
-        existing.synonyms = req.synonyms or []
+        # Chỉ ghi đè trường nào có dữ liệu mới — tránh 1 lần lưu thiếu
+        # (vd chỉ có examples) xoá mất dữ liệu đã lưu trước đó (vd synonyms)
+        if req.reading:
+            existing.reading = req.reading
+        if req.meaning:
+            existing.meaning = req.meaning
+        if req.definitions:
+            existing.definitions = req.definitions
+        if req.examples:
+            existing.examples = req.examples
+        if req.synonyms:
+            existing.synonyms = req.synonyms
+        if req.jlpt:
+            existing.jlpt = req.jlpt
+        if req.frequency:
+            existing.frequency = req.frequency
         from datetime import datetime
         existing.created_at = datetime.utcnow()
         db.commit()
@@ -279,8 +296,11 @@ def save_search_history(req: SaveHistoryRequest, db: Session = Depends(get_db)):
             word=req.word,
             reading=req.reading,
             meaning=req.meaning,
+            definitions=req.definitions or [],
             examples=req.examples or [],
             synonyms=req.synonyms or [],
+            jlpt=req.jlpt,
+            frequency=req.frequency,
         )
         db.add(record)
         db.commit()
@@ -302,8 +322,11 @@ def get_search_history(user_id: int, db: Session = Depends(get_db)):
             "word": r.word,
             "reading": r.reading or "",
             "meaning": r.meaning or "",
+            "definitions": r.definitions or [],
             "examples": r.examples or [],
             "synonyms": r.synonyms or [],
+            "jlpt": r.jlpt or "",
+            "frequency": r.frequency or "",
             "created_at": r.created_at.isoformat() if r.created_at else "",
         }
         for r in records
@@ -365,7 +388,7 @@ async def dictionary_lookup(req: LookupRequest):
         print(f"[Cache HIT] '{word}'", flush=True)
         return _cache[word]
 
-    result = await run_in_threadpool(jmdict.lookup, word)
+    result = jmdict.lookup(word)
     if not result.entries:
         response = LookupResponse(
             word=word, reading="", definitions=[],

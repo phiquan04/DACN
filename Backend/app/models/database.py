@@ -139,8 +139,11 @@ class SearchHistory(Base):
     word = Column(String(255), nullable=False)
     reading = Column(String(255), nullable=True)
     meaning = Column(Text, nullable=True)          # Nghĩa tiếng Việt (lấy từ definition đầu tiên)
+    definitions = Column(JSON, default=list)       # Lưu list [{meaning, pos}]
     examples = Column(JSON, default=list)          # Lưu list [{japanese, vietnamese}]
     synonyms = Column(JSON, default=list)          # Lưu list [string]
+    jlpt = Column(String(10), nullable=True)
+    frequency = Column(String(20), nullable=True)
     created_at = Column(DateTime, default=datetime.utcnow)
 
     user = relationship('User', backref='search_history')
