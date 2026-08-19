@@ -427,7 +427,7 @@ const PredefinedMode = () => {
             </button>
 
             <div className="text-center">
-              <div className="text-4xl font-bold text-brand-600 dark:text-brand-400 mb-2">{selectedWord.word}</div>
+              <div className="text-4xl font-bold text-brand-600 dark:text-primary-fixed-dim mb-2">{selectedWord.word}</div>
               <div className="text-sm text-gray-600 dark:text-gray-400">{selectedWord.reading}</div>
               <div className="text-sm text-gray-500 dark:text-gray-500">{selectedWord.meaning}</div>
             </div>

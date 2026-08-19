@@ -89,9 +89,10 @@ const AppSidebar: React.FC = () => {
   );
   const subMenuRefs = useRef<Record<string, HTMLDivElement | null>>({});
 
-  // const isActive = (path: string) => location.pathname === path;
   const isActive = useCallback(
-    (path: string) => location.pathname === path,
+    (path: string) =>
+      location.pathname === path ||
+      (path === "/dictionary" && location.pathname === "/"),
     [location.pathname]
   );
 
@@ -269,7 +270,7 @@ const AppSidebar: React.FC = () => {
 
   return (
     <aside
-      className={`fixed mt-16 flex flex-col lg:mt-0 top-0 px-5 left-0 bg-white dark:bg-gray-900 dark:border-gray-800 text-gray-900 h-screen transition-all duration-300 ease-in-out z-50 border-r border-gray-200 
+      className={`fixed mt-16 flex flex-col lg:mt-0 top-0 px-5 left-0 bg-surface-container-lowest dark:bg-gray-900 dark:border-gray-800 text-on-surface h-screen transition-all duration-300 ease-in-out z-50 border-r border-outline-variant/60
         ${
           isExpanded || isMobileOpen
             ? "w-[290px]"
@@ -283,18 +284,32 @@ const AppSidebar: React.FC = () => {
       onMouseLeave={() => setIsHovered(false)}
     >
       <div
-        className={`py-8 flex ${
+        className={`flex items-center gap-3 py-6 border-b border-outline-variant/60 ${
           !isExpanded && !isHovered ? "lg:justify-center" : "justify-start"
         }`}
       >
-       
+        <Link to="/dictionary" className="flex items-center gap-3 shrink-0">
+          <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-primary text-on-primary">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+              <path d="M12 3L2 8l10 5 10-5-10-5z" fill="currentColor" />
+              <path d="M6 12.2v3.6C6 17.9 8.69 19 12 19s6-1.1 6-3.2v-3.6L12 15l-6-2.8z" fill="currentColor" />
+              <path d="M20 9v6" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+            </svg>
+          </span>
+          {(isExpanded || isHovered || isMobileOpen) && (
+            <span className="flex flex-col leading-tight">
+              <span className="text-base font-bold text-on-surface">Kizuna AI</span>
+              <span className="text-xs text-on-surface-variant">Học tiếng Nhật cùng AI</span>
+            </span>
+          )}
+        </Link>
       </div>
       <div className="flex flex-col overflow-y-auto duration-300 ease-linear no-scrollbar">
-        <nav className="mb-6">
+        <nav className="mt-6 mb-6">
           <div className="flex flex-col gap-4">
             <div>
               <h2
-                className={`mb-4 text-xs uppercase flex leading-[20px] text-gray-400 ${
+                className={`mb-4 text-xs uppercase flex leading-[20px] text-outline dark:text-gray-500 ${
                   !isExpanded && !isHovered
                     ? "lg:justify-center"
                     : "justify-start"
@@ -310,7 +325,7 @@ const AppSidebar: React.FC = () => {
             </div>
             <div className="">
               <h2
-                className={`mb-4 text-xs uppercase flex leading-[20px] text-gray-400 ${
+                className={`mb-4 text-xs uppercase flex leading-[20px] text-outline dark:text-gray-500 ${
                   !isExpanded && !isHovered
                     ? "lg:justify-center"
                     : "justify-start"
