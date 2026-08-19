@@ -1,5 +1,9 @@
 Backend/data/model/
-Backend/__pycache__/
+**/__pycache__/
+*.pyc
 Backend/venv/
 Backend/.env
+Backend/chatbot.db
+Backend/node_modules/
 Frontend/node_modules/
+Frontend/.env

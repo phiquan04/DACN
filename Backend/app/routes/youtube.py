@@ -19,7 +19,7 @@ def _parse_iso8601_duration(duration: str) -> str:
 
 
 @router.get('/youtube-search')
-async def youtube_search(q: str = "日本語", lang: str = "ja", maxResults: int = 12):
+def youtube_search(q: str = "日本語", lang: str = "ja", maxResults: int = 12):
     try:
         api_key = os.environ.get('YOUTUBE_API_KEY')
         if not api_key:

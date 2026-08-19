@@ -314,12 +314,12 @@ def save_exam_to_db(data: dict) -> int:
 
 
 @router.post('/import-exam')
-async def import_exam(exam: UploadFile = File(...), answer: UploadFile = File(...)):
+def import_exam(exam: UploadFile = File(...), answer: UploadFile = File(...)):
     """Import exam PDFs and parse them"""
     try:
         print("Extracting text from PDFs...", flush=True)
-        exam_bytes = await exam.read()
-        answer_bytes = await answer.read()
+        exam_bytes = exam.file.read()
+        answer_bytes = answer.file.read()
         
         exam_text = extract_text_from_pdf(exam_bytes, page_type='exam')
         answer_text = extract_text_from_pdf(answer_bytes, page_type='answer')
@@ -357,7 +357,7 @@ async def import_exam(exam: UploadFile = File(...), answer: UploadFile = File(..
 
 
 @router.get('/exams')
-async def get_exams():
+def get_exams():
     """Get all exams"""
     try:
         conn = psycopg2.connect(os.environ.get("DATABASE_URL"))
@@ -384,7 +384,7 @@ async def get_exams():
 
 
 @router.get('/exams/{exam_id}/questions')
-async def get_exam_questions(exam_id: int):
+def get_exam_questions(exam_id: int):
     """Get all questions for an exam"""
     try:
         conn = psycopg2.connect(os.environ.get("DATABASE_URL"))

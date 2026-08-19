@@ -5,7 +5,7 @@ from datetime import timedelta
 from typing import Optional
 
 from app.models import User
-from app.models.database import get_db, SessionLocal
+from app.models.database import get_db
 from app.utils.auth import (
     hash_password,
     verify_password,
@@ -68,7 +68,7 @@ class SignInResponse(BaseModel):
 
 # Routes
 @router.post("/signup", response_model=SignUpResponse, status_code=status.HTTP_201_CREATED)
-async def sign_up(user_data: UserSignUp, db: Session = Depends(get_db)):
+def sign_up(user_data: UserSignUp, db: Session = Depends(get_db)):
     # Check if user already exists
     existing_user_email = db.query(User).filter(User.email == user_data.email).first()
     if existing_user_email:
@@ -107,7 +107,7 @@ async def sign_up(user_data: UserSignUp, db: Session = Depends(get_db)):
     )
 
 @router.post("/signin", response_model=SignInResponse)
-async def sign_in(user_data: UserSignIn, db: Session = Depends(get_db)):
+def sign_in(user_data: UserSignIn, db: Session = Depends(get_db)):
     user = db.query(User).filter(User.email == user_data.email).first()
     
     if not user or not verify_password(user_data.password, user.password_hash):
@@ -132,7 +132,7 @@ async def sign_in(user_data: UserSignIn, db: Session = Depends(get_db)):
     )
 
 @router.get("/me", response_model=UserResponse)
-async def get_current_user(authorization: Optional[str] = Header(None), db: Session = Depends(get_db)):
+def get_current_user(authorization: Optional[str] = Header(None), db: Session = Depends(get_db)):
     if not authorization:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,

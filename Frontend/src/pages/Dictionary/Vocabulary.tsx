@@ -61,56 +61,38 @@ export default function Vocabulary() {
   };
 
   // ── Load examples ──
-  const loadExamples = useCallback(async (word: string, result?: DictionaryResult) => {
-    if (!word) return;
+  const loadExamples = useCallback(async (word: string) => {
+    if (!word) return [];
     setLoadingExamples(true);
     try {
       const ex = await fetchExamples(word);
       setExamplesData(ex);
-
-      if (currentUser && ex.length > 0 && result) {
-        await saveSearchHistory({
-          userId: currentUser.id,
-          word: result.word,
-          reading: result.reading,
-          meaning: result.definitions[0]?.meaning ?? "",
-          examples: ex,
-          synonyms: [],
-        });
-      }
+      return ex;
     } catch (err) {
       console.error("Failed to load examples:", err);
       setExamplesData([]);
+      return [];
     } finally {
       setLoadingExamples(false);
     }
-  }, [currentUser]);
+  }, []);
 
   // ── Load synonyms ──
-  const loadSynonyms = useCallback(async (word: string, result?: DictionaryResult) => {
-    if (!word) return;
+  const loadSynonyms = useCallback(async (word: string) => {
+    if (!word) return [];
     setLoadingSynonyms(true);
     try {
       const syn = await fetchSynonyms(word);
       setSynonymsData(syn);
-
-      if (currentUser && syn.length > 0 && result) {
-        await saveSearchHistory({
-          userId: currentUser.id,
-          word: result.word,
-          reading: result.reading,
-          meaning: result.definitions[0]?.meaning ?? "",
-          examples: [],
-          synonyms: syn,
-        });
-      }
+      return syn;
     } catch (err) {
       console.error("Failed to load synonyms:", err);
       setSynonymsData([]);
+      return [];
     } finally {
       setLoadingSynonyms(false);
     }
-  }, [currentUser]);
+  }, []);
 
   const performSearch = async (term: string) => {
     const trimmed = term.trim();
@@ -137,31 +119,40 @@ export default function Vocabulary() {
       if (result.word && result.definitions.length > 0) {
         setResults([result]);
         setCurrentWord(result.word);
+        setLoading(false);
 
-        // Lưu lịch sử cơ bản
+        // Tải ví dụ + từ đồng nghĩa song song, rồi lưu MỘT LẦN toàn bộ kết
+        // quả (định nghĩa, jlpt, frequency, ví dụ, từ đồng nghĩa) vào lịch
+        // sử — để lần sau bấm vào từ trong lịch sử là hiển thị ngay lập
+        // tức, không phải tra cứu lại từ đầu.
+        const [examples, synonyms] = await Promise.all([
+          loadExamples(result.word),
+          loadSynonyms(result.word),
+        ]);
+
         if (currentUser) {
-          const firstMeaning = result.definitions[0]?.meaning ?? "";
           await saveSearchHistory({
             userId: currentUser.id,
             word: result.word,
             reading: result.reading,
-            meaning: firstMeaning,
+            meaning: result.definitions[0]?.meaning ?? "",
+            definitions: result.definitions,
+            examples,
+            synonyms,
+            jlpt: result.jlpt,
+            frequency: result.frequency,
           });
           loadHistory(); // không await, chạy ngầm
         }
-
-        // Tự động tải ví dụ và từ đồng nghĩa
-        loadExamples(result.word, result);
-        loadSynonyms(result.word, result);
       } else {
         setResults([]);
         setCurrentWord("");
+        setLoading(false);
       }
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to lookup word");
       setResults([]);
       setCurrentWord("");
-    } finally {
       setLoading(false);
     }
   };
@@ -181,9 +172,38 @@ export default function Vocabulary() {
   };
 
   const handleHistoryClick = (item: SearchHistoryItem) => {
-    setSearchTerm(item.word);
-    performSearch(item.word);
     window.scrollTo({ top: 0, behavior: "smooth" });
+    setSearchTerm(item.word);
+
+    // Các mục lịch sử được lưu từ sau khi có tính năng "lưu toàn bộ" đã có
+    // sẵn đầy đủ definitions/jlpt/frequency/examples/synonyms -> hiển thị
+    // ngay từ dữ liệu đã lưu, không cần gọi lại API.
+    if (item.definitions && item.definitions.length > 0) {
+      setError("");
+      setSearchPerformed(true);
+      setLoading(false);
+      setCurrentWord(item.word);
+      setResults([
+        {
+          word: item.word,
+          reading: item.reading,
+          definitions: item.definitions,
+          examples: item.examples ?? [],
+          synonyms: item.synonyms ?? [],
+          jlpt: item.jlpt || "N/A",
+          frequency: item.frequency || "N/A",
+        },
+      ]);
+      setExamplesData(item.examples ?? []);
+      setSynonymsData(item.synonyms ?? []);
+      setLoadingExamples(false);
+      setLoadingSynonyms(false);
+      return;
+    }
+
+    // Mục lịch sử cũ (lưu trước khi có tính năng này) chưa có đủ dữ liệu
+    // -> tra cứu lại như bình thường.
+    performSearch(item.word);
   };
 
   const handleDeleteHistoryItem = async (e: React.MouseEvent, item: SearchHistoryItem) => {

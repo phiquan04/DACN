@@ -41,7 +41,7 @@ def build_profile_response(user, info: UserInformation | None):
 
 
 @router.get("/profile", response_model=UserProfileResponse)
-async def get_profile(
+def get_profile(
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
@@ -50,7 +50,7 @@ async def get_profile(
 
 
 @router.put("/profile", response_model=UserProfileResponse)
-async def update_profile(
+def update_profile(
     data: UserProfileUpdate,
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
@@ -60,7 +60,7 @@ async def update_profile(
         info = UserInformation(user_id=current_user.id)
         db.add(info)
 
-    for field, value in data.dict(exclude_unset=True).items():
+    for field, value in data.model_dump(exclude_unset=True).items():
         setattr(info, field, value)
 
     db.commit()
@@ -68,7 +68,7 @@ async def update_profile(
     return build_profile_response(current_user, info)
 
 @router.post("/avatar")
-async def upload_avatar(
+def upload_avatar(
     file: UploadFile = File(...),
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
@@ -76,10 +76,10 @@ async def upload_avatar(
     # Kiểm tra loại file
     if not file.content_type.startswith("image/"):
         raise HTTPException(status_code=400, detail="Only image files allowed")
-    
+
     try:
         # Upload lên Cloudinary
-        url = upload_image(await file.read())
+        url = upload_image(file.file.read())
         
         # Lưu URL vào database
         info = db.query(UserInformation).filter(UserInformation.user_id == current_user.id).first()

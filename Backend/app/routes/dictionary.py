@@ -72,16 +72,22 @@ class SaveHistoryRequest(BaseModel):
     word: str
     reading: Optional[str] = ""
     meaning: Optional[str] = ""
+    definitions: Optional[List[dict]] = []
     examples: Optional[List[dict]] = []
     synonyms: Optional[List[str]] = []
+    jlpt: Optional[str] = ""
+    frequency: Optional[str] = ""
 
 class HistoryItem(BaseModel):
     id: int
     word: str
     reading: Optional[str] = ""
     meaning: Optional[str] = ""
+    definitions: Optional[List[dict]] = []
     examples: Optional[List[dict]] = []
     synonyms: Optional[List[str]] = []
+    jlpt: Optional[str] = ""
+    frequency: Optional[str] = ""
     created_at: str
 
 class VietnameseMeaningRequest(BaseModel):
@@ -257,16 +263,28 @@ async def search_words_by_vietnamese(req: VietnameseMeaningRequest):
 
 # ---------- Search History endpoints ----------
 @router.post("/history/save")
-async def save_search_history(req: SaveHistoryRequest, db: Session = Depends(get_db)):
+def save_search_history(req: SaveHistoryRequest, db: Session = Depends(get_db)):
     existing = db.query(SearchHistory).filter(
         SearchHistory.user_id == req.user_id,
         SearchHistory.word == req.word
     ).first()
     if existing:
-        existing.reading = req.reading
-        existing.meaning = req.meaning
-        existing.examples = req.examples or []
-        existing.synonyms = req.synonyms or []
+        # Chỉ ghi đè trường nào có dữ liệu mới — tránh 1 lần lưu thiếu
+        # (vd chỉ có examples) xoá mất dữ liệu đã lưu trước đó (vd synonyms)
+        if req.reading:
+            existing.reading = req.reading
+        if req.meaning:
+            existing.meaning = req.meaning
+        if req.definitions:
+            existing.definitions = req.definitions
+        if req.examples:
+            existing.examples = req.examples
+        if req.synonyms:
+            existing.synonyms = req.synonyms
+        if req.jlpt:
+            existing.jlpt = req.jlpt
+        if req.frequency:
+            existing.frequency = req.frequency
         from datetime import datetime
         existing.created_at = datetime.utcnow()
         db.commit()
@@ -278,8 +296,11 @@ async def save_search_history(req: SaveHistoryRequest, db: Session = Depends(get
             word=req.word,
             reading=req.reading,
             meaning=req.meaning,
+            definitions=req.definitions or [],
             examples=req.examples or [],
             synonyms=req.synonyms or [],
+            jlpt=req.jlpt,
+            frequency=req.frequency,
         )
         db.add(record)
         db.commit()
@@ -287,7 +308,7 @@ async def save_search_history(req: SaveHistoryRequest, db: Session = Depends(get
     return {"success": True, "id": record.id}
 
 @router.get("/history/{user_id}")
-async def get_search_history(user_id: int, db: Session = Depends(get_db)):
+def get_search_history(user_id: int, db: Session = Depends(get_db)):
     records = (
         db.query(SearchHistory)
         .filter(SearchHistory.user_id == user_id)
@@ -301,15 +322,18 @@ async def get_search_history(user_id: int, db: Session = Depends(get_db)):
             "word": r.word,
             "reading": r.reading or "",
             "meaning": r.meaning or "",
+            "definitions": r.definitions or [],
             "examples": r.examples or [],
             "synonyms": r.synonyms or [],
+            "jlpt": r.jlpt or "",
+            "frequency": r.frequency or "",
             "created_at": r.created_at.isoformat() if r.created_at else "",
         }
         for r in records
     ]
 
 @router.delete("/history/{user_id}/{history_id}")
-async def delete_history_item(user_id: int, history_id: int, db: Session = Depends(get_db)):
+def delete_history_item(user_id: int, history_id: int, db: Session = Depends(get_db)):
     record = db.query(SearchHistory).filter(
         SearchHistory.id == history_id,
         SearchHistory.user_id == user_id
@@ -321,14 +345,14 @@ async def delete_history_item(user_id: int, history_id: int, db: Session = Depen
     return {"success": True}
 
 @router.delete("/history/{user_id}")
-async def clear_history(user_id: int, db: Session = Depends(get_db)):
+def clear_history(user_id: int, db: Session = Depends(get_db)):
     db.query(SearchHistory).filter(SearchHistory.user_id == user_id).delete()
     db.commit()
     return {"success": True}
 
 # ---------- Get unique words for pronunciation practice ----------
 @router.get("/history/words/{user_id}")
-async def get_history_words(user_id: int, db: Session = Depends(get_db)):
+def get_history_words(user_id: int, db: Session = Depends(get_db)):
     """Lấy danh sách các từ đã tra cứu (word, reading, meaning) phục vụ luyện phát âm"""
     from sqlalchemy import func
     subq = db.query(

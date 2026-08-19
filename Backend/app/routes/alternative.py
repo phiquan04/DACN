@@ -48,7 +48,7 @@ def _call_openrouter(api_key: str, prompt: str, retries: int = 3) -> str:
 
 
 @router.post('/alternative')
-async def alternative(request: AlternativeRequest):
+def alternative(request: AlternativeRequest):
     try:
         api_key = os.environ.get('OPENROUTER_API_KEY')
         if not api_key:
