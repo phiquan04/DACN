@@ -10,6 +10,7 @@ from typing import List, Optional
 from jamdict import Jamdict
 from deep_translator import GoogleTranslator
 from sqlalchemy.orm import Session
+from fastapi.concurrency import run_in_threadpool
 import httpx
 import os
 
@@ -257,7 +258,7 @@ async def search_words_by_vietnamese(req: VietnameseMeaningRequest):
 
 # ---------- Search History endpoints ----------
 @router.post("/history/save")
-async def save_search_history(req: SaveHistoryRequest, db: Session = Depends(get_db)):
+def save_search_history(req: SaveHistoryRequest, db: Session = Depends(get_db)):
     existing = db.query(SearchHistory).filter(
         SearchHistory.user_id == req.user_id,
         SearchHistory.word == req.word
@@ -287,7 +288,7 @@ async def save_search_history(req: SaveHistoryRequest, db: Session = Depends(get
     return {"success": True, "id": record.id}
 
 @router.get("/history/{user_id}")
-async def get_search_history(user_id: int, db: Session = Depends(get_db)):
+def get_search_history(user_id: int, db: Session = Depends(get_db)):
     records = (
         db.query(SearchHistory)
         .filter(SearchHistory.user_id == user_id)
@@ -309,7 +310,7 @@ async def get_search_history(user_id: int, db: Session = Depends(get_db)):
     ]
 
 @router.delete("/history/{user_id}/{history_id}")
-async def delete_history_item(user_id: int, history_id: int, db: Session = Depends(get_db)):
+def delete_history_item(user_id: int, history_id: int, db: Session = Depends(get_db)):
     record = db.query(SearchHistory).filter(
         SearchHistory.id == history_id,
         SearchHistory.user_id == user_id
@@ -321,14 +322,14 @@ async def delete_history_item(user_id: int, history_id: int, db: Session = Depen
     return {"success": True}
 
 @router.delete("/history/{user_id}")
-async def clear_history(user_id: int, db: Session = Depends(get_db)):
+def clear_history(user_id: int, db: Session = Depends(get_db)):
     db.query(SearchHistory).filter(SearchHistory.user_id == user_id).delete()
     db.commit()
     return {"success": True}
 
 # ---------- Get unique words for pronunciation practice ----------
 @router.get("/history/words/{user_id}")
-async def get_history_words(user_id: int, db: Session = Depends(get_db)):
+def get_history_words(user_id: int, db: Session = Depends(get_db)):
     """Lấy danh sách các từ đã tra cứu (word, reading, meaning) phục vụ luyện phát âm"""
     from sqlalchemy import func
     subq = db.query(
@@ -364,7 +365,7 @@ async def dictionary_lookup(req: LookupRequest):
         print(f"[Cache HIT] '{word}'", flush=True)
         return _cache[word]
 
-    result = jmdict.lookup(word)
+    result = await run_in_threadpool(jmdict.lookup, word)
     if not result.entries:
         response = LookupResponse(
             word=word, reading="", definitions=[],

@@ -17,7 +17,7 @@ class CorrectRequest(BaseModel):
 gec_model = GEC(pretrained_weights_path='data/model/model_checkpoint')
 
 @router.post('/correct')
-async def correct(request: CorrectRequest, db: Session = Depends(get_db)):
+def correct(request: CorrectRequest, db: Session = Depends(get_db)):
     try:
         text = request.text
         if not text:

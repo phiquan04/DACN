@@ -17,7 +17,7 @@ SYSTEM_PROMPT = """あなたは日本語の会話パートナーです。
 - ユーザーの話題に合わせて自然に会話を続けてください"""
 
 @router.post('/chat')
-async def chat(request: ChatRequest):
+def chat(request: ChatRequest):
     try:
         api_key = os.environ.get('OPENROUTER_API_KEY')
         if not api_key:

@@ -51,7 +51,7 @@ def download_youtube_audio(youtube_url: str) -> str:
                 for f in os.listdir(tmp_dir):
                     os.unlink(os.path.join(tmp_dir, f))
                 os.rmdir(tmp_dir)
-        except:
+        except Exception:
             pass
         print(f"Download error: {e}", flush=True)
         raise ValueError(f"Failed to download YouTube audio: {str(e)}")
@@ -190,7 +190,7 @@ Trả về đúng định dạng JSON:
 
 
 @router.post("/transcribe")
-async def transcribe(
+def transcribe(
     youtube_url: Optional[str] = Form(None),
     file: Optional[UploadFile] = File(None),
 ):
@@ -206,7 +206,7 @@ async def transcribe(
         elif file:
             suffix = os.path.splitext(file.filename or "")[1] or ".mp4"
             tmp = tempfile.NamedTemporaryFile(delete=False, suffix=suffix)
-            contents = await file.read()
+            contents = file.file.read()
             tmp.write(contents)
             tmp.close()
             tmp_path = tmp.name
@@ -255,17 +255,17 @@ async def transcribe(
         if tmp_path and os.path.exists(tmp_path):
             try:
                 os.unlink(tmp_path)
-            except:
+            except Exception:
                 pass
         if tmp_dir and os.path.isdir(tmp_dir):
             try:
                 os.rmdir(tmp_dir)
-            except:
+            except Exception:
                 pass
         raise HTTPException(status_code=500, detail=str(e))
 
 
 @router.post("/transcribe/url")
-async def transcribe_url(youtube_url: str):
+def transcribe_url(youtube_url: str):
     """Transcribe từ YouTube URL - nhận plain string query param"""
-    return await transcribe(youtube_url=youtube_url, file=None)
+    return transcribe(youtube_url=youtube_url, file=None)

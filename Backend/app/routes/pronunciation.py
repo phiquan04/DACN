@@ -113,7 +113,7 @@ def generate_reference_audio(text: str, output_path: str):
 
 # ---------- Endpoint đánh giá phát âm ----------
 @router.post("/assess")
-async def pronunciation_assess(
+def pronunciation_assess(
     audio: UploadFile = File(...),
     expected_text: str = Form(...)
 ):
@@ -123,7 +123,7 @@ async def pronunciation_assess(
         # Lưu file upload
         suffix = os.path.splitext(audio.filename or "recording.webm")[1] or ".webm"
         with tempfile.NamedTemporaryFile(delete=False, suffix=suffix) as tmp:
-            content = await audio.read()
+            content = audio.file.read()
             tmp.write(content)
             user_audio_path = tmp.name
         
@@ -208,11 +208,11 @@ async def pronunciation_assess(
             if path and os.path.exists(path):
                 try:
                     os.unlink(path)
-                except:
+                except Exception:
                     pass
 
 @router.post("/tts")
-async def text_to_speech(text: str = Form(...)):
+def text_to_speech(text: str = Form(...)):
     """
     Chuyển văn bản tiếng Nhật thành giọng nói bằng gTTS,
     trả về audio/mpeg dạng stream.

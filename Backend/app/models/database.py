@@ -2,7 +2,6 @@ from datetime import datetime
 
 from sqlalchemy import Column, Integer, String, Text, DateTime, ForeignKey, JSON, Float, Boolean
 from sqlalchemy import create_engine
-from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker, declarative_base, relationship
 import os
 
@@ -130,75 +129,6 @@ class TranscriptionSegment(Base):
     
     def __repr__(self):
         return f'<TranscriptionSegment {self.id}>'
-
-
-class Exam(Base):
-    __tablename__ = 'exams'
-
-    id = Column(Integer, primary_key=True)
-    title = Column(String(255), nullable=False)
-    level = Column(String(10))
-    year = Column(Integer)
-    month = Column(Integer)
-    created_at = Column(DateTime, default=datetime.utcnow)
-
-    questions = relationship(
-        'Question',
-        back_populates='exam',
-        cascade='all, delete-orphan'
-    )
-
-
-class Question(Base):
-    __tablename__ = 'questions'
-
-    id = Column(Integer, primary_key=True)
-    exam_id = Column(Integer, ForeignKey('exams.id', ondelete='CASCADE'))
-    section = Column(String(100))
-    question_no = Column(Integer)
-    question_text = Column(Text, nullable=False)
-    image_url = Column(Text)
-    created_at = Column(DateTime, default=datetime.utcnow)
-
-    exam = relationship('Exam', back_populates='questions')
-
-    choices = relationship(
-        'Choice',
-        back_populates='question',
-        cascade='all, delete-orphan'
-    )
-
-    answer = relationship(
-        'Answer',
-        back_populates='question',
-        uselist=False,
-        cascade='all, delete-orphan'
-    )
-
-
-class Choice(Base):
-    __tablename__ = 'choices'
-
-    id = Column(Integer, primary_key=True)
-    question_id = Column(Integer, ForeignKey('questions.id', ondelete='CASCADE'))
-    choice_no = Column(Integer, nullable=False)
-    choice_text = Column(Text, nullable=False)
-
-    question = relationship('Question', back_populates='choices')
-
-
-class Answer(Base):
-    __tablename__ = 'answers'
-
-    id = Column(Integer, primary_key=True)
-    question_id = Column(Integer, ForeignKey('questions.id', ondelete='CASCADE'), unique=True)
-    correct_no = Column(Integer, nullable=False)
-    explanation = Column(Text)
-
-    question = relationship('Question', back_populates='answer')
-    
-    def __repr__(self):
-        return f'<Answer correct={self.correct_no} (question={self.question_id})>'
     
     
 class SearchHistory(Base):
