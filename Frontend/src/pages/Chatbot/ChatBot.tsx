@@ -1,35 +1,44 @@
 
 import React, { useState, useRef, useEffect, useCallback } from "react";
-import VideoAvatar from "../../components/VideoAvatar";
+import ScenarioSidebar from "../../components/ScenarioSidebar";
 import ChatMessage from "../../components/ChatMessage";
 import ChatInput from "../../components/ChatInput";
 import { useSpeech } from "../../hooks/useSpeech";
 import { useVoiceInput } from "../../hooks/useVoiceInput";
-import { sendChatMessage, checkHealth } from "../../services/api";
-import type { ChatMessage as ChatMsg } from "../../services/api";
+import {
+  sendChatMessage,
+  checkHealth,
+  fetchScenarios,
+  startConversation,
+} from "../../services/api";
+import type { ChatMessage as ChatMsg, ChatScenario } from "../../services/api";
 import "../../styles/chatbot.css";
 
-const WELCOME_MESSAGE: ChatMsg = {
+const FREE_CHAT_WELCOME: ChatMsg = {
   role: "assistant",
   content:
-    "こんにちは！私はAIアシスタントの「ミク」です。😊 何でも日本語でお話しください。どんなことでもお手伝いします！",
+    "こんにちは！私はKizunaです。左のリストからシチュエーションを選ぶか、自由に日本語で話しかけてください。",
   timestamp: Date.now(),
 };
 
 export default function ChatBot() {
-  const [messages, setMessages] = useState<ChatMsg[]>([WELCOME_MESSAGE]);
+  const [scenarios, setScenarios] = useState<ChatScenario[]>([]);
+  const [scenariosLoading, setScenariosLoading] = useState(true);
+  const [activeScenario, setActiveScenario] = useState<ChatScenario | null>(null);
+  const [conversationId, setConversationId] = useState<number | null>(null);
+
+  const [messages, setMessages] = useState<ChatMsg[]>([FREE_CHAT_WELCOME]);
+  const [suggestions, setSuggestions] = useState<string[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [isThinking, setIsThinking] = useState(false);
-  const [mouthOpen, setMouthOpen] = useState(0);
   const [backendStatus, setBackendStatus] = useState<"checking" | "ok" | "error">("checking");
   const [statusMsg, setStatusMsg] = useState("");
 
   const chatEndRef = useRef<HTMLDivElement>(null);
   const { speak, stop, isSpeaking } = useSpeech();
 
-  // Initialize voice input first (before using in callback)
   const handleVoiceResultRef = useRef<(transcript: string) => void | null>(null);
-  
+
   const {
     isListening,
     transcript,
@@ -42,12 +51,15 @@ export default function ChatBot() {
     }
   });
 
-  // Check backend on mount
+  // Check backend + load scenarios on mount
   useEffect(() => {
     checkHealth().then((ok) => {
       setBackendStatus(ok ? "ok" : "error");
-      if (!ok) setStatusMsg("バックエンドに接続できません。Flaskサーバーを起動してください。");
+      if (!ok) setStatusMsg("バックエンドに接続できません。サーバーを起動してください。");
     });
+    fetchScenarios()
+      .then(setScenarios)
+      .finally(() => setScenariosLoading(false));
   }, []);
 
   // Auto scroll to bottom
@@ -55,32 +67,85 @@ export default function ChatBot() {
     chatEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages]);
 
+  const initConversation = useCallback(
+    async (scenario: ChatScenario | null) => {
+      stop();
+      stopListening();
+      setIsLoading(true);
+      setSuggestions([]);
+      try {
+        const res = await startConversation(scenario?.id);
+        setConversationId(res.conversation_id);
+        setActiveScenario(scenario);
+
+        if (res.opening_message) {
+          const opening: ChatMsg = {
+            role: "assistant",
+            content: res.opening_message.content,
+            timestamp: Date.now(),
+          };
+          setMessages([opening]);
+          speak(opening.content);
+        } else {
+          setMessages([FREE_CHAT_WELCOME]);
+        }
+      } catch (err: any) {
+        setMessages([
+          {
+            role: "assistant",
+            content: `エラーが発生しました。😢 ${err.message || "もう一度試してください。"}`,
+            timestamp: Date.now(),
+          },
+        ]);
+      } finally {
+        setIsLoading(false);
+      }
+    },
+    [speak, stop, stopListening]
+  );
+
+  // Start a free-chat conversation on first load
+  useEffect(() => {
+    initConversation(null);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  const handleSelectScenario = (scenario: ChatScenario) => {
+    if (activeScenario?.id === scenario.id) {
+      initConversation(null); // deselect -> back to free chat
+    } else {
+      initConversation(scenario);
+    }
+  };
+
   const handleSend = useCallback(
     async (text: string) => {
-      if (!text.trim() || isLoading) return;
+      if (!text.trim() || isLoading || !conversationId) return;
 
-      stop(); // Stop any ongoing speech
-      stopListening(); // Stop voice recording
+      stop();
+      stopListening();
 
       const userMsg: ChatMsg = { role: "user", content: text, timestamp: Date.now() };
       setMessages((prev) => [...prev, userMsg]);
+      setSuggestions([]);
       setIsLoading(true);
       setIsThinking(true);
 
       try {
-        const history = messages.slice(-8); // Last 8 messages for context
-        const response = await sendChatMessage(text, history);
+        const response = await sendChatMessage(conversationId, text);
 
         const assistantMsg: ChatMsg = {
           role: "assistant",
           content: response.reply,
           timestamp: Date.now(),
+          feedback: response.feedback,
+          isOffTopic: response.is_off_topic,
         };
         setMessages((prev) => [...prev, assistantMsg]);
+        setSuggestions(response.suggestions || []);
         setIsThinking(false);
 
-        // Speak the response
-        await speak(response.reply, setMouthOpen);
+        speak(response.reply);
       } catch (err: any) {
         setIsThinking(false);
         const errMsg: ChatMsg = {
@@ -93,10 +158,9 @@ export default function ChatBot() {
         setIsLoading(false);
       }
     },
-    [isLoading, messages, speak, stop, stopListening]
+    [isLoading, conversationId, speak, stop, stopListening]
   );
 
-  // Update ref for voice result handler
   useEffect(() => {
     handleVoiceResultRef.current = (transcript: string) => {
       if (transcript.trim()) handleSend(transcript);
@@ -104,79 +168,43 @@ export default function ChatBot() {
   }, [handleSend]);
 
   const handleClearChat = () => {
-    stop();
-    setMessages([WELCOME_MESSAGE]);
+    initConversation(activeScenario);
   };
+
+  const statusLabel = activeScenario ? activeScenario.title : "Tự do";
 
   return (
     <div className="chatbot-root">
-      {/* Status Banner */}
-      {backendStatus === "error" && (
-        <div className="status-banner error">
-          ⚠️ {statusMsg}
-        </div>
-      )}
+      {backendStatus === "error" && <div className="status-banner error">⚠️ {statusMsg}</div>}
 
       <div className="chatbot-layout">
-        {/* ── Left: Avatar Panel ────────────────────────────────────── */}
-        <aside className="avatar-panel">
-          <div className="avatar-header">
-            <div className="avatar-name-badge">
-              <span className="avatar-name">ミク</span>
-              <span className={`status-dot ${backendStatus === "ok" ? "online" : "offline"}`} />
-            </div>
-            <p className="avatar-subtitle">AIアシスタント</p>
-          </div>
+        <ScenarioSidebar
+          scenarios={scenarios}
+          activeScenarioId={activeScenario?.id ?? null}
+          onSelect={handleSelectScenario}
+          loading={scenariosLoading}
+        />
 
-          <div className="avatar-stage">
-            <div className="avatar-glow" />
-            <VideoAvatar
-              mouthOpen={mouthOpen}
-              isSpeaking={isSpeaking}
-              isThinking={isThinking}
-            />
-            <div className="avatar-state-label">
-              {isThinking && (
-                <span className="state-chip thinking">
-                  <span className="dot-pulse" />考え中...
-                </span>
-              )}
-              {isSpeaking && !isThinking && (
-                <span className="state-chip speaking">
-                  <span className="wave-icon">🎵</span>話し中...
-                </span>
-              )}
-              {!isSpeaking && !isThinking && (
-                <span className="state-chip idle">待機中</span>
-              )}
-            </div>
-          </div>
-
-          <div className="avatar-info-card">
-            <h3>📚 JLPT N3レベル</h3>
-            <p>自然な日本語で会話できます</p>
-            <div className="tag-row">
-              <span className="tag">日本語</span>
-              <span className="tag">AI</span>
-              <span className="tag">音声</span>
-            </div>
-          </div>
-        </aside>
-
-        {/* ── Right: Chat Panel ─────────────────────────────────────── */}
         <main className="chat-panel">
           <div className="chat-header">
+            <div className="chat-avatar-icon">🎓</div>
             <div className="chat-title-group">
-              <h1>日本語AIアシスタント</h1>
-              <p className="chat-subtitle">Japanese Virtual Assistant</p>
+              <h1>Kizuna Sensei</h1>
+              <p className="chat-subtitle">
+                <span className={`status-dot ${backendStatus === "ok" ? "online" : "offline"}`} />
+                {isThinking ? "Đang suy nghĩ..." : isSpeaking ? "Đang nói..." : `Đang nghe... (${statusLabel})`}
+              </p>
             </div>
-            <button className="btn-clear" onClick={handleClearChat} title="チャットをクリア">
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" width="16" height="16">
-                <polyline points="1 4 1 10 7 10"/><polyline points="23 20 23 14 17 14"/>
-                <path d="M20.49 9A9 9 0 0 0 5.64 5.64L1 10m22 4l-4.64 4.36A9 9 0 0 1 3.51 15"/>
-              </svg>
-              リセット
-            </button>
+            <div className="chat-header-actions">
+              <button className="btn-clear" onClick={handleClearChat} title="Bắt đầu lại">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" width="16" height="16">
+                  <polyline points="1 4 1 10 7 10" />
+                  <polyline points="23 20 23 14 17 14" />
+                  <path d="M20.49 9A9 9 0 0 0 5.64 5.64L1 10m22 4l-4.64 4.36A9 9 0 0 1 3.51 15" />
+                </svg>
+                Bắt đầu lại
+              </button>
+            </div>
           </div>
 
           <div className="messages-area">
@@ -186,10 +214,14 @@ export default function ChatBot() {
 
             {isThinking && (
               <div className="chat-message assistant">
-                <div className="avatar-badge"><span>AI</span></div>
+                <div className="avatar-badge">
+                  <span>AI</span>
+                </div>
                 <div className="bubble-wrap">
                   <div className="bubble typing-indicator">
-                    <span /><span /><span />
+                    <span />
+                    <span />
+                    <span />
                   </div>
                 </div>
               </div>
@@ -197,6 +229,16 @@ export default function ChatBot() {
 
             <div ref={chatEndRef} />
           </div>
+
+          {suggestions.length > 0 && (
+            <div className="suggestion-chips">
+              {suggestions.map((s, i) => (
+                <button key={i} type="button" className="suggestion-chip" onClick={() => handleSend(s)}>
+                  {s}
+                </button>
+              ))}
+            </div>
+          )}
 
           <ChatInput
             onSend={handleSend}

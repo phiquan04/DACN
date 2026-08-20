@@ -50,7 +50,9 @@ const ChatInput: React.FC<Props> = ({
           value={displayValue}
           onChange={(e) => !isListening && setText(e.target.value)}
           onKeyDown={handleKeyDown}
-          placeholder={isListening ? "🎤 聞いています..." : "メッセージを入力してください..."}
+          placeholder={
+            isListening ? "🎤 Đang nghe..." : "Nhập câu trả lời bằng tiếng Nhật hoặc tiếng Việt..."
+          }
           rows={2}
           disabled={isLoading || isListening}
         />
@@ -92,7 +94,7 @@ const ChatInput: React.FC<Props> = ({
           </button>
         </div>
       </div>
-      <p className="input-hint">Enter で送信 • Shift+Enter で改行</p>
+      <p className="input-hint">Nhấn Micro để nói, hoặc nhấn Enter để gửi tin nhắn.</p>
     </div>
   );
 };

@@ -23,6 +23,76 @@ Base = declarative_base()
 
 def init_db(app):
     Base.metadata.create_all(bind=engine)
+    _ensure_chat_schema()
+    _seed_chat_scenarios()
+
+
+def _ensure_chat_schema():
+    """Idempotently add columns introduced after the initial table creation.
+
+    This project has no migration framework (Alembic), and
+    Base.metadata.create_all only creates missing tables — it never alters
+    existing ones. Existing databases (SQLite locally, Postgres in other
+    environments) need these columns added in place so they don't break on
+    the new scenario-aware chat routes.
+    """
+    from sqlalchemy import inspect, text
+
+    inspector = inspect(engine)
+    existing_tables = set(inspector.get_table_names())
+    if 'conversations' not in existing_tables or 'messages' not in existing_tables:
+        return  # create_all just made everything fresh; nothing to migrate
+
+    column_additions = {
+        'conversations': [("scenario_id", "INTEGER REFERENCES chat_scenarios(id)")],
+        'messages': [
+            ("feedback", "TEXT"),
+            ("is_off_topic", "BOOLEAN DEFAULT FALSE"),
+        ],
+    }
+    with engine.connect() as conn:
+        for table, columns in column_additions.items():
+            existing_columns = {c['name'] for c in inspector.get_columns(table)}
+            for col_name, col_def in columns:
+                if col_name not in existing_columns:
+                    conn.execute(text(f"ALTER TABLE {table} ADD COLUMN {col_name} {col_def}"))
+        conn.commit()
+
+
+def _seed_chat_scenarios():
+    db = SessionLocal()
+    try:
+        if db.query(ChatScenario).first():
+            return
+        db.add_all([
+            ChatScenario(
+                title="Đi phỏng vấn xin việc",
+                description="Luyện tập trả lời các câu hỏi phỏng vấn cơ bản với nhà tuyển dụng Nhật.",
+                level="N3",
+                icon="💼",
+            ),
+            ChatScenario(
+                title="Đặt bàn nhà hàng",
+                description="Gọi điện đặt chỗ và yêu cầu thực đơn đặc biệt.",
+                level="N4",
+                icon="🍽️",
+            ),
+            ChatScenario(
+                title="Nói chuyện với đồng nghiệp",
+                description="Trao đổi công việc và thảo luận dự án tại văn phòng.",
+                level="N3",
+                icon="👥",
+            ),
+            ChatScenario(
+                title="Mua sắm tại siêu thị",
+                description="Hỏi giá, tìm kiếm sản phẩm và thanh toán.",
+                level="N5",
+                icon="🛒",
+            ),
+        ])
+        db.commit()
+    finally:
+        db.close()
 
 
 def get_db():
@@ -55,15 +125,34 @@ class User(BaseModel):
         return f'<User {self.username}>'
 
 
+class ChatScenario(BaseModel):
+    """A selectable conversation topic/situation ('tình huống hội thoại')."""
+    __tablename__ = 'chat_scenarios'
+
+    title = Column(String(255), nullable=False)
+    description = Column(Text, nullable=True)
+    level = Column(String(10), nullable=True)  # JLPT badge, e.g. 'N3'
+    icon = Column(String(20), nullable=True)  # emoji shown on the card
+    opening_line = Column(Text, nullable=True)  # scripted first AI message; auto-generated if empty
+    topic_prompt = Column(Text, nullable=True)  # extra system-prompt instructions; derived from title/description if empty
+    is_active = Column(Boolean, default=True)
+
+    conversations = relationship('Conversation', backref='scenario', lazy=True)
+
+    def __repr__(self):
+        return f'<ChatScenario {self.title}>'
+
+
 class Conversation(BaseModel):
     __tablename__ = 'conversations'
-    
+
     title = Column(String(255), nullable=True)
     user_id = Column(Integer, ForeignKey('users.id'), nullable=True)
+    scenario_id = Column(Integer, ForeignKey('chat_scenarios.id'), nullable=True)
     language = Column(String(10), default='ja')
-    
+
     messages = relationship('Message', backref='conversation', lazy=True, cascade='all, delete-orphan')
-    
+
     def __repr__(self):
         return f'<Conversation {self.id}>'
 
@@ -71,15 +160,17 @@ class Conversation(BaseModel):
 class Message(BaseModel):
     """Message model - individual chat messages"""
     __tablename__ = 'messages'
-    
+
     conversation_id = Column(Integer, ForeignKey('conversations.id'), nullable=True)
     role = Column(String(20), nullable=False)  # 'user' or 'assistant'
     content = Column(Text, nullable=False)
     language = Column(String(10), default='ja')
     confidence = Column(Float, nullable=True)
-    
+    feedback = Column(Text, nullable=True)  # Vietnamese coaching tip shown alongside an assistant reply
+    is_off_topic = Column(Boolean, default=False)  # true when the user drifted off the active scenario's topic
+
     correction = relationship('GrammarCorrection', backref='message', uselist=False, cascade='all, delete-orphan')
-    
+
     def __repr__(self):
         return f'<Message {self.id}>'
 
