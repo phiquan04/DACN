@@ -54,11 +54,31 @@ export interface ChatMessage {
   role: "user" | "assistant";
   content: string;
   timestamp: number;
+  feedback?: string | null;
+  isOffTopic?: boolean;
 }
 
 export interface ChatResponse {
   reply: string;
-  usage?: { input_tokens: number; output_tokens: number };
+  feedback: string | null;
+  is_off_topic: boolean;
+  suggestions: string[];
+  message_id: number;
+  conversation_id: number;
+}
+
+export interface ChatScenario {
+  id: number;
+  title: string;
+  description: string | null;
+  level: string | null;
+  icon: string | null;
+}
+
+export interface StartConversationResponse {
+  conversation_id: number;
+  scenario_id: number | null;
+  opening_message: { id: number; role: "assistant"; content: string } | null;
 }
 
 export interface TTSResponse {
@@ -201,23 +221,49 @@ export function getStoredUser(): User | null {
   }
 }
 
+export async function fetchScenarios(): Promise<ChatScenario[]> {
+  const res = await fetch(`${BASE_URL}/api/scenarios`);
+  if (!res.ok) return [];
+  return res.json();
+}
+
+export async function startConversation(
+  scenarioId?: number
+): Promise<StartConversationResponse> {
+  const token = getToken();
+
+  const res = await fetch(`${BASE_URL}/api/conversations`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      ...(token && { "Authorization": `Bearer ${token}` }),
+    },
+    body: JSON.stringify({ scenario_id: scenarioId ?? null }),
+  });
+  if (!res.ok) {
+    const err = await res.json();
+    throw new Error(err.detail || "Failed to start conversation");
+  }
+  return res.json();
+}
+
 export async function sendChatMessage(
-  message: string,
-  history: ChatMessage[]
+  conversationId: number,
+  message: string
 ): Promise<ChatResponse> {
   const token = getToken();
-  
+
   const res = await fetch(`${BASE_URL}/api/chat`, {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
       ...(token && { "Authorization": `Bearer ${token}` }),
     },
-    body: JSON.stringify({ message, history }),
+    body: JSON.stringify({ conversation_id: conversationId, message }),
   });
   if (!res.ok) {
     const err = await res.json();
-    throw new Error(err.error || "Chat request failed");
+    throw new Error(err.detail || err.error || "Chat request failed");
   }
   return res.json();
 }

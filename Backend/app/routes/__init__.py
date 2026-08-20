@@ -12,6 +12,7 @@ from .auth import router as auth_router
 from .pronunciation import router as pronunciation_router
 from .dictionary import router as dictionary_router
 from .user import router as user_router
+from .scenarios import router as scenarios_router
 
 # Register all routers
 def register_routers(app):
@@ -27,3 +28,4 @@ def register_routers(app):
     app.include_router(pronunciation_router, prefix="/api")
     app.include_router(dictionary_router, prefix="/api")
     app.include_router(user_router, prefix="/api")
+    app.include_router(scenarios_router, prefix="/api")
