@@ -1,6 +1,7 @@
 import React from "react";
 import { Link } from "react-router";
 import ThemeTogglerTwo from "../../components/common/ThemeTogglerTwo";
+import Logo from "../../components/common/Logo";
 
 export default function AuthLayout({
   children,
@@ -19,9 +20,10 @@ export default function AuthLayout({
 
       <div className="relative z-10 w-full max-w-md">
         <div className="mb-8 text-center">
-          <Link to="/" className="inline-block">
+          <Link to="/" className="inline-flex items-center gap-2">
+            <Logo size={40} />
             <h1 className="text-3xl font-bold tracking-tight text-primary dark:text-white">
-              Kizuna AI
+              Manabi<span className="text-secondary">AI</span>
             </h1>
           </Link>
           <p className="mt-3 text-base text-on-surface-variant dark:text-gray-400">

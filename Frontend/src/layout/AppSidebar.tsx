@@ -17,6 +17,7 @@ import {
   TaskIcon,
 } from "../icons";
 import SidebarWidget from "./SidebarWidget";
+import Logo from "../components/common/Logo";
 
 type NavItem = {
   name: string;
@@ -289,16 +290,12 @@ const AppSidebar: React.FC = () => {
         }`}
       >
         <Link to="/dictionary" className="flex items-center gap-3 shrink-0">
-          <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-primary text-on-primary">
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-              <path d="M12 3L2 8l10 5 10-5-10-5z" fill="currentColor" />
-              <path d="M6 12.2v3.6C6 17.9 8.69 19 12 19s6-1.1 6-3.2v-3.6L12 15l-6-2.8z" fill="currentColor" />
-              <path d="M20 9v6" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
-            </svg>
-          </span>
+          <Logo size={36} />
           {(isExpanded || isHovered || isMobileOpen) && (
             <span className="flex flex-col leading-tight">
-              <span className="text-base font-bold text-on-surface">Kizuna AI</span>
+              <span className="text-base font-bold text-on-surface">
+                Manabi<span className="text-secondary">AI</span>
+              </span>
               <span className="text-xs text-on-surface-variant">Học tiếng Nhật cùng AI</span>
             </span>
           )}

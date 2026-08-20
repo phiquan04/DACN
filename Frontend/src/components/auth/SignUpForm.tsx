@@ -61,7 +61,7 @@ export default function SignUpForm() {
     <div>
       <div className="mb-6 text-center">
         <h2 className="text-xl font-semibold text-on-surface dark:text-white/90">
-          Tạo tài khoản Kizuna AI
+          Tạo tài khoản Manabi AI
         </h2>
         <p className="mt-2 text-sm text-on-surface-variant dark:text-gray-400">
           Bắt đầu hành trình chinh phục tiếng Nhật ngay hôm nay

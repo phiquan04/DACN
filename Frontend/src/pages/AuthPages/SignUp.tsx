@@ -6,8 +6,8 @@ export default function SignUp() {
   return (
     <>
       <PageMeta
-        title="Đăng ký | Kizuna AI"
-        description="Tạo tài khoản Kizuna AI để bắt đầu hành trình chinh phục tiếng Nhật."
+        title="Đăng ký | Manabi AI"
+        description="Tạo tài khoản Manabi AI để bắt đầu hành trình chinh phục tiếng Nhật."
       />
       <AuthLayout>
         <SignUpForm />

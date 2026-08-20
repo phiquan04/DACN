@@ -48,7 +48,7 @@ export default function SignInForm() {
     <div>
       <div className="mb-6 text-center">
         <h2 className="text-xl font-semibold text-on-surface dark:text-white/90">
-          Chào mừng bạn quay lại với Kizuna AI
+          Chào mừng bạn quay lại với Manabi AI
         </h2>
         <p className="mt-2 text-sm text-on-surface-variant dark:text-gray-400">
           Log in to continue your learning journey.
@@ -126,7 +126,7 @@ export default function SignInForm() {
           disabled={loading}
           className="flex w-full items-center justify-center gap-2 rounded-full bg-primary px-4 py-3 text-sm font-semibold text-on-primary shadow-theme-xs transition hover:bg-brand-600 disabled:cursor-not-allowed disabled:opacity-50"
         >
-          {loading ? "Đang đăng nhập..." : "Login to Kizuna AI"}
+          {loading ? "Đang đăng nhập..." : "Login to Manabi AI"}
           {!loading && (
             <svg width="18" height="18" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
               <path
