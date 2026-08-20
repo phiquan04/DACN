@@ -1,4 +1,6 @@
+import { useEffect } from "react";
 import { HelmetProvider, Helmet } from "react-helmet-async";
+import { PageHeaderProvider, usePageHeader } from "../../context/PageHeaderContext";
 
 const PageMeta = ({
   title,
@@ -6,15 +8,26 @@ const PageMeta = ({
 }: {
   title: string;
   description: string;
-}) => (
-  <Helmet>
-    <title>{title}</title>
-    <meta name="description" content={description} />
-  </Helmet>
-);
+}) => {
+  const { setPageHeader } = usePageHeader();
+
+  useEffect(() => {
+    setPageHeader(title, description);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [title, description]);
+
+  return (
+    <Helmet>
+      <title>{title}</title>
+      <meta name="description" content={description} />
+    </Helmet>
+  );
+};
 
 export const AppWrapper = ({ children }: { children: React.ReactNode }) => (
-  <HelmetProvider>{children}</HelmetProvider>
+  <HelmetProvider>
+    <PageHeaderProvider>{children}</PageHeaderProvider>
+  </HelmetProvider>
 );
 
 export default PageMeta;

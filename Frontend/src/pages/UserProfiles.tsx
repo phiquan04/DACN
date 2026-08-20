@@ -1,5 +1,4 @@
 import { useEffect, useState } from "react";
-import PageBreadcrumb from "../components/common/PageBreadCrumb";
 import UserMetaCard from "../components/UserProfile/UserMetaCard";
 import UserInfoCard from "../components/UserProfile/UserInfoCard";
 import UserAddressCard from "../components/UserProfile/UserAddressCard";
@@ -49,10 +48,7 @@ export default function UserProfiles() {
         title="User Profile"
         description="Thông tin hồ sơ người dùng"
       />
-      <PageBreadcrumb pageTitle="Profile" />
       <div className="rounded-2xl border border-gray-200 bg-white p-5 dark:border-gray-800 dark:bg-white/[0.03] lg:p-6">
-        
-
         {loading ? (
           <p>Đang tải...</p>
         ) : error ? (

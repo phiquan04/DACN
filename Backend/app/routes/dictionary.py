@@ -33,6 +33,7 @@ _translation_cache: dict = {}
 _example_cache: dict = {}
 _synonym_cache: dict = {}
 _meaning_search_cache: dict = {}
+_reading_cache: dict = {}
 
 GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
 OPENROUTER_API_KEY = os.getenv("OPENROUTER_API_KEY")
@@ -92,6 +93,9 @@ class HistoryItem(BaseModel):
 
 class VietnameseMeaningRequest(BaseModel):
     vietnamese: str
+
+class ReadingRequest(BaseModel):
+    text: str
 
 async def call_ai(prompt: str) -> str:
     url = "https://openrouter.ai/api/v1/chat/completions"
@@ -260,6 +264,38 @@ async def search_words_by_vietnamese(req: VietnameseMeaningRequest):
     except Exception as e:
         print(f"Error parsing search-by-meaning: {e}\nResponse: {response}", flush=True)
     return []
+
+# ---------- Sentence reading / furigana (dùng để tạo bản mẫu luyện phát âm) ----------
+@router.post("/reading")
+async def get_sentence_reading(req: ReadingRequest):
+    """Sinh cách đọc toàn bộ bằng hiragana cho một câu tiếng Nhật tuỳ ý."""
+    text = req.text.strip()
+    if not text:
+        raise HTTPException(status_code=400, detail="Thiếu câu tiếng Nhật")
+
+    cache_key = f"reading:{text}"
+    if cache_key in _reading_cache:
+        return _reading_cache[cache_key]
+
+    prompt = f"""
+    Chuyển câu tiếng Nhật sau đây sang cách đọc toàn bộ bằng hiragana, giữ nguyên trợ từ và dấu câu:
+    "{text}"
+    Chỉ trả về đúng một object JSON dạng {{"reading": "..."}}, không giải thích thêm.
+    """
+    response = await call_ai(prompt)
+    reading = ""
+    if response:
+        try:
+            json_match = re.search(r'\{.*\}', response, re.DOTALL)
+            data = json.loads(json_match.group() if json_match else response)
+            if isinstance(data, dict) and data.get("reading"):
+                reading = data["reading"]
+        except Exception as e:
+            print(f"Error parsing reading response: {e}\nResponse: {response}", flush=True)
+
+    result = {"reading": reading}
+    _reading_cache[cache_key] = result
+    return result
 
 # ---------- Search History endpoints ----------
 @router.post("/history/save")

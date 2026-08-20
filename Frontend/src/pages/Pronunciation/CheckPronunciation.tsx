@@ -1,7 +1,7 @@
-import { useState, useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useSearchParams } from "react-router-dom";
 import PageMeta from "../../components/common/PageMeta";
-import { getStoredUser, fetchHistoryWords } from "../../services/api";
+import { fetchHistoryWords, getStoredUser } from "../../services/api";
 
 // Kiểu dữ liệu cho kết quả đánh giá
 interface EvaluationResult {
@@ -676,46 +676,66 @@ const VoiceMode = () => {
   const [isRecording, setIsRecording] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
   const [evaluation, setEvaluation] = useState<EvaluationResult | null>(null);
-  const [webSpeechText, setWebSpeechText] = useState(""); // chỉ để hiển thị
+  const [sampleReading, setSampleReading] = useState<string | null>(null);
+  const [sampleText, setSampleText] = useState("");
+  const [generatingSample, setGeneratingSample] = useState(false);
+  const [recordedAudioUrl, setRecordedAudioUrl] = useState<string | null>(null);
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const audioChunksRef = useRef<Blob[]>([]);
-  const recognitionRef = useRef<any>(null);
   const BASE_URL = import.meta.env.VITE_API_URL || "http://localhost:8080";
 
-  // Khởi tạo Web Speech API (chỉ để hiển thị, không dùng để chấm điểm)
-  useEffect(() => {
-    if (!("webkitSpeechRecognition" in window) && !("SpeechRecognition" in window)) {
-      console.warn("Trình duyệt không hỗ trợ Web Speech API");
-      return;
-    }
-    const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
-    const recognition = new SpeechRecognition();
-    recognition.continuous = false;
-    recognition.interimResults = false;
-    recognition.lang = "ja-JP";
-    recognition.onresult = (event: any) => {
-      const transcript = event.results[0][0].transcript;
-      setWebSpeechText(transcript);
-    };
-    recognition.onerror = (event: any) => {
-      console.error("Web Speech error", event.error);
-    };
-    recognitionRef.current = recognition;
-  }, []);
-
-  const startWebSpeech = () => {
-    if (recognitionRef.current) {
-      recognitionRef.current.start();
-    } else {
-      alert("Trình duyệt không hỗ trợ nhận diện giọng nói.");
-    }
+  const clearRecordedAudio = () => {
+    setRecordedAudioUrl(prev => {
+      if (prev) URL.revokeObjectURL(prev);
+      return null;
+    });
   };
 
-  const startRecording = async () => {
+  const handleGenerateSample = async () => {
     if (!expectedText.trim()) {
       alert("Vui lòng nhập câu tiếng Nhật muốn luyện trước.");
       return;
     }
+    setGeneratingSample(true);
+    setEvaluation(null);
+    clearRecordedAudio();
+    try {
+      const res = await fetch(`${BASE_URL}/api/dictionary/reading`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ text: expectedText }),
+      });
+      const data = await res.json();
+      setSampleText(expectedText);
+      setSampleReading(data.reading || "");
+    } catch (err) {
+      console.error("Lỗi tạo bản mẫu:", err);
+      alert("Không thể tạo bản mẫu. Vui lòng thử lại.");
+    } finally {
+      setGeneratingSample(false);
+    }
+  };
+
+  const handlePlayNative = () => {
+    if (!sampleText) return;
+    const utterance = new SpeechSynthesisUtterance(sampleText);
+    utterance.lang = "ja-JP";
+    utterance.rate = 0.8;
+    window.speechSynthesis.speak(utterance);
+  };
+
+  const handlePlayRecording = () => {
+    if (!recordedAudioUrl) return;
+    const audio = new Audio(recordedAudioUrl);
+    audio.play();
+  };
+
+  const startRecording = async () => {
+    if (!sampleText) {
+      alert("Vui lòng tạo bản mẫu trước khi ghi âm.");
+      return;
+    }
+    clearRecordedAudio();
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
       const mimeType = getSupportedMimeType();
@@ -736,9 +756,11 @@ const VoiceMode = () => {
           return;
         }
         const audioBlob = new Blob(audioChunksRef.current, { type: mimeType || "audio/webm" });
+        setRecordedAudioUrl(URL.createObjectURL(audioBlob));
+
         const formData = new FormData();
         formData.append("audio", audioBlob, "recording.webm");
-        formData.append("expected_text", expectedText);
+        formData.append("expected_text", sampleText);
 
         setIsProcessing(true);
         try {
@@ -779,19 +801,20 @@ const VoiceMode = () => {
 
   const handleTryAgain = () => {
     setEvaluation(null);
-    setWebSpeechText("");
     setIsRecording(false);
     setIsProcessing(false);
+    clearRecordedAudio();
   };
 
+  const isDeviation = !!evaluation && !evaluation.wrong_word && evaluation.intonation < 75;
   const ringCircumference = 2 * Math.PI * 40;
   const ringOffset = evaluation
     ? ringCircumference - (Math.min(evaluation.overall, 100) / 100) * ringCircumference
     : ringCircumference;
 
   return (
-    <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
-      <div className="rounded-3xl border border-outline-variant/60 bg-surface-container-lowest p-8 shadow-theme-xs dark:border-gray-700 dark:bg-gray-900 lg:col-span-2">
+    <div className="space-y-6">
+      <div className="rounded-3xl border border-outline-variant/60 bg-surface-container-lowest p-8 shadow-theme-xs dark:border-gray-700 dark:bg-gray-900">
         <div className="mb-6 inline-flex items-center gap-2 text-sm font-medium text-secondary dark:text-secondary-fixed-dim">
           <SpeakerIcon className="w-4 h-4" />
           Câu tự do
@@ -809,38 +832,104 @@ const VoiceMode = () => {
             className="min-w-0 flex-1 rounded-full border border-outline-variant/60 px-4 py-2.5 text-on-surface focus:border-primary focus:outline-none focus:ring-3 focus:ring-brand-500/20 dark:bg-gray-800 dark:border-gray-600 dark:text-white"
           />
           <button
-            onClick={startWebSpeech}
-            disabled={!expectedText.trim() && !("webkitSpeechRecognition" in window)}
-            className="flex-shrink-0 rounded-full border border-outline-variant/60 px-4 py-2.5 text-sm font-medium text-on-surface-variant hover:border-outline hover:text-on-surface dark:border-gray-600 dark:text-gray-300 dark:hover:border-gray-500 transition-colors"
+            onClick={handleGenerateSample}
+            disabled={generatingSample || !expectedText.trim()}
+            className="flex-shrink-0 rounded-full border border-outline-variant/60 px-4 py-2.5 text-sm font-medium text-on-surface-variant hover:border-outline hover:text-on-surface disabled:opacity-50 dark:border-gray-600 dark:text-gray-300 dark:hover:border-gray-500 transition-colors"
           >
-            🎙️ Thử nhận diện nhanh
+            {generatingSample ? "Đang tạo..." : "📝 Tạo bản mẫu"}
           </button>
         </div>
 
-        {webSpeechText && (
-          <div className="mt-4 rounded-xl bg-secondary-container/30 p-3 dark:bg-blue-500/10">
-            <p className="text-xs text-on-secondary-container dark:text-blue-400">Web Speech nhận diện:</p>
-            <p className="text-sm font-semibold text-on-surface dark:text-white">{webSpeechText}</p>
+        {sampleReading !== null && (
+          <div className="mt-8 border-t border-outline-variant/60 pt-8 text-center dark:border-gray-700">
+            <div className="mb-4 inline-flex items-center gap-2 text-sm font-medium text-secondary dark:text-secondary-fixed-dim">
+              <SpeakerIcon className="w-4 h-4" />
+              Bản mẫu
+            </div>
+            {sampleReading && <div className="text-sm text-on-surface-variant dark:text-gray-400">{sampleReading}</div>}
+            <div lang="ja" className="my-2 text-3xl font-bold text-on-surface dark:text-white">{sampleText}</div>
+
+            <button
+              onClick={!isRecording ? startRecording : stopRecording}
+              disabled={isProcessing}
+              className={`mx-auto mt-4 flex h-24 w-24 items-center justify-center rounded-full shadow-theme-md transition-colors disabled:opacity-50 ${
+                isRecording ? "bg-error text-on-error hover:bg-error/90" : "bg-primary text-on-primary hover:bg-brand-600"
+              }`}
+            >
+              <MicIcon className={`w-9 h-9 ${isRecording ? "animate-pulse" : ""}`} />
+            </button>
+            <p className="mt-4 text-sm font-medium text-on-surface-variant dark:text-gray-400">
+              {isRecording ? "Đang ghi âm — nhấn để dừng" : isProcessing ? "Đang xử lý..." : "Nhấn để ghi âm & đánh giá"}
+            </p>
+
+            <button
+              onClick={handlePlayNative}
+              className="mx-auto mt-4 flex items-center gap-2 rounded-full border border-outline-variant/60 px-4 py-1.5 text-xs font-medium text-on-surface-variant hover:border-outline hover:text-on-surface dark:border-gray-700 dark:text-gray-400 dark:hover:border-gray-600 dark:hover:text-white transition-colors"
+            >
+              <SpeakerIcon className="w-3.5 h-3.5" />
+              Nghe phát âm chuẩn
+            </button>
           </div>
         )}
-
-        <div className="mt-8 flex flex-col items-center">
-          <button
-            onClick={!isRecording ? startRecording : stopRecording}
-            disabled={isProcessing || !expectedText.trim()}
-            className={`flex h-24 w-24 items-center justify-center rounded-full shadow-theme-md transition-colors disabled:opacity-50 ${
-              isRecording ? "bg-error text-on-error hover:bg-error/90" : "bg-primary text-on-primary hover:bg-brand-600"
-            }`}
-          >
-            <MicIcon className={`w-9 h-9 ${isRecording ? "animate-pulse" : ""}`} />
-          </button>
-          <p className="mt-4 text-sm font-medium text-on-surface-variant dark:text-gray-400">
-            {isRecording ? "Đang ghi âm — nhấn để dừng" : isProcessing ? "Đang xử lý..." : "Nhấn để ghi âm & đánh giá"}
-          </p>
-        </div>
       </div>
 
-      <div className="space-y-6">
+      {sampleReading !== null && (
+        <div className="rounded-3xl border border-outline-variant/60 bg-surface-container-lowest p-6 shadow-theme-xs dark:border-gray-700 dark:bg-gray-900">
+          <h3 className="mb-5 flex items-center gap-2 text-base font-semibold text-on-surface dark:text-white/90">
+            <svg className="w-5 h-5 text-secondary" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M3 12h2l2-7 3 14 3-10 2 5h4" />
+            </svg>
+            Phân tích âm thanh
+          </h3>
+
+          <div className="mb-5">
+            <div className="mb-2 flex items-center justify-between">
+              <span className="text-sm font-medium text-on-surface-variant dark:text-gray-300">Giọng chuẩn (Native)</span>
+              <button
+                onClick={handlePlayNative}
+                className="flex h-7 w-7 items-center justify-center rounded-full bg-secondary-container text-on-secondary-container hover:opacity-80 transition-opacity"
+              >
+                <PlayIcon className="w-3.5 h-3.5" />
+              </button>
+            </div>
+            <div className="flex items-center rounded-xl bg-surface-container px-4 py-3 dark:bg-gray-800">
+              <Waveform active />
+            </div>
+          </div>
+
+          <div>
+            <div className="mb-2 flex items-center justify-between">
+              <span className="text-sm font-medium text-on-surface-variant dark:text-gray-300">Bản ghi của bạn</span>
+              <button
+                onClick={handlePlayRecording}
+                disabled={!recordedAudioUrl}
+                className="flex h-7 w-7 items-center justify-center rounded-full bg-secondary-container text-on-secondary-container hover:opacity-80 transition-opacity disabled:opacity-40 disabled:cursor-not-allowed"
+              >
+                <PlayIcon className="w-3.5 h-3.5" />
+              </button>
+            </div>
+            <div className={`flex items-center rounded-xl px-4 py-3 transition-colors ${isDeviation ? "bg-error-container/50 dark:bg-red-500/10" : "bg-surface-container dark:bg-gray-800"}`}>
+              <Waveform active={!!recordedAudioUrl} deviation={isDeviation} />
+            </div>
+            {isDeviation && (
+              <p className="mt-2 flex items-center gap-1.5 text-xs font-medium text-error dark:text-red-400">
+                <WarnIcon />
+                Phát hiện lệch ngữ điệu (pitch deviation)
+              </p>
+            )}
+            {!recordedAudioUrl && !isProcessing && (
+              <p className="mt-2 text-xs text-on-surface-variant dark:text-gray-500">Chưa có bản ghi — hãy nhấn nút ghi âm ở trên.</p>
+            )}
+            {evaluation?.recognized_text && (
+              <p className="mt-2 text-xs text-on-surface-variant dark:text-gray-400">
+                Nhận diện được: <span className="font-semibold text-on-surface dark:text-white">「{evaluation.recognized_text}」</span>
+              </p>
+            )}
+          </div>
+        </div>
+      )}
+
+      <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
         <div className="rounded-3xl border border-outline-variant/60 bg-surface-container-lowest p-6 text-center shadow-theme-xs dark:border-gray-700 dark:bg-gray-900">
           <h3 className="mb-4 text-base font-semibold text-on-surface dark:text-white/90">Điểm tổng quan</h3>
           {evaluation && !evaluation.wrong_word ? (
@@ -948,15 +1037,7 @@ export default function CheckPronunciation() {
         description="Luyện phát âm từ có sẵn hoặc sử dụng giọng nói để nhận diện và sửa phát âm"
       />
       <div className="container mx-auto px-4 py-6">
-        <div className="mb-6 flex flex-wrap items-start justify-between gap-4">
-          <div>
-            <h1 className="text-2xl font-bold text-on-surface dark:text-white/90">
-              Speech Lab: Luyện phát âm
-            </h1>
-            <p className="mt-1 text-sm text-on-surface-variant dark:text-gray-400">
-              Ghi âm và nhận đánh giá phát âm tiếng Nhật tức thì từ AI.
-            </p>
-          </div>
+        <div className="mb-6 flex justify-end">
           <span className="inline-flex items-center gap-2 rounded-full bg-primary px-4 py-1.5 text-xs font-medium text-on-primary">
             <span className="h-1.5 w-1.5 rounded-full bg-success-400 animate-pulse" />
             AI đang lắng nghe
@@ -966,7 +1047,7 @@ export default function CheckPronunciation() {
         <div className="mb-8 grid grid-cols-1 gap-4 sm:grid-cols-2">
           <button
             onClick={() => setActiveMode("predefined")}
-            className={`rounded-2xl px-6 py-4 font-medium text-left transition-all ${
+            className={`rounded-2xl px-6 py-4 font-medium text-center transition-all ${
               activeMode === "predefined"
                 ? "bg-primary text-on-primary shadow-theme-md"
                 : "bg-surface-container-lowest border border-outline-variant/60 text-on-surface hover:border-outline-variant dark:bg-gray-900 dark:border-gray-700 dark:text-gray-200 dark:hover:border-gray-600"
@@ -979,7 +1060,7 @@ export default function CheckPronunciation() {
           </button>
           <button
             onClick={() => setActiveMode("voice")}
-            className={`rounded-2xl px-6 py-4 font-medium text-left transition-all ${
+            className={`rounded-2xl px-6 py-4 font-medium text-center transition-all ${
               activeMode === "voice"
                 ? "bg-primary text-on-primary shadow-theme-md"
                 : "bg-surface-container-lowest border border-outline-variant/60 text-on-surface hover:border-outline-variant dark:bg-gray-900 dark:border-gray-700 dark:text-gray-200 dark:hover:border-gray-600"
