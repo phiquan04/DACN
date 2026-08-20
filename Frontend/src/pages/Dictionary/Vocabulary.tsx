@@ -2,7 +2,6 @@ import { useState, useEffect, useCallback } from "react";
 import { useNavigate } from "react-router-dom"; // ✅ thêm useNavigate
 import PageMeta from "../../components/common/PageMeta";
 import InputField from "../../components/form/input/InputField";
-import Button from "../../components/ui/button/Button";
 import {
   lookupWord,
   DictionaryResult,
@@ -240,8 +239,8 @@ export default function Vocabulary() {
         {/* ===== LEFT: Dictionary lookup ===== */}
         <div className="flex-1 min-w-0 space-y-6">
           {/* Search bar */}
-          <form onSubmit={handleSearch} className="flex gap-3 items-end">
-            <div className="flex-1">
+          <form onSubmit={handleSearch} className="flex gap-3 items-center">
+            <div className="relative flex-1">
               <InputField
                 id="search"
                 type="text"
@@ -249,16 +248,33 @@ export default function Vocabulary() {
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
                 disabled={loading}
+                className="!rounded-full !pl-5 !pr-12 !py-3 !border-outline-variant/60 dark:!border-gray-700"
               />
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                viewBox="0 0 20 20"
+                fill="currentColor"
+                className="pointer-events-none absolute right-4 top-1/2 h-5 w-5 -translate-y-1/2 text-outline dark:text-gray-500"
+              >
+                <path
+                  fillRule="evenodd"
+                  d="M9 3.5a5.5 5.5 0 100 11 5.5 5.5 0 000-11zM2 9a7 7 0 1112.452 4.391l3.328 3.329a.75.75 0 11-1.06 1.06l-3.329-3.328A7 7 0 012 9z"
+                  clipRule="evenodd"
+                />
+              </svg>
             </div>
-            <Button size="sm" disabled={loading}>
+            <button
+              type="submit"
+              disabled={loading}
+              className="shrink-0 rounded-full bg-primary px-6 py-3 text-sm font-semibold text-on-primary shadow-theme-xs transition hover:bg-brand-600 disabled:opacity-50 dark:bg-primary-container dark:hover:bg-brand-700"
+            >
               {loading ? "Đang tìm..." : "Tra cứu"}
-            </Button>
+            </button>
           </form>
 
           {/* Error */}
           {error && (
-            <div className="rounded-lg border border-red-200 bg-red-50 p-4 text-red-700 dark:border-red-800 dark:bg-red-900/30 dark:text-red-300">
+            <div className="rounded-xl border border-error/30 bg-error-container p-4 text-on-error-container dark:border-red-800 dark:bg-red-900/30 dark:text-red-300">
               {error}
             </div>
           )}
@@ -269,21 +285,21 @@ export default function Vocabulary() {
               {results.map((item, idx) => (
                 <div
                   key={idx}
-                  className="w-full max-w-full overflow-hidden rounded-lg border border-gray-200 bg-white p-5 shadow-sm dark:border-gray-700 dark:bg-gray-900"
+                  className="w-full max-w-full overflow-hidden rounded-2xl border border-outline-variant/60 bg-surface-container-lowest p-5 shadow-theme-xs dark:border-gray-700 dark:bg-gray-900"
                 >
                   {/* Word and Reading - thêm nút luyện phát âm */}
                   <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
                     <div className="flex flex-wrap items-center gap-3">
-                      <h3 className="text-xl font-bold text-gray-900 dark:text-white break-words">
+                      <h3 lang="ja" className="text-2xl font-bold text-on-surface dark:text-white break-words">
                         {item.word}
                       </h3>
-                      <span className="text-sm text-gray-500 dark:text-gray-400 break-words">
+                      <span className="text-sm text-on-surface-variant dark:text-gray-400 break-words">
                         {item.reading}
                       </span>
                     </div>
                     <button
                       onClick={() => handlePracticePronunciation(item.word, item.reading, item.definitions[0]?.meaning || "")}
-                      className="px-3 py-1.5 text-xs bg-brand-500 text-white rounded-md hover:bg-brand-600 transition shadow-sm"
+                      className="px-3 py-1.5 text-xs font-medium bg-secondary-fixed text-on-secondary-fixed rounded-lg hover:bg-secondary-fixed-dim transition shadow-theme-xs"
                     >
                       Luyện phát âm
                     </button>
@@ -292,12 +308,12 @@ export default function Vocabulary() {
                   {/* JLPT & Frequency */}
                   <div className="mb-3 flex flex-wrap gap-2">
                     {item.jlpt && item.jlpt !== "N/A" && (
-                      <span className="inline-block rounded bg-blue-100 px-2 py-1 text-xs font-medium text-blue-800 dark:bg-blue-900/30 dark:text-blue-300">
+                      <span className="inline-block rounded-full bg-primary-fixed px-2.5 py-1 text-xs font-medium text-on-primary-fixed">
                         JLPT {item.jlpt}
                       </span>
                     )}
                     {item.frequency && item.frequency !== "N/A" && (
-                      <span className="inline-block rounded bg-green-100 px-2 py-1 text-xs font-medium text-green-800 dark:bg-green-900/30 dark:text-green-300">
+                      <span className="inline-block rounded-full bg-surface-container-high px-2.5 py-1 text-xs font-medium text-on-surface-variant">
                         #{item.frequency}
                       </span>
                     )}
@@ -305,31 +321,31 @@ export default function Vocabulary() {
 
                   {/* Definitions */}
                   <div className="space-y-2 mb-4">
-                    <h4 className="text-sm font-semibold text-gray-700 dark:text-gray-300">Nghĩa:</h4>
+                    <h4 className="text-sm font-semibold text-on-surface dark:text-gray-300">Nghĩa:</h4>
                     {item.definitions.map((def, defIdx) => (
                       <div key={defIdx} className="text-sm">
-                        <p className="text-gray-800 dark:text-gray-200 break-words">{def.meaning}</p>
+                        <p className="text-on-surface-variant dark:text-gray-200 break-words">{def.meaning}</p>
                         {def.pos && (
-                          <p className="text-xs text-gray-500 dark:text-gray-400 break-words">({def.pos})</p>
+                          <p className="text-xs text-outline dark:text-gray-400 break-words">({def.pos})</p>
                         )}
                       </div>
                     ))}
                   </div>
 
                   {/* Examples box */}
-                  <div className="mb-4 p-3 rounded-md bg-gray-50 dark:bg-gray-800">
+                  <div className="mb-4 p-3 rounded-xl bg-surface-container dark:bg-gray-800">
                     <div className="flex justify-between items-center mb-2 flex-wrap gap-2">
-                      <h4 className="text-sm font-semibold text-gray-700 dark:text-gray-300">
+                      <h4 className="text-sm font-semibold text-on-surface dark:text-gray-300">
                         Ví dụ:
                       </h4>
                     </div>
 
                     {loadingExamples && (
                       <div className="space-y-2 animate-pulse">
-                        <div className="h-3 bg-gray-200 dark:bg-gray-700 rounded w-3/4" />
-                        <div className="h-3 bg-gray-200 dark:bg-gray-700 rounded w-1/2" />
-                        <div className="h-3 bg-gray-200 dark:bg-gray-700 rounded w-3/4 mt-2" />
-                        <div className="h-3 bg-gray-200 dark:bg-gray-700 rounded w-1/2" />
+                        <div className="h-3 bg-surface-container-high dark:bg-gray-700 rounded w-3/4" />
+                        <div className="h-3 bg-surface-container-high dark:bg-gray-700 rounded w-1/2" />
+                        <div className="h-3 bg-surface-container-high dark:bg-gray-700 rounded w-3/4 mt-2" />
+                        <div className="h-3 bg-surface-container-high dark:bg-gray-700 rounded w-1/2" />
                       </div>
                     )}
 
@@ -337,31 +353,31 @@ export default function Vocabulary() {
                       <div className="space-y-2">
                         {examplesData.slice(0, 3).map((ex, exIdx) => (
                           <div key={exIdx} className="text-sm">
-                            <p className="text-gray-800 dark:text-gray-200 font-medium break-words">{ex.japanese}</p>
-                            <p className="text-xs text-gray-500 dark:text-gray-400 break-words">{ex.vietnamese}</p>
+                            <p lang="ja" className="text-on-surface font-medium dark:text-gray-200 break-words">{ex.japanese}</p>
+                            <p className="text-xs text-on-surface-variant dark:text-gray-400 break-words">{ex.vietnamese}</p>
                           </div>
                         ))}
                       </div>
                     )}
 
                     {!loadingExamples && examplesData.length === 0 && (
-                      <p className="text-xs text-gray-400 italic">Không tìm được ví dụ.</p>
+                      <p className="text-xs text-outline italic">Không tìm được ví dụ.</p>
                     )}
                   </div>
 
                   {/* Synonyms box */}
-                  <div className="p-3 rounded-md bg-gray-50 dark:bg-gray-800">
+                  <div className="p-3 rounded-xl bg-surface-container dark:bg-gray-800">
                     <div className="flex justify-between items-center mb-2 flex-wrap gap-2">
-                      <h4 className="text-sm font-semibold text-gray-700 dark:text-gray-300">
+                      <h4 className="text-sm font-semibold text-on-surface dark:text-gray-300">
                         Từ đồng nghĩa:
-                      </h4> 
+                      </h4>
                     </div>
 
                     {loadingSynonyms && (
                       <div className="flex gap-2 animate-pulse">
-                        <div className="h-6 bg-gray-200 dark:bg-gray-700 rounded-full w-16" />
-                        <div className="h-6 bg-gray-200 dark:bg-gray-700 rounded-full w-20" />
-                        <div className="h-6 bg-gray-200 dark:bg-gray-700 rounded-full w-14" />
+                        <div className="h-6 bg-surface-container-high dark:bg-gray-700 rounded-full w-16" />
+                        <div className="h-6 bg-surface-container-high dark:bg-gray-700 rounded-full w-20" />
+                        <div className="h-6 bg-surface-container-high dark:bg-gray-700 rounded-full w-14" />
                       </div>
                     )}
 
@@ -370,7 +386,7 @@ export default function Vocabulary() {
                         {synonymsData.slice(0, 8).map((syn, synIdx) => (
                           <span
                             key={synIdx}
-                            className="inline-block rounded-full bg-indigo-100 px-3 py-1 text-xs font-medium text-indigo-800 dark:bg-indigo-900/30 dark:text-indigo-300 break-words"
+                            className="inline-block rounded-full bg-secondary-container/60 px-3 py-1 text-xs font-medium text-on-secondary-container break-words"
                           >
                             {syn}
                           </span>
@@ -379,7 +395,7 @@ export default function Vocabulary() {
                     )}
 
                     {!loadingSynonyms && synonymsData.length === 0 && (
-                      <p className="text-xs text-gray-400 italic">Không tìm được từ đồng nghĩa.</p>
+                      <p className="text-xs text-outline italic">Không tìm được từ đồng nghĩa.</p>
                     )}
                   </div>
                 </div>
@@ -388,94 +404,110 @@ export default function Vocabulary() {
           )}
 
           {searchPerformed && results.length === 0 && !loading && (
-            <div className="py-10 text-center text-gray-500 dark:text-gray-400">
+            <div className="flex min-h-[600px] flex-col items-center justify-center gap-4 rounded-2xl border-2 border-dashed border-outline-variant/60 text-center text-on-surface-variant dark:border-gray-700 dark:text-gray-400">
               {error ? "Lỗi khi tra cứu từ" : "Không tìm thấy từ vựng phù hợp."}
             </div>
           )}
 
           {!searchPerformed && (
-            <div className="py-10 text-center text-gray-400">
-              Nhập từ tiếng Nhật để bắt đầu tra cứu...
+            <div className="flex min-h-[600px] flex-col items-center justify-center gap-5 rounded-2xl border-2 border-dashed border-outline-variant/60 dark:border-gray-700">
+              <div className="relative h-14 w-14 text-outline-variant dark:text-gray-600">
+                <span className="absolute left-0 top-0 text-4xl font-medium leading-none">文</span>
+                <span className="absolute bottom-0 right-0 text-2xl font-semibold leading-none">A</span>
+              </div>
+              <p className="text-base text-outline dark:text-gray-500">
+                Nhập từ tiếng Nhật để bắt đầu tra cứu...
+              </p>
             </div>
           )}
         </div>
 
         {/* ===== RIGHT: Search history sidebar ===== */}
-        <aside className="w-64 shrink-0 sticky top-4">
-          <div className="rounded-lg border border-gray-200 bg-white dark:border-gray-700 dark:bg-gray-900 shadow-sm overflow-hidden">
-            {/* Header */}
-            <div className="flex items-center justify-between px-4 py-3 border-b border-gray-100 dark:border-gray-800">
-              <h2 className="text-sm font-semibold text-gray-700 dark:text-gray-200">
-                🕘 Lịch sử tra cứu
+        <aside className="w-80 shrink-0">
+          {/* Header */}
+          <div className="mb-4 flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                viewBox="0 0 20 20"
+                fill="currentColor"
+                className="h-4 w-4 text-on-surface-variant dark:text-gray-400"
+              >
+                <path
+                  fillRule="evenodd"
+                  d="M10 18a8 8 0 100-16 8 8 0 000 16zm.75-13a.75.75 0 00-1.5 0v5c0 .414.336.75.75.75h4a.75.75 0 000-1.5h-3.25V5z"
+                  clipRule="evenodd"
+                />
+              </svg>
+              <h2 className="text-sm font-semibold text-on-surface dark:text-gray-200">
+                Lịch sử tra cứu
               </h2>
-              {history.length > 0 && (
-                <button
-                  onClick={handleClearHistory}
-                  className="text-xs text-red-400 hover:text-red-600 dark:hover:text-red-300 transition-colors"
-                  title="Xóa toàn bộ lịch sử"
+            </div>
+            {history.length > 0 && (
+              <button
+                onClick={handleClearHistory}
+                className="text-xs font-medium text-error hover:opacity-80 dark:hover:text-red-300 transition-colors"
+                title="Xóa toàn bộ lịch sử"
+              >
+                Xóa tất cả
+              </button>
+            )}
+          </div>
+
+          {/* Body */}
+          <div className="max-h-[calc(100vh-12rem)] space-y-3 overflow-y-auto pr-1">
+            {!currentUser && (
+              <p className="rounded-2xl border border-outline-variant/60 px-4 py-6 text-center text-xs text-outline dark:border-gray-700 dark:text-gray-500">
+                Đăng nhập để lưu lịch sử tra cứu.
+              </p>
+            )}
+
+            {currentUser && loadingHistory && (
+              <p className="rounded-2xl border border-outline-variant/60 px-4 py-6 text-center text-xs italic text-outline dark:border-gray-700">
+                Đang tải...
+              </p>
+            )}
+
+            {currentUser && !loadingHistory && history.length === 0 && (
+              <p className="rounded-2xl border border-outline-variant/60 px-4 py-6 text-center text-xs text-outline dark:border-gray-700 dark:text-gray-500">
+                Chưa có từ nào được tra cứu.
+              </p>
+            )}
+
+            {currentUser &&
+              !loadingHistory &&
+              history.length > 0 &&
+              history.map((item) => (
+                <div
+                  key={item.id}
+                  className="group relative cursor-pointer rounded-2xl border border-outline-variant/60 bg-surface-container-lowest px-5 py-4 shadow-theme-xs transition hover:border-outline-variant hover:shadow-theme-sm dark:border-gray-700 dark:bg-gray-900"
+                  onClick={() => handleHistoryClick(item)}
                 >
-                  Xóa tất cả
-                </button>
-              )}
-            </div>
+                  <button
+                    onClick={(e) => handleDeleteHistoryItem(e, item)}
+                    className="absolute right-3 top-3 shrink-0 text-outline-variant opacity-0 transition-all hover:text-error group-hover:opacity-100 dark:text-gray-600 dark:hover:text-red-400"
+                    title="Xóa mục này"
+                  >
+                    <svg xmlns="http://www.w3.org/2000/svg" className="h-3.5 w-3.5" viewBox="0 0 20 20" fill="currentColor">
+                      <path fillRule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clipRule="evenodd" />
+                    </svg>
+                  </button>
 
-            {/* Body */}
-            <div className="max-h-[calc(100vh-12rem)] overflow-y-auto">
-              {!currentUser && (
-                <p className="px-4 py-6 text-xs text-center text-gray-400 dark:text-gray-500">
-                  Đăng nhập để lưu lịch sử tra cứu.
-                </p>
-              )}
-
-              {currentUser && loadingHistory && (
-                <p className="px-4 py-6 text-xs text-center text-gray-400 italic">
-                  Đang tải...
-                </p>
-              )}
-
-              {currentUser && !loadingHistory && history.length === 0 && (
-                <p className="px-4 py-6 text-xs text-center text-gray-400 dark:text-gray-500">
-                  Chưa có từ nào được tra cứu.
-                </p>
-              )}
-
-              {currentUser && !loadingHistory && history.length > 0 && (
-                <ul className="divide-y divide-gray-100 dark:divide-gray-800">
-                  {history.map((item) => (
-                    <li
-                      key={item.id}
-                      className="group flex items-start justify-between gap-2 px-4 py-3 cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors"
-                      onClick={() => handleHistoryClick(item)}
-                    >
-                      <div className="min-w-0 flex-1">
-                        <p className="text-sm font-medium text-gray-900 dark:text-white truncate">
-                          {item.word}
-                        </p>
-                        {item.reading && item.reading !== item.word && (
-                          <p className="text-xs text-gray-400 dark:text-gray-500 truncate">
-                            {item.reading}
-                          </p>
-                        )}
-                        {item.meaning && (
-                          <p className="text-xs text-gray-500 dark:text-gray-400 truncate mt-0.5">
-                            {item.meaning}
-                          </p>
-                        )}
-                      </div>
-                      <button
-                        onClick={(e) => handleDeleteHistoryItem(e, item)}
-                        className="opacity-0 group-hover:opacity-100 shrink-0 text-gray-300 hover:text-red-400 dark:text-gray-600 dark:hover:text-red-400 transition-all mt-0.5"
-                        title="Xóa mục này"
-                      >
-                        <svg xmlns="http://www.w3.org/2000/svg" className="h-3.5 w-3.5" viewBox="0 0 20 20" fill="currentColor">
-                          <path fillRule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clipRule="evenodd" />
-                        </svg>
-                      </button>
-                    </li>
-                  ))}
-                </ul>
-              )}
-            </div>
+                  <p lang="ja" className="pr-5 text-lg font-bold text-on-surface dark:text-white truncate">
+                    {item.word}
+                  </p>
+                  {item.reading && item.reading !== item.word && (
+                    <p className="mt-0.5 text-sm text-outline dark:text-gray-500 truncate">
+                      {item.reading}
+                    </p>
+                  )}
+                  {item.meaning && (
+                    <p className="mt-1.5 text-xs text-on-surface-variant dark:text-gray-400 truncate">
+                      {item.meaning}
+                    </p>
+                  )}
+                </div>
+              ))}
           </div>
         </aside>
       </div>

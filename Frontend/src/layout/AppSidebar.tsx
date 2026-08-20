@@ -17,6 +17,7 @@ import {
   TaskIcon,
 } from "../icons";
 import SidebarWidget from "./SidebarWidget";
+import Logo from "../components/common/Logo";
 
 type NavItem = {
   name: string;
@@ -89,9 +90,10 @@ const AppSidebar: React.FC = () => {
   );
   const subMenuRefs = useRef<Record<string, HTMLDivElement | null>>({});
 
-  // const isActive = (path: string) => location.pathname === path;
   const isActive = useCallback(
-    (path: string) => location.pathname === path,
+    (path: string) =>
+      location.pathname === path ||
+      (path === "/dictionary" && location.pathname === "/"),
     [location.pathname]
   );
 
@@ -269,7 +271,7 @@ const AppSidebar: React.FC = () => {
 
   return (
     <aside
-      className={`fixed mt-16 flex flex-col lg:mt-0 top-0 px-5 left-0 bg-white dark:bg-gray-900 dark:border-gray-800 text-gray-900 h-screen transition-all duration-300 ease-in-out z-50 border-r border-gray-200 
+      className={`fixed mt-16 flex flex-col lg:mt-0 top-0 px-5 left-0 bg-surface-container-lowest dark:bg-gray-900 dark:border-gray-800 text-on-surface h-screen transition-all duration-300 ease-in-out z-50 border-r border-outline-variant/60
         ${
           isExpanded || isMobileOpen
             ? "w-[290px]"
@@ -283,18 +285,28 @@ const AppSidebar: React.FC = () => {
       onMouseLeave={() => setIsHovered(false)}
     >
       <div
-        className={`py-8 flex ${
+        className={`flex items-center gap-3 py-6 border-b border-outline-variant/60 ${
           !isExpanded && !isHovered ? "lg:justify-center" : "justify-start"
         }`}
       >
-       
+        <Link to="/dictionary" className="flex items-center gap-3 shrink-0">
+          <Logo size={36} />
+          {(isExpanded || isHovered || isMobileOpen) && (
+            <span className="flex flex-col leading-tight">
+              <span className="text-base font-bold text-on-surface">
+                Manabi<span className="text-secondary">AI</span>
+              </span>
+              <span className="text-xs text-on-surface-variant">Học tiếng Nhật cùng AI</span>
+            </span>
+          )}
+        </Link>
       </div>
       <div className="flex flex-col overflow-y-auto duration-300 ease-linear no-scrollbar">
-        <nav className="mb-6">
+        <nav className="mt-6 mb-6">
           <div className="flex flex-col gap-4">
             <div>
               <h2
-                className={`mb-4 text-xs uppercase flex leading-[20px] text-gray-400 ${
+                className={`mb-4 text-xs uppercase flex leading-[20px] text-outline dark:text-gray-500 ${
                   !isExpanded && !isHovered
                     ? "lg:justify-center"
                     : "justify-start"
@@ -310,7 +322,7 @@ const AppSidebar: React.FC = () => {
             </div>
             <div className="">
               <h2
-                className={`mb-4 text-xs uppercase flex leading-[20px] text-gray-400 ${
+                className={`mb-4 text-xs uppercase flex leading-[20px] text-outline dark:text-gray-500 ${
                   !isExpanded && !isHovered
                     ? "lg:justify-center"
                     : "justify-start"
