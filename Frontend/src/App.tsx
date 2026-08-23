@@ -3,7 +3,6 @@ import { ScrollToTop } from "./components/common/ScrollToTop";
 import AppLayout from "./layout/AppLayout";
 import SignIn from "./pages/AuthPages/SignIn";
 import SignUp from "./pages/AuthPages/SignUp";
-import Blank from "./pages/Blank";
 import Calendar from "./pages/Calendar";
 import ChatBot from "./pages/Chatbot/ChatBot";
 import Vocabulary from "./pages/Dictionary/Vocabulary";
@@ -13,16 +12,8 @@ import MeetingRoom from "./pages/Meeting/MeetingRoom";
 import NotFound from "./pages/OtherPage/NotFound";
 import JLPTPracticePage from "./pages/PracticeTest/TestPage";
 import CheckPronunciation from "./pages/Pronunciation/CheckPronunciation";
-import BasicTables from "./pages/Tables/BasicTables";
-import Alerts from "./pages/UiElements/Alerts";
-import Avatars from "./pages/UiElements/Avatars";
-import Badges from "./pages/UiElements/Badges";
-import Buttons from "./pages/UiElements/Buttons";
-import Images from "./pages/UiElements/Images";
-import Videos from "./pages/UiElements/Videos";
 import UserProfiles from "./pages/UserProfiles";
-import BarChart from "./pages/VideoLearn/BarChart";
-import LineChart from "./pages/VideoLearn/JapaneseWatch";
+import JapaneseWatch from "./pages/VideoLearn/JapaneseWatch";
 
 
 export default function App() {
@@ -42,24 +33,9 @@ export default function App() {
             <Route path="/meeting" element={<MeetingLobby />} />
             <Route path="/profile" element={<UserProfiles />} />
             <Route path="/calendar" element={<Calendar />} />
-            <Route path="/blank" element={<Blank />} />
             <Route path="/chat-bot" element={<ChatBot />} />
             <Route path="/jlpt-practice" element={<JLPTPracticePage />} />
-
-            {/* Tables */}
-            <Route path="/basic-tables" element={<BasicTables />} />
-
-            {/* Ui Elements */}
-            <Route path="/alerts" element={<Alerts />} />
-            <Route path="/avatars" element={<Avatars />} />
-            <Route path="/badge" element={<Badges />} />
-            <Route path="/buttons" element={<Buttons />} />
-            <Route path="/images" element={<Images />} />
-            <Route path="/videos" element={<Videos />} />
-
-            {/* Charts */}
-            <Route path="/line-chart" element={<LineChart />} />
-            <Route path="/bar-chart" element={<BarChart />} />
+            <Route path="/line-chart" element={<JapaneseWatch />} />
           </Route>
            <Route path="/meeting/room/:roomID" element={<MeetingRoom />} />
 

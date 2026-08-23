@@ -4,6 +4,7 @@ import { Link } from "react-router";
 import { ThemeToggleButton } from "../components/common/ThemeToggleButton";
 import NotificationDropdown from "../components/header/NotificationDropdown";
 import UserDropdown from "../components/header/UserDropdown";
+import Logo from "../components/common/Logo";
 import { useSidebar } from "../context/SidebarContext";
 import { usePageHeader } from "../context/PageHeaderContext";
 
@@ -86,16 +87,7 @@ const AppHeader: React.FC = () => {
           </button>
 
           <Link to="/" className="lg:hidden">
-            <img
-              className="dark:hidden"
-              src="./images/logo/logo.svg"
-              alt="Logo"
-            />
-            <img
-              className="hidden dark:block"
-              src="./images/logo/logo-dark.svg"
-              alt="Logo"
-            />
+            <Logo size={32} showWordmark />
           </Link>
 
           <button
