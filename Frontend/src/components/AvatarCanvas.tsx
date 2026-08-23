@@ -81,7 +81,6 @@ const AvatarCanvas: React.FC<AvatarCanvasProps> = ({
       ctx.restore();
 
       // ── Cat ears ──────────────────────────────────────────────────
-      const earW = 28, earH = 34;
       ctx.save();
       ctx.translate(cx, baseY + bob);
       ctx.scale(breathScale, breathScale);
