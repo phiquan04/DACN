@@ -79,7 +79,6 @@ cloudinary==1.44.2
 google-api-python-client==2.196.0
 google-auth==2.50.0
 google-auth-oauthlib==0.4.6
-google-generativeai==0.8.6
 
 # Logging
 coloredlogs==15.0.1

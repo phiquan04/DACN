@@ -1,4 +1,5 @@
 Backend/data/model/
+Backend/data/jamdict/
 **/__pycache__/
 *.pyc
 Backend/venv/
