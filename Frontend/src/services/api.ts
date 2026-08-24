@@ -174,16 +174,29 @@ export async function checkHealth(): Promise<boolean> {
 export interface DictionaryDefinition {
   meaning: string;
   pos: string;
+  pos_label: string;
+}
+
+export interface KanjiInfo {
+  literal: string;
+  on_yomi: string[];
+  kun_yomi: string[];
+  hanviet: string[];
+  meaning: string;
+  stroke_count: number | null;
+  jlpt: string | null;
+  grade: string | null;
 }
 
 export interface DictionaryResult {
   word: string;
   reading: string;
-  definitions: Array<{ meaning: string; pos: string }>;
+  definitions: DictionaryDefinition[];
   examples: Array<{ japanese: string; vietnamese: string }>;
   synonyms: string[];
   jlpt: string;
   frequency: string;
+  kanji: KanjiInfo[];
 }
 
 export interface SearchHistoryItem {
@@ -207,6 +220,10 @@ export async function lookupWord(word: string): Promise<DictionaryResult> {
     throw new Error(err.error || "Dictionary lookup failed");
   }
   return res.json();
+}
+
+export function getPronunciationAudioUrl(text: string): string {
+  return `${BASE_URL}/api/dictionary/audio?text=${encodeURIComponent(text)}`;
 }
 
 export async function fetchExamples(word: string): Promise<{ japanese: string; vietnamese: string }[]> {

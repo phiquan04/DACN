@@ -11,6 +11,7 @@ import {
   fetchSearchHistory,
   deleteHistoryItem,
   clearHistory,
+  getPronunciationAudioUrl,
   SearchHistoryItem,
   getStoredUser,
 } from "../../services/api";
@@ -55,6 +56,13 @@ export default function Vocabulary() {
   const handleSearch = async (e: React.FormEvent) => {
     e.preventDefault();
     await performSearch(searchTerm);
+  };
+
+  const playPronunciation = (text: string) => {
+    if (!text) return;
+    new Audio(getPronunciationAudioUrl(text)).play().catch(() => {
+      // silent — audio may fail to load/play, not worth surfacing an error
+    });
   };
 
   // ── Load examples (có thể gọi thủ công để làm mới) ──
@@ -245,10 +253,54 @@ export default function Vocabulary() {
                     <h3 className="text-xl font-bold text-gray-900 dark:text-white break-words">
                       {item.word}
                     </h3>
-                    <span className="text-sm text-gray-500 dark:text-gray-400 break-words">
-                      {item.reading}
-                    </span>
+                    <div className="flex items-center gap-2">
+                      <span className="text-sm text-gray-500 dark:text-gray-400 break-words">
+                        {item.reading}
+                      </span>
+                      {item.reading && (
+                        <button
+                          type="button"
+                          onClick={() => playPronunciation(item.reading)}
+                          title="Nghe phát âm"
+                          className="shrink-0 rounded-full p-1.5 text-gray-500 hover:bg-gray-100 hover:text-brand-600 dark:text-gray-400 dark:hover:bg-gray-800 transition-colors"
+                        >
+                          <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
+                            <path d="M9.383 3.076A1 1 0 0110 4v12a1 1 0 01-1.617.79L4.117 13.5H2a1 1 0 01-1-1v-5a1 1 0 011-1h2.117l4.266-3.29a1 1 0 011-.134zM14.657 5.343a1 1 0 011.414 0A7.975 7.975 0 0118 10a7.975 7.975 0 01-1.929 5.657 1 1 0 11-1.414-1.414A5.975 5.975 0 0016 10a5.975 5.975 0 00-1.343-4.243 1 1 0 010-1.414z" />
+                          </svg>
+                        </button>
+                      )}
+                    </div>
                   </div>
+
+                  {/* Kanji breakdown */}
+                  {item.kanji.length > 0 && (
+                    <div className="mb-4 grid grid-cols-1 sm:grid-cols-2 gap-2">
+                      {item.kanji.map((k) => (
+                        <div
+                          key={k.literal}
+                          className="flex gap-3 rounded-md border border-gray-100 bg-gray-50 p-2.5 dark:border-gray-800 dark:bg-gray-800/60"
+                        >
+                          <span className="text-2xl font-bold text-gray-900 dark:text-white shrink-0">
+                            {k.literal}
+                          </span>
+                          <div className="min-w-0 text-xs text-gray-600 dark:text-gray-300 space-y-0.5">
+                            {k.hanviet.length > 0 && (
+                              <p className="font-medium text-brand-600 dark:text-brand-400 break-words">
+                                {k.hanviet.join(", ")}
+                              </p>
+                            )}
+                            {k.on_yomi.length > 0 && (
+                              <p className="break-words">On: {k.on_yomi.join("、")}</p>
+                            )}
+                            {k.kun_yomi.length > 0 && (
+                              <p className="break-words">Kun: {k.kun_yomi.join("、")}</p>
+                            )}
+                            {k.meaning && <p className="break-words">{k.meaning}</p>}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
 
                   {/* JLPT & Frequency */}
                   <div className="mb-3 flex flex-wrap gap-2">
@@ -270,8 +322,10 @@ export default function Vocabulary() {
                     {item.definitions.map((def, defIdx) => (
                       <div key={defIdx} className="text-sm">
                         <p className="text-gray-800 dark:text-gray-200 break-words">{def.meaning}</p>
-                        {def.pos && (
-                          <p className="text-xs text-gray-500 dark:text-gray-400 break-words">({def.pos})</p>
+                        {(def.pos_label || def.pos) && (
+                          <p className="text-xs text-gray-500 dark:text-gray-400 break-words">
+                            ({def.pos_label || def.pos})
+                          </p>
                         )}
                       </div>
                     ))}

@@ -3,12 +3,16 @@ import re
 import sys
 import asyncio
 import json
+import hashlib
+import tempfile
 import requests
 from fastapi import APIRouter, HTTPException, Depends
+from fastapi.responses import FileResponse
 from pydantic import BaseModel
 from typing import List, Optional
 from jamdict import Jamdict
 from deep_translator import GoogleTranslator
+from gtts import gTTS
 from sqlalchemy.orm import Session
 
 _backend_root = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
@@ -17,11 +21,13 @@ if _backend_root not in sys.path:
 
 try:
     from app.models.database import get_db, SearchHistory, User
+    from app.utils.pos_labels import translate_pos_list
 except ModuleNotFoundError:
     _alt_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
     if _alt_root not in sys.path:
         sys.path.insert(0, _alt_root)
     from database import get_db, SearchHistory, User
+    from utils.pos_labels import translate_pos_list
 
 router = APIRouter(prefix="/dictionary", tags=["dictionary"])
 
@@ -30,8 +36,17 @@ _cache: dict = {}
 _translation_cache: dict = {}
 _example_cache: dict = {}
 _synonym_cache: dict = {}
+_kanji_cache: dict = {}
 
 GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
+
+# gTTS audio is regenerated the first time a word/text is requested, then
+# served from disk on every later request (same cache-aside pattern as
+# app/routes/pronunciation.py's reference audio).
+_audio_cache_dir = os.path.join(tempfile.gettempdir(), "dictionary_audio")
+os.makedirs(_audio_cache_dir, exist_ok=True)
+
+CJK_RE = re.compile(r'[一-鿿]')
 
 try:
     jmdict = Jamdict()
@@ -48,10 +63,21 @@ class LookupRequest(BaseModel):
 class Definition(BaseModel):
     meaning: str
     pos: str
+    pos_label: str = ""
 
 class Example(BaseModel):
     japanese: str
     vietnamese: str
+
+class KanjiInfo(BaseModel):
+    literal: str
+    on_yomi: List[str] = []
+    kun_yomi: List[str] = []
+    hanviet: List[str] = []
+    meaning: str = ""
+    stroke_count: Optional[int] = None
+    jlpt: Optional[str] = None
+    grade: Optional[str] = None
 
 class LookupResponse(BaseModel):
     word: str
@@ -61,6 +87,7 @@ class LookupResponse(BaseModel):
     synonyms: List[str]
     jlpt: str
     frequency: str
+    kanji: List[KanjiInfo] = []
 
 class SaveHistoryRequest(BaseModel):
     user_id: int
@@ -137,16 +164,79 @@ async def fetch_definitions(entry) -> List[Definition]:
         glosses = [g.text for g in sense.gloss if g.text] if hasattr(sense, 'gloss') else []
         if glosses:
             english_text = ', '.join(glosses)
-            pos = ", ".join(sense.pos) if hasattr(sense, 'pos') and sense.pos else ""
-            senses_data.append((english_text, pos))
+            pos_list = list(sense.pos) if hasattr(sense, 'pos') and sense.pos else []
+            pos = ", ".join(pos_list)
+            pos_label = translate_pos_list(pos_list)
+            senses_data.append((english_text, pos, pos_label))
     if not senses_data:
         return []
-    english_texts = [en for en, _ in senses_data]
+    english_texts = [en for en, _, _ in senses_data]
     translated = await translate_batch(english_texts)
     return [
-        Definition(meaning=vi, pos=pos)
-        for vi, (_, pos) in zip(translated, senses_data)
+        Definition(meaning=vi, pos=pos, pos_label=pos_label)
+        for vi, (_, pos, pos_label) in zip(translated, senses_data)
     ]
+
+# ---------- Kanji breakdown (from KANJIDIC2, bundled in jamdict) ----------
+async def fetch_kanji_breakdown(text: str) -> List[KanjiInfo]:
+    if not jmdict:
+        return []
+    literals = []
+    for ch in text:
+        if CJK_RE.match(ch) and ch not in literals:
+            literals.append(ch)
+    if not literals:
+        return []
+
+    pending = []  # (info dict without meaning, english meaning text) for literals not yet cached
+    results_by_literal = {}
+    for literal in literals:
+        if literal in _kanji_cache:
+            results_by_literal[literal] = _kanji_cache[literal]
+            continue
+        try:
+            lookup = jmdict.lookup(literal)
+        except Exception as e:
+            print(f"[Kanji lookup] Error for '{literal}': {e}", flush=True)
+            continue
+        if not lookup.chars:
+            continue
+        kchar = lookup.chars[0]
+        on_yomi, kun_yomi, hanviet, meanings_en = [], [], [], []
+        for rmg in kchar.rm_groups:
+            for rd in rmg.readings:
+                if rd.r_type == 'ja_on' and rd.value not in on_yomi:
+                    on_yomi.append(rd.value)
+                elif rd.r_type == 'ja_kun' and rd.value not in kun_yomi:
+                    kun_yomi.append(rd.value)
+                elif rd.r_type == 'vietnam' and rd.value not in hanviet:
+                    hanviet.append(rd.value)
+            for m in rmg.meanings:
+                if not m.m_lang and m.value not in meanings_en:
+                    meanings_en.append(m.value)
+        pending.append({
+            "literal": literal,
+            "on_yomi": on_yomi,
+            "kun_yomi": kun_yomi,
+            "hanviet": hanviet,
+            "stroke_count": kchar.stroke_count,
+            "jlpt": str(kchar.jlpt) if kchar.jlpt else None,
+            "grade": str(kchar.grade) if kchar.grade else None,
+            "meaning_en": ', '.join(meanings_en[:4]),
+        })
+
+    if pending:
+        translated = await translate_batch([p["meaning_en"] for p in pending])
+        for info, meaning_vi in zip(pending, translated):
+            kanji_info = KanjiInfo(
+                literal=info["literal"], on_yomi=info["on_yomi"], kun_yomi=info["kun_yomi"],
+                hanviet=info["hanviet"], meaning=meaning_vi, stroke_count=info["stroke_count"],
+                jlpt=info["jlpt"], grade=info["grade"],
+            )
+            _kanji_cache[info["literal"]] = kanji_info
+            results_by_literal[info["literal"]] = kanji_info
+
+    return [results_by_literal[literal] for literal in literals if literal in results_by_literal]
 
 # ---------- Examples endpoint ----------
 @router.get("/examples/{word}")
@@ -325,6 +415,7 @@ async def dictionary_lookup(req: LookupRequest):
 
     reading = entry.kana_forms[0].text if entry.kana_forms else ""
     definitions = await fetch_definitions(entry)
+    kanji_breakdown = await fetch_kanji_breakdown(kanji)
     jlpt = str(entry.jlpt_old) if hasattr(entry, 'jlpt_old') and entry.jlpt_old else \
            str(entry.jlpt) if hasattr(entry, 'jlpt') and entry.jlpt else "N/A"
     frequency = str(entry.frequency) if hasattr(entry, 'frequency') and entry.frequency else "N/A"
@@ -333,7 +424,29 @@ async def dictionary_lookup(req: LookupRequest):
 
     response = LookupResponse(
         word=kanji, reading=reading, definitions=definitions,
-        examples=[], synonyms=[], jlpt=jlpt, frequency=frequency
+        examples=[], synonyms=[], jlpt=jlpt, frequency=frequency,
+        kanji=kanji_breakdown,
     )
     _cache[word] = response
     return response
+
+# ---------- Pronunciation audio ----------
+@router.get("/audio")
+async def get_pronunciation_audio(text: str):
+    """Serve gTTS audio for a word or reading, generating it once and caching on disk."""
+    text = text.strip()
+    if not text:
+        raise HTTPException(status_code=400, detail="Missing 'text' query parameter")
+
+    filename = f"{hashlib.md5(text.encode('utf-8')).hexdigest()}.mp3"
+    path = os.path.join(_audio_cache_dir, filename)
+    if not os.path.exists(path):
+        try:
+            await asyncio.get_event_loop().run_in_executor(
+                None, lambda: gTTS(text=text, lang='ja', slow=False).save(path)
+            )
+        except Exception as e:
+            print(f"[Dictionary TTS] Failed for '{text}': {e}", flush=True)
+            raise HTTPException(status_code=502, detail="Failed to generate audio")
+
+    return FileResponse(path, media_type="audio/mpeg")
