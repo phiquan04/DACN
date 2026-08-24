@@ -1,3 +1,5 @@
+import os
+
 from dotenv import load_dotenv
 
 load_dotenv()
@@ -18,10 +20,19 @@ def app():
     )
     
     # Setup CORS Middleware
+    # Auth uses a Bearer token attached manually per-request (see
+    # Frontend/src/services/api.ts), never browser-managed cookies, so
+    # allow_credentials stays False — that also lets allow_origins be a
+    # concrete allow-list instead of "*" (the two can't safely be combined).
+    allowed_origins = [
+        origin.strip()
+        for origin in os.getenv("ALLOWED_ORIGINS", "http://localhost:5173,http://127.0.0.1:5173").split(",")
+        if origin.strip()
+    ]
     app.add_middleware(
         CORSMiddleware,
-        allow_origins=["*"],
-        allow_credentials=True,
+        allow_origins=allowed_origins,
+        allow_credentials=False,
         allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"],
         allow_headers=["*"],
         expose_headers=["Content-Type"],

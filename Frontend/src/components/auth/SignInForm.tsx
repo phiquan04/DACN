@@ -30,12 +30,12 @@ export default function SignInForm() {
     setLoading(true);
 
     try {
-      await signIn({
+      const response = await signIn({
         email: formData.email,
         password: formData.password,
       });
 
-      navigate("/dictionary");
+      navigate(response.user.role === "admin" ? "/admin" : "/dictionary");
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : "Sign in failed";
       setError(errorMessage);

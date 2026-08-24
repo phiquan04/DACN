@@ -24,7 +24,10 @@ Base = declarative_base()
 def init_db(app):
     Base.metadata.create_all(bind=engine)
     _ensure_chat_schema()
+    _ensure_role_schema()
     _seed_chat_scenarios()
+    _seed_roles()
+    _backfill_user_roles()
 
 
 def _ensure_chat_schema():
@@ -57,6 +60,49 @@ def _ensure_chat_schema():
                 if col_name not in existing_columns:
                     conn.execute(text(f"ALTER TABLE {table} ADD COLUMN {col_name} {col_def}"))
         conn.commit()
+
+
+def _ensure_role_schema():
+    """Idempotently add the users.role_id column for databases created before roles existed."""
+    from sqlalchemy import inspect, text
+
+    inspector = inspect(engine)
+    existing_tables = set(inspector.get_table_names())
+    if 'users' not in existing_tables or 'roles' not in existing_tables:
+        return  # create_all just made everything fresh; nothing to migrate
+
+    existing_columns = {c['name'] for c in inspector.get_columns('users')}
+    if 'role_id' not in existing_columns:
+        with engine.connect() as conn:
+            conn.execute(text("ALTER TABLE users ADD COLUMN role_id INTEGER REFERENCES roles(id)"))
+            conn.commit()
+
+
+def _seed_roles():
+    db = SessionLocal()
+    try:
+        if db.query(Role).first():
+            return
+        db.add_all([
+            Role(code='admin', name='Quản trị viên'),
+            Role(code='user', name='Người dùng'),
+        ])
+        db.commit()
+    finally:
+        db.close()
+
+
+def _backfill_user_roles():
+    """Assign the default 'user' role to any account left over from before roles existed."""
+    db = SessionLocal()
+    try:
+        default_role = db.query(Role).filter(Role.code == 'user').first()
+        if not default_role:
+            return
+        db.query(User).filter(User.role_id.is_(None)).update({User.role_id: default_role.id})
+        db.commit()
+    finally:
+        db.close()
 
 
 def _seed_chat_scenarios():
@@ -111,16 +157,30 @@ class BaseModel(Base):
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
 
+class Role(BaseModel):
+    """A user role, e.g. 'admin' or 'user'."""
+    __tablename__ = 'roles'
+
+    code = Column(String(20), unique=True, nullable=False)  # 'admin', 'user'
+    name = Column(String(50), nullable=False)  # display name, e.g. 'Quản trị viên'
+
+    users = relationship('User', backref='role', lazy=True)
+
+    def __repr__(self):
+        return f'<Role {self.code}>'
+
+
 class User(BaseModel):
     __tablename__ = 'users'
-    
+
     username = Column(String(80), unique=True, nullable=False)
     email = Column(String(120), unique=True, nullable=False)
     password_hash = Column(String(255), nullable=False)
     is_active = Column(Boolean, default=True)
-    
+    role_id = Column(Integer, ForeignKey('roles.id'), nullable=True)
+
     conversations = relationship('Conversation', backref='user', lazy=True, cascade='all, delete-orphan')
-    
+
     def __repr__(self):
         return f'<User {self.username}>'
 

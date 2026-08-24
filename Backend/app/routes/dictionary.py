@@ -159,48 +159,23 @@ async def fetch_definitions(entry) -> List[Definition]:
         for vi, (_, pos) in zip(translated, senses_data)
     ]
 
-# ---------- Examples endpoint ----------
-@router.get("/examples/{word}")
-async def get_examples(word: str):
-    word = word.strip()
-    if not word:
-        return []
-    if word in _example_cache:
-        return _example_cache[word]
-
-    prompt = (
-        f'Hãy tạo 3 câu ví dụ bằng tiếng Nhật cho từ "{word}". '
-        f'Mỗi câu ví dụ phải có:\n'
-        f'- Một câu tiếng Nhật tự nhiên, trình độ N4-N3.\n'
-        f'- Bản dịch tiếng Việt bên dưới.\n'
-        f'Xuất kết quả dưới dạng JSON list, mỗi object có key "japanese" và "vietnamese". '
-        f'Không thêm bất kỳ văn bản nào khác ngoài JSON.\n'
-        f'Ví dụ: [{{"japanese": "今日はいい天気ですね。", "vietnamese": "Hôm nay thời tiết đẹp nhỉ."}}]'
-    )
-    response = await call_ai(prompt)
-    if not response:
-        return []
-    try:
-        json_match = re.search(r'\[.*\]', response, re.DOTALL)
-        if json_match:
-            examples = json.loads(json_match.group())
-        else:
-            examples = json.loads(response)
-        if isinstance(examples, list) and all("japanese" in e and "vietnamese" in e for e in examples):
-            _example_cache[word] = examples
-            return examples
-    except Exception as e:
-        print(f"Failed to parse examples: {e}\nResponse: {response}", flush=True)
-    return []
-
 # ---------- Synonyms endpoint ----------
 @router.get("/synonyms/{word}")
-async def get_synonyms(word: str):
+async def get_synonyms(word: str, db: Session = Depends(get_db)):
     word = word.strip()
     if not word:
         return []
     if word in _synonym_cache:
         return _synonym_cache[word]
+
+    # nếu trong DB có SearchHistory chứa synonyms (mới nhất, của bất kỳ user nào) -> trả luôn
+    try:
+        record = db.query(SearchHistory).filter(SearchHistory.word == word).order_by(SearchHistory.created_at.desc()).first()
+        if record and record.synonyms:
+            _synonym_cache[word] = record.synonyms
+            return record.synonyms
+    except Exception as e:
+        print(f"[Synonyms DB lookup] Error: {e}", flush=True)
 
     prompt = (
         f'Liệt kê 2-3 từ đồng nghĩa hoặc có liên quan chặt chẽ đến từ "{word}" trong tiếng Nhật.\n'

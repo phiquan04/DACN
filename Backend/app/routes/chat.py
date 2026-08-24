@@ -3,8 +3,10 @@ import os
 import re
 from typing import Optional
 
+import httpx
 import requests as req
 from fastapi import APIRouter, Depends, Header, HTTPException
+from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
@@ -29,9 +31,19 @@ SCENARIO_RULE = """- あなたはこのシチュエーションの相手役を�
 - ユーザーの発言がこの話題から明らかに外れている場合は is_off_topic を true にし、
   優しく「{title}」の話題に戻るよう促す返答をしてください（叱らず、自然に）"""
 
-JSON_OUTPUT_RULE = """
-必ず次のJSON形式のみを出力してください。マークダウンのコードブロックや説明文は付けないでください：
-{"reply": "日本語での返答（2〜4文）", "feedback": "ユーザーの直前の発言に対するベトナム語での短いアドバイス。特に問題なければnull", "is_off_topic": true または false, "suggestions": ["短い返信候補1", "短い返信候補2", "短い返信候補3"]}"""
+# The reply body is streamed to the client as plain text as it arrives, so it
+# must come first and stay free of JSON/markdown wrapping. The metadata JSON
+# comes after a sentinel line the backend uses to split the two: everything
+# before it is forwarded live, everything after is buffered and parsed once
+# the stream ends.
+META_SENTINEL = "<<<META>>>"
+
+JSON_OUTPUT_RULE = f"""
+必ず次の順番で出力してください：
+1. まず日本語の返答本文だけをそのまま出力してください（2〜4文、引用符やコードブロックで囲まないでください）。
+2. 返答本文の直後に改行し、"{META_SENTINEL}" という行だけを出力してください。
+3. その次の行に、必ず次のJSON形式のみを出力してください（マークダウンのコードブロックは付けないでください）：
+{{"feedback": "ユーザーの直前の発言に対するベトナム語での短いアドバイス。特に問題なければnull", "is_off_topic": true または false, "suggestions": ["短い返信候補1", "短い返信候補2", "短い返信候補3"]}}"""
 
 
 class StartConversationRequest(BaseModel):
@@ -71,6 +83,7 @@ def build_system_prompt(scenario: Optional[ChatScenario]) -> str:
 
 
 def call_openrouter(messages: list, api_key: str) -> str:
+    """One-shot (non-streamed) completion — used for the scenario opening line."""
     response = req.post(
         "https://openrouter.ai/api/v1/chat/completions",
         headers={
@@ -89,18 +102,50 @@ def call_openrouter(messages: list, api_key: str) -> str:
     return data["choices"][0]["message"]["content"]
 
 
-def parse_reply_json(raw: str) -> dict:
+async def stream_openrouter(messages: list, api_key: str):
+    """Yields raw text deltas from OpenRouter's streaming chat completion."""
+    async with httpx.AsyncClient(timeout=60) as client:
+        async with client.stream(
+            "POST",
+            "https://openrouter.ai/api/v1/chat/completions",
+            headers={
+                "Authorization": f"Bearer {api_key}",
+                "Content-Type": "application/json",
+            },
+            json={
+                "model": "openai/gpt-4o-mini",
+                "messages": messages,
+                "temperature": 0.7,
+                "stream": True,
+            },
+        ) as response:
+            response.raise_for_status()
+            async for line in response.aiter_lines():
+                if not line or not line.startswith("data: "):
+                    continue
+                payload = line[len("data: "):].strip()
+                if payload == "[DONE]":
+                    break
+                try:
+                    chunk = json.loads(payload)
+                except json.JSONDecodeError:
+                    continue
+                delta = chunk.get("choices", [{}])[0].get("delta", {}).get("content")
+                if delta:
+                    yield delta
+
+
+def parse_meta_json(raw: str) -> dict:
     cleaned = re.sub(r"^```(?:json)?|```$", "", raw.strip(), flags=re.MULTILINE).strip()
     try:
         parsed = json.loads(cleaned)
         return {
-            "reply": parsed.get("reply") or raw,
             "feedback": parsed.get("feedback"),
             "is_off_topic": bool(parsed.get("is_off_topic", False)),
             "suggestions": parsed.get("suggestions") or [],
         }
     except (json.JSONDecodeError, AttributeError):
-        return {"reply": raw, "feedback": None, "is_off_topic": False, "suggestions": []}
+        return {"feedback": None, "is_off_topic": False, "suggestions": []}
 
 
 def require_api_key() -> str:
@@ -108,6 +153,10 @@ def require_api_key() -> str:
     if not api_key:
         raise HTTPException(status_code=500, detail="OPENROUTER_API_KEY not configured")
     return api_key
+
+
+def sse(event: str, data: dict) -> str:
+    return f"event: {event}\ndata: {json.dumps(data, ensure_ascii=False)}\n\n"
 
 
 @router.post("/conversations")
@@ -155,7 +204,7 @@ def start_conversation(
 
 
 @router.post("/chat")
-def chat(
+async def chat(
     request: ChatRequest,
     db: Session = Depends(get_db),
 ):
@@ -191,33 +240,69 @@ def chat(
 
     messages = [{"role": "system", "content": build_system_prompt(scenario)}]
     messages += [{"role": m.role, "content": m.content} for m in history]
+    conversation_id = conversation.id
+    sentinel_len = len(META_SENTINEL)
 
-    try:
-        raw_reply = call_openrouter(messages, api_key)
-    except req.exceptions.Timeout:
-        raise HTTPException(status_code=504, detail="Request timeout")
-    except req.exceptions.RequestException as e:
-        print(f"Chat API error: {e}")
-        raise HTTPException(status_code=503, detail="API error")
+    async def event_stream():
+        reply_buffer = ""
+        meta_buffer = ""
+        pending = ""
+        in_meta = False
 
-    parsed = parse_reply_json(raw_reply)
+        try:
+            async for delta in stream_openrouter(messages, api_key):
+                if in_meta:
+                    meta_buffer += delta
+                    continue
 
-    assistant_msg = Message(
-        conversation_id=conversation.id,
-        role="assistant",
-        content=parsed["reply"],
-        feedback=parsed["feedback"],
-        is_off_topic=parsed["is_off_topic"],
-    )
-    db.add(assistant_msg)
-    db.commit()
-    db.refresh(assistant_msg)
+                pending += delta
+                idx = pending.find(META_SENTINEL)
+                if idx != -1:
+                    reply_part = pending[:idx]
+                    if reply_part:
+                        reply_buffer += reply_part
+                        yield sse("chunk", {"text": reply_part})
+                    in_meta = True
+                    meta_buffer += pending[idx + sentinel_len:]
+                    pending = ""
+                else:
+                    # Hold back a tail as long as the sentinel in case it's
+                    # been split across two deltas — flush everything else.
+                    safe_len = max(0, len(pending) - sentinel_len)
+                    if safe_len > 0:
+                        reply_buffer += pending[:safe_len]
+                        yield sse("chunk", {"text": pending[:safe_len]})
+                        pending = pending[safe_len:]
 
-    return {
-        "reply": parsed["reply"],
-        "feedback": parsed["feedback"],
-        "is_off_topic": parsed["is_off_topic"],
-        "suggestions": parsed["suggestions"],
-        "message_id": assistant_msg.id,
-        "conversation_id": conversation.id,
-    }
+            if not in_meta and pending:
+                reply_buffer += pending
+                yield sse("chunk", {"text": pending})
+
+            reply_text = reply_buffer.strip()
+            parsed_meta = parse_meta_json(meta_buffer)
+
+            assistant_msg = Message(
+                conversation_id=conversation_id,
+                role="assistant",
+                content=reply_text,
+                feedback=parsed_meta["feedback"],
+                is_off_topic=parsed_meta["is_off_topic"],
+            )
+            db.add(assistant_msg)
+            db.commit()
+            db.refresh(assistant_msg)
+
+            yield sse("meta", {
+                "feedback": parsed_meta["feedback"],
+                "is_off_topic": parsed_meta["is_off_topic"],
+                "suggestions": parsed_meta["suggestions"],
+                "message_id": assistant_msg.id,
+                "conversation_id": conversation_id,
+            })
+        except httpx.TimeoutException:
+            yield sse("error", {"detail": "Request timeout"})
+        except httpx.HTTPError as e:
+            print(f"Chat API error: {e}", flush=True)
+            yield sse("error", {"detail": "API error"})
+
+    return StreamingResponse(event_stream(), media_type="text/event-stream")
