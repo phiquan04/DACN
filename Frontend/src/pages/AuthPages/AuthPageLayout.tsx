@@ -1,7 +1,7 @@
 import React from "react";
-import GridShape from "../../components/common/GridShape";
 import { Link } from "react-router";
 import ThemeTogglerTwo from "../../components/common/ThemeTogglerTwo";
+import Logo from "../../components/common/Logo";
 
 export default function AuthLayout({
   children,
@@ -9,31 +9,36 @@ export default function AuthLayout({
   children: React.ReactNode;
 }) {
   return (
-    <div className="relative p-6 bg-white z-1 dark:bg-gray-900 sm:p-0">
-      <div className="relative flex flex-col justify-center w-full h-screen lg:flex-row dark:bg-gray-900 sm:p-0">
-        {children}
-        <div className="items-center hidden w-full h-full lg:w-1/2 bg-brand-950 dark:bg-white/5 lg:grid">
-          <div className="relative flex items-center justify-center z-1">
-            {/* <!-- ===== Common Grid Shape Start ===== --> */}
-            <GridShape />
-            <div className="flex flex-col items-center max-w-xs">
-              <Link to="/" className="block mb-4">
-                <img
-                  width={231}
-                  height={48}
-                  src="/images/logo/auth-logo.svg"
-                  alt="Logo"
-                />
-              </Link>
-              <p className="text-center text-gray-400 dark:text-white/60">
-                Free and Open-Source Tailwind CSS Admin Dashboard Template
-              </p>
-            </div>
-          </div>
+    <div className="relative flex min-h-screen w-full items-center justify-center overflow-hidden bg-background px-4 py-10 dark:bg-gray-900 sm:px-0">
+      <div className="absolute inset-0 z-0">
+        <div
+          className="h-full w-full bg-cover bg-center"
+          style={{ backgroundImage: "url('/images/auth-bg-japan.jfif')" }}
+        />
+        <div className="absolute inset-0 bg-surface/90 backdrop-blur-sm dark:bg-gray-900/90" />
+      </div>
+
+      <div className="relative z-10 w-full max-w-md">
+        <div className="mb-8 text-center">
+          <Link to="/" className="inline-flex items-center gap-2">
+            <Logo size={40} />
+            <h1 className="text-3xl font-bold tracking-tight text-primary dark:text-white">
+              Manabi<span className="text-secondary">AI</span>
+            </h1>
+          </Link>
+          <p className="mt-3 text-base text-on-surface-variant dark:text-gray-400">
+            Personal Study Assistant
+          </p>
         </div>
-        <div className="fixed z-50 hidden bottom-6 right-6 sm:block">
-          <ThemeTogglerTwo />
+
+        <div className="relative overflow-hidden rounded-xl border border-outline-variant/60 bg-surface-container-lowest p-6 shadow-[0px_4px_12px_rgba(9,20,38,0.05)] dark:border-gray-800 dark:bg-gray-dark sm:p-8">
+          <div className="pointer-events-none absolute -right-24 -top-24 h-48 w-48 rounded-full bg-secondary-container opacity-20 blur-[80px]" />
+          <div className="relative z-10">{children}</div>
         </div>
+      </div>
+
+      <div className="fixed z-50 hidden bottom-6 right-6 sm:block">
+        <ThemeTogglerTwo />
       </div>
     </div>
   );

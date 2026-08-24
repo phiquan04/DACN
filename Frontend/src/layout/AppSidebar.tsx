@@ -4,19 +4,20 @@ import { Link, useLocation } from "react-router";
 // Assume these icons are imported from an icon library
 import { useSidebar } from "../context/SidebarContext";
 import {
-  BoxCubeIcon,
   CalenderIcon,
   ChatbotIcon,
   ChevronDownIcon,
-  GridIcon,
   HorizontaLDots,
   PageIcon,
-  PlugInIcon,
-  TableIcon,
   UserCircleIcon,
   VideoIcon,
+  CheckLineIcon,
+  AudioIcon,
+  GroupIcon,
+  TaskIcon,
 } from "../icons";
 import SidebarWidget from "./SidebarWidget";
+import Logo from "../components/common/Logo";
 
 type NavItem = {
   name: string;
@@ -32,24 +33,34 @@ const navItems: NavItem[] = [
     path: "/dictionary",
   },
   {
-    icon: <GridIcon />,
-    name: "Dashboard", 
-    subItems: [{ name: "Ecommerce", path: "/", pro: false }],
-  },
-  {
-    icon: <GridIcon />,
+    icon: <CheckLineIcon />,
     name: "Check Grammar",
     path: "/fixgrammar",
   },
   {
-    icon: <GridIcon />,
+    icon: <AudioIcon />,
     name: "Check Pronunciation",
     path: "/check-pronunciation",
   },
   {
-    icon: <GridIcon />,
+    icon: <GroupIcon />,
     name: "Meeting",
     path: "/meeting",
+  },
+  {
+    name: "Chatbot",
+    icon: <ChatbotIcon />,
+    path: "/chat-bot",
+  },
+  {
+    name: "Youtube Learning",
+    icon: <VideoIcon />,
+    path: "/line-chart",
+  },
+  {
+    name: "JLPT Tests",
+    icon: <TaskIcon />,
+    path: "/jlpt-practice",
   },
   {
     icon: <CalenderIcon />,
@@ -61,57 +72,9 @@ const navItems: NavItem[] = [
     name: "User Profile",
     path: "/profile",
   },
-  {
-    name: "Chatbot",
-    icon: <ChatbotIcon />,
-    path: "/chat-bot",
-  },
-  {
-    name: "Tables",
-    icon: <TableIcon />,
-    subItems: [{ name: "Basic Tables", path: "/basic-tables", pro: false }],
-  },
-  {
-    name: "Youtube Learning",
-    icon: <VideoIcon />,
-    path: "/line-chart",
-  },
-  {
-    name: "JLPT Tests",
-    icon: <VideoIcon />,
-    path: "/jlpt-practice",
-  },
 ];
 
 const othersItems: NavItem[] = [
-  // {
-  //   icon: <VideoIcon />,
-  //   name: "Youtube Learning",
-  //   subItems: [
-  //     { name: "Learning with scripts", path: "/line-chart", pro: false },
-  //     { name: "Bar Chart", path: "/bar-chart", pro: false },
-  //   ],
-  // },
-  {
-    icon: <BoxCubeIcon />,
-    name: "UI Elements",
-    subItems: [
-      { name: "Alerts", path: "/alerts", pro: false },
-      { name: "Avatar", path: "/avatars", pro: false },
-      { name: "Badge", path: "/badge", pro: false },
-      { name: "Buttons", path: "/buttons", pro: false },
-      { name: "Images", path: "/images", pro: false },
-      { name: "Videos", path: "/videos", pro: false },
-    ],
-  },
-  {
-    icon: <PlugInIcon />,
-    name: "Authentication",
-    subItems: [
-      { name: "Sign In", path: "/signin", pro: false },
-      { name: "Sign Up", path: "/signup", pro: false },
-    ],
-  },
 ];
 
 const AppSidebar: React.FC = () => {
@@ -127,9 +90,10 @@ const AppSidebar: React.FC = () => {
   );
   const subMenuRefs = useRef<Record<string, HTMLDivElement | null>>({});
 
-  // const isActive = (path: string) => location.pathname === path;
   const isActive = useCallback(
-    (path: string) => location.pathname === path,
+    (path: string) =>
+      location.pathname === path ||
+      (path === "/dictionary" && location.pathname === "/"),
     [location.pathname]
   );
 
@@ -307,7 +271,7 @@ const AppSidebar: React.FC = () => {
 
   return (
     <aside
-      className={`fixed mt-16 flex flex-col lg:mt-0 top-0 px-5 left-0 bg-white dark:bg-gray-900 dark:border-gray-800 text-gray-900 h-screen transition-all duration-300 ease-in-out z-50 border-r border-gray-200 
+      className={`fixed mt-16 flex flex-col lg:mt-0 top-0 px-5 left-0 bg-surface-container-lowest dark:bg-gray-900 dark:border-gray-800 text-on-surface h-screen transition-all duration-300 ease-in-out z-50 border-r border-outline-variant/60
         ${
           isExpanded || isMobileOpen
             ? "w-[290px]"
@@ -321,18 +285,28 @@ const AppSidebar: React.FC = () => {
       onMouseLeave={() => setIsHovered(false)}
     >
       <div
-        className={`py-8 flex ${
+        className={`flex items-center gap-3 py-6 border-b border-outline-variant/60 ${
           !isExpanded && !isHovered ? "lg:justify-center" : "justify-start"
         }`}
       >
-       
+        <Link to="/dictionary" className="flex items-center gap-3 shrink-0">
+          <Logo size={36} />
+          {(isExpanded || isHovered || isMobileOpen) && (
+            <span className="flex flex-col leading-tight">
+              <span className="text-base font-bold text-on-surface">
+                Manabi<span className="text-secondary">AI</span>
+              </span>
+              <span className="text-xs text-on-surface-variant">Học tiếng Nhật cùng AI</span>
+            </span>
+          )}
+        </Link>
       </div>
       <div className="flex flex-col overflow-y-auto duration-300 ease-linear no-scrollbar">
-        <nav className="mb-6">
+        <nav className="mt-6 mb-6">
           <div className="flex flex-col gap-4">
             <div>
               <h2
-                className={`mb-4 text-xs uppercase flex leading-[20px] text-gray-400 ${
+                className={`mb-4 text-xs uppercase flex leading-[20px] text-outline dark:text-gray-500 ${
                   !isExpanded && !isHovered
                     ? "lg:justify-center"
                     : "justify-start"
@@ -348,14 +322,14 @@ const AppSidebar: React.FC = () => {
             </div>
             <div className="">
               <h2
-                className={`mb-4 text-xs uppercase flex leading-[20px] text-gray-400 ${
+                className={`mb-4 text-xs uppercase flex leading-[20px] text-outline dark:text-gray-500 ${
                   !isExpanded && !isHovered
                     ? "lg:justify-center"
                     : "justify-start"
                 }`}
               >
                 {isExpanded || isHovered || isMobileOpen ? (
-                  "Others"
+                  ""
                 ) : (
                   <HorizontaLDots />
                 )}

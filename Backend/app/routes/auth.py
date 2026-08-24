@@ -4,8 +4,8 @@ from pydantic import BaseModel, EmailStr, Field
 from datetime import timedelta
 from typing import Optional
 
-from app.models import User
-from app.models.database import get_db, SessionLocal
+from app.models import User, Role
+from app.models.database import get_db
 from app.utils.auth import (
     hash_password,
     verify_password,
@@ -52,9 +52,20 @@ class UserResponse(BaseModel):
     username: str
     email: str
     is_active: bool
+    role: str
 
     class Config:
         from_attributes = True
+
+
+def _to_user_response(user: User) -> UserResponse:
+    return UserResponse(
+        id=user.id,
+        username=user.username,
+        email=user.email,
+        is_active=user.is_active,
+        role=user.role.code if user.role else "user",
+    )
 
 class SignUpResponse(BaseModel):
     user: UserResponse
@@ -68,7 +79,7 @@ class SignInResponse(BaseModel):
 
 # Routes
 @router.post("/signup", response_model=SignUpResponse, status_code=status.HTTP_201_CREATED)
-async def sign_up(user_data: UserSignUp, db: Session = Depends(get_db)):
+def sign_up(user_data: UserSignUp, db: Session = Depends(get_db)):
     # Check if user already exists
     existing_user_email = db.query(User).filter(User.email == user_data.email).first()
     if existing_user_email:
@@ -84,30 +95,34 @@ async def sign_up(user_data: UserSignUp, db: Session = Depends(get_db)):
             detail="Username already taken"
         )
     
-    # Create new user
+    # Create new user, defaulting to the 'user' role
+    default_role = db.query(Role).filter(Role.code == "user").first()
     hashed_password = hash_password(user_data.password)
     new_user = User(
         username=user_data.username,
         email=user_data.email,
         password_hash=hashed_password,
-        is_active=True
+        is_active=True,
+        role_id=default_role.id if default_role else None,
     )
-    
+
     db.add(new_user)
     db.commit()
     db.refresh(new_user)
-    
+
     # Create access token
-    access_token = create_access_token(user_id=new_user.id, username=new_user.username)
-    
+    access_token = create_access_token(
+        user_id=new_user.id, username=new_user.username, role=new_user.role.code if new_user.role else "user"
+    )
+
     return SignUpResponse(
-        user=UserResponse.model_validate(new_user),
+        user=_to_user_response(new_user),
         access_token=access_token,
         token_type="bearer"
     )
 
 @router.post("/signin", response_model=SignInResponse)
-async def sign_in(user_data: UserSignIn, db: Session = Depends(get_db)):
+def sign_in(user_data: UserSignIn, db: Session = Depends(get_db)):
     user = db.query(User).filter(User.email == user_data.email).first()
     
     if not user or not verify_password(user_data.password, user.password_hash):
@@ -123,16 +138,18 @@ async def sign_in(user_data: UserSignIn, db: Session = Depends(get_db)):
             detail="User account is inactive"
         )
     
-    access_token = create_access_token(user_id=user.id, username=user.username)
-    
+    access_token = create_access_token(
+        user_id=user.id, username=user.username, role=user.role.code if user.role else "user"
+    )
+
     return SignInResponse(
-        user=UserResponse.model_validate(user),
+        user=_to_user_response(user),
         access_token=access_token,
         token_type="bearer"
     )
 
 @router.get("/me", response_model=UserResponse)
-async def get_current_user(authorization: Optional[str] = Header(None), db: Session = Depends(get_db)):
+def get_current_user(authorization: Optional[str] = Header(None), db: Session = Depends(get_db)):
     if not authorization:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
@@ -165,5 +182,5 @@ async def get_current_user(authorization: Optional[str] = Header(None), db: Sess
             status_code=status.HTTP_404_NOT_FOUND,
             detail="User not found"
         )
-    
-    return UserResponse.model_validate(user)
+
+    return _to_user_response(user)

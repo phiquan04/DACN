@@ -1,21 +1,18 @@
 import os
-from fastapi import FastAPI
-from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import JSONResponse
-from fastapi.staticfiles import StaticFiles
-from dotenv import load_dotenv
 
-from config import get_config
-from app.models import init_db
-from app.routes import register_routers
+from dotenv import load_dotenv
 
 load_dotenv()
 
-def app(config_name=None):
+from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse
+
+from app.models import init_db
+from app.routes import register_routers
+
+def app():
     """Application factory"""
-    if config_name is None:
-        config_name = os.getenv('ENVIRONMENT', 'development')
-    
     app = FastAPI(
         title="Japanese VA Backend",
         description="Backend API for Japanese Learning Virtual Assistant",
@@ -23,10 +20,19 @@ def app(config_name=None):
     )
     
     # Setup CORS Middleware
+    # Auth uses a Bearer token attached manually per-request (see
+    # Frontend/src/services/api.ts), never browser-managed cookies, so
+    # allow_credentials stays False — that also lets allow_origins be a
+    # concrete allow-list instead of "*" (the two can't safely be combined).
+    allowed_origins = [
+        origin.strip()
+        for origin in os.getenv("ALLOWED_ORIGINS", "http://localhost:5173,http://127.0.0.1:5173").split(",")
+        if origin.strip()
+    ]
     app.add_middleware(
         CORSMiddleware,
-        allow_origins=["*"],
-        allow_credentials=True,
+        allow_origins=allowed_origins,
+        allow_credentials=False,
         allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"],
         allow_headers=["*"],
         expose_headers=["Content-Type"],
@@ -60,11 +66,5 @@ def app(config_name=None):
 
 
 if __name__ == '__main__':
-    app = app()
-    app.run(
-        host='127.0.0.1',
-        port=8080,
-        threaded=False,
-        use_reloader=False,
-        debug=os.getenv('FLASK_ENV') == 'development'
-    )
+    import uvicorn
+    uvicorn.run(app(), host='127.0.0.1', port=8080)

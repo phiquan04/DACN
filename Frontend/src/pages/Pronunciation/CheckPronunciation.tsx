@@ -1,14 +1,8 @@
-import { useState, useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
+import { useSearchParams } from "react-router-dom";
 import PageMeta from "../../components/common/PageMeta";
-import Button from "../../components/ui/button/Button";
-
-// Dữ liệu mẫu cho danh sách từ có sẵn
-const wordList = [
-  { word: "ありがとう", reading: "arigatou", meaning: "cảm ơn" },
-  { word: "おはよう", reading: "ohayou", meaning: "chào buổi sáng" },
-  { word: "こんにちは", reading: "konnichiwa", meaning: "xin chào" },
-  { word: "さようなら", reading: "sayounara", meaning: "tạm biệt" },
-];
+import ProcessingSteps from "../../components/pronunciation/ProcessingSteps";
+import { fetchHistoryWords, getStoredUser } from "../../services/api";
 
 // Kiểu dữ liệu cho kết quả đánh giá
 interface EvaluationResult {
@@ -21,9 +15,14 @@ interface EvaluationResult {
   wrong_word?: boolean;
 }
 
+interface HistoryWord {
+  word: string;
+  reading: string;
+  meaning: string;
+}
+
 // =====================================================================
-// ✅ FIX: Hàm lấy MIME type thực sự mà trình duyệt hỗ trợ
-// MediaRecorder KHÔNG THỂ ghi ra audio/wav - chỉ hỗ trợ webm hoặc ogg
+// Hàm lấy MIME type thực sự mà trình duyệt hỗ trợ
 // =====================================================================
 function getSupportedMimeType(): string {
   const candidates = [
@@ -37,554 +36,999 @@ function getSupportedMimeType(): string {
       return type;
     }
   }
-  // Fallback: để trình duyệt tự chọn
   return "";
 }
 
-// Hàm mô phỏng đánh giá phát âm cho từ có sẵn (dùng khi backend không khả dụng)
-const simulatePredefinedEvaluation = (word: string): EvaluationResult => {
-  const baseScore = Math.min(90, 70 + word.length * 5);
-  const accent = Math.floor(Math.random() * 30) + 70;
-  const intonation = Math.floor(Math.random() * 35) + 65;
-  const speed = Math.floor(Math.random() * 25) + 75;
-  const overall = Math.floor((accent + intonation + speed) / 3);
+// Màu sắc theo ngưỡng điểm (chỉ là ánh xạ hiển thị, không ảnh hưởng logic chấm điểm)
+function scoreBarColor(score: number): string {
+  if (score >= 80) return "bg-success-500";
+  if (score >= 60) return "bg-warning-500";
+  return "bg-error";
+}
 
-  let tip = "";
-  if (intonation < 70) tip = "Cần chú ý giọng điệu lên xuống tự nhiên hơn.";
-  else if (accent < 75) tip = "Âm đầu chưa rõ ràng, hãy phát âm chậm và chính xác hơn.";
-  else if (speed > 90) tip = "Tốc độ hơi nhanh, hãy thử nói chậm lại một chút.";
-  else tip = "Phát âm khá tốt, hãy duy trì và luyện tập thêm.";
+function scoreRingColor(score: number): string {
+  if (score >= 80) return "text-success-500";
+  if (score >= 60) return "text-warning-500";
+  return "text-error";
+}
 
-  return { overall, accent, intonation, speed, tip };
-};
+// =====================================================================
+// Icon tĩnh dùng chung
+// =====================================================================
+const SpeakerIcon = ({ className = "w-5 h-5" }: { className?: string }) => (
+  <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor">
+    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M15.536 8.464a5 5 0 010 7.072m2.828-9.9a9 9 0 010 12.728M5.586 15H4a1 1 0 01-1-1v-4a1 1 0 011-1h1.586l4.707-4.707C10.923 3.663 12 4.109 12 5v14c0 .891-1.077 1.337-1.707.707L5.586 15z" />
+  </svg>
+);
 
-// Hàm mô phỏng đánh giá cho VoiceMode (dùng Web Speech API, không có backend)
-const simulateVoiceEvaluation = (recognizedText: string): EvaluationResult => {
-  if (!recognizedText.trim()) {
-    return {
-      overall: 0,
-      accent: 0,
-      intonation: 0,
-      speed: 0,
-      tip: "Không nhận diện được giọng nói. Hãy thử lại với âm lượng lớn hơn và nói rõ ràng.",
-    };
-  }
-  const lengthFactor = Math.min(85, 60 + recognizedText.length * 2);
-  const accent = Math.floor(Math.random() * 30) + 65;
-  const intonation = Math.floor(Math.random() * 35) + 60;
-  const speed = Math.floor(Math.random() * 25) + 70;
-  const overall = Math.floor((accent + intonation + speed + lengthFactor) / 4);
+const MicIcon = ({ className = "w-7 h-7" }: { className?: string }) => (
+  <svg className={className} fill="currentColor" viewBox="0 0 24 24">
+    <path d="M12 14c1.66 0 3-1.34 3-3V5c0-1.66-1.34-3-3-3S9 3.34 9 5v6c0 1.66 1.34 3 3 3z" />
+    <path d="M17 11a5 5 0 01-10 0H5a7 7 0 006 6.92V21h2v-3.08A7 7 0 0019 11h-2z" />
+  </svg>
+);
 
-  let tip = "";
-  if (recognizedText.length < 3) tip = "Câu nói quá ngắn, hãy thử nói một câu dài hơn.";
-  else if (intonation < 65) tip = "Ngữ điệu chưa tự nhiên, hãy nghe lại phát âm chuẩn.";
-  else if (accent < 70) tip = "Cần chú ý trọng âm của từng từ.";
-  else tip = "Phát âm tốt, hãy luyện thêm để cải thiện ngữ điệu.";
+const PlayIcon = ({ className = "w-4 h-4" }: { className?: string }) => (
+  <svg className={className} fill="currentColor" viewBox="0 0 24 24">
+    <path d="M8 5v14l11-7z" />
+  </svg>
+);
 
-  return { overall, accent, intonation, speed, tip };
-};
+const WarnIcon = ({ className = "w-4 h-4" }: { className?: string }) => (
+  <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor">
+    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126zM12 15.75h.007v.008H12v-.008z" />
+  </svg>
+);
 
-// Component hiển thị kết quả đánh giá (dùng chung)
-const EvaluationDisplay = ({
-  evaluation,
-  onTryAgain,
+const ChevronRightIcon = ({ className = "w-4 h-4" }: { className?: string }) => (
+  <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor">
+    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+  </svg>
+);
+
+const BoltIcon = ({ className = "w-4 h-4" }: { className?: string }) => (
+  <svg className={className} fill="currentColor" viewBox="0 0 24 24">
+    <path d="M13 10V3L4 14h7v7l9-11h-7z" />
+  </svg>
+);
+
+const TrophyIcon = ({ className = "w-7 h-7" }: { className?: string }) => (
+  <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor">
+    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M8 21h8M12 17v4M17 5h2a2 2 0 010 4h-1M7 5H5a2 2 0 000 4h1M7 5h10v3a5 5 0 01-10 0V5z" />
+  </svg>
+);
+
+// =====================================================================
+// Waveform giả lập (chỉ mang tính minh hoạ trực quan)
+// =====================================================================
+const WAVEFORM_PATTERN = [42, 68, 90, 58, 34, 72, 100, 62, 48, 84, 54, 38, 78, 96, 62, 44, 58, 88, 68, 34, 78, 100, 52, 44, 74, 62, 38, 58];
+const EMPTY_PATTERN = new Array(WAVEFORM_PATTERN.length).fill(10);
+
+const Waveform = ({
+  active,
+  deviation,
 }: {
-  evaluation: EvaluationResult | null;
-  onTryAgain: () => void;
+  active: boolean;
+  deviation?: boolean;
 }) => {
-  if (!evaluation) {
-    return (
-      <div className="rounded-lg border border-gray-200 bg-white p-5 shadow-sm dark:border-gray-700 dark:bg-gray-900">
-        <div className="text-center text-gray-500 dark:text-gray-400">
-          <p>Chưa có đánh giá nào.</p>
-          <p className="text-sm">Hãy nhấn nút ghi âm để bắt đầu.</p>
-        </div>
-        <div className="mt-4 flex justify-center">
-          <Button size="sm" variant="outline" onClick={onTryAgain}>
-            Thử lại
-          </Button>
-        </div>
-      </div>
-    );
-  }
-
+  const pattern = active ? WAVEFORM_PATTERN : EMPTY_PATTERN;
   return (
-    <div className="rounded-lg border border-gray-200 bg-white p-5 shadow-sm dark:border-gray-700 dark:bg-gray-900">
-      <h3 className="mb-4 text-lg font-semibold text-gray-800 dark:text-white/90">
-        Kết quả đánh giá
-      </h3>
-
-      {/* Banner sai từ - hiển thị nổi bật khi phát âm sai từ */}
-      {evaluation.wrong_word && (
-        <div className="mb-4 rounded-md border border-red-300 bg-red-50 p-4 dark:border-red-500/30 dark:bg-red-500/10">
-          <div className="flex items-center gap-2 mb-1">
-            <span className="text-xl">❌</span>
-            <p className="font-bold text-red-700 dark:text-red-400">Phát âm sai từ!</p>
-          </div>
-          {evaluation.recognized_text && (
-            <div className="mt-2 space-y-1 text-sm">
-              <p className="text-red-600 dark:text-red-400">
-                Hệ thống nghe được:{" "}
-                <span className="font-bold text-red-700 dark:text-red-300">
-                  「{evaluation.recognized_text}」
-                </span>
-              </p>
-            </div>
-          )}
-          <p className="mt-2 text-sm text-red-600 dark:text-red-400">
-            Hãy nghe lại phát âm chuẩn và thử lại.
-          </p>
-        </div>
-      )}
-
-      {/* Hiển thị văn bản Whisper nhận diện được (chỉ khi không sai từ) */}
-      {!evaluation.wrong_word && evaluation.recognized_text !== undefined && (
-        <div className="mb-4 rounded-md bg-blue-50 p-3 dark:bg-blue-500/10">
-          <p className="text-xs text-blue-600 dark:text-blue-400">Whisper nhận diện:</p>
-          <p className="text-sm font-semibold text-gray-900 dark:text-white">
-            {evaluation.recognized_text || "(không nhận diện được)"}
-          </p>
-        </div>
-      )}
-
-      {/* Điểm tổng thể - ẩn các thanh điểm khi sai từ */}
-      {!evaluation.wrong_word ? (
-        <>
-          <div className="mb-4 text-center">
-            <div className="text-4xl font-bold text-brand-600">{evaluation.overall}</div>
-            <div className="text-sm text-gray-500">/ 100 điểm</div>
-            <div className="mt-1 text-sm text-gray-600">Điểm tổng thể</div>
-          </div>
-
-          <div className="space-y-3">
-            <div>
-              <div className="flex justify-between text-sm">
-                <span>Phát âm thanh đầu</span>
-                <span className="font-semibold">{evaluation.accent}/100</span>
-              </div>
-              <div className="mt-1 h-2 w-full rounded-full bg-gray-200 dark:bg-gray-700">
-                <div
-                  className="h-2 rounded-full bg-green-500"
-                  style={{ width: `${evaluation.accent}%` }}
-                ></div>
-              </div>
-            </div>
-            <div>
-              <div className="flex justify-between text-sm">
-                <span>Ngữ điệu</span>
-                <span className="font-semibold">{evaluation.intonation}/100</span>
-              </div>
-              <div className="mt-1 h-2 w-full rounded-full bg-gray-200 dark:bg-gray-700">
-                <div
-                  className="h-2 rounded-full bg-yellow-500"
-                  style={{ width: `${evaluation.intonation}%` }}
-                ></div>
-              </div>
-            </div>
-            <div>
-              <div className="flex justify-between text-sm">
-                <span>Tốc độ nói</span>
-                <span className="font-semibold">{evaluation.speed}/100</span>
-              </div>
-              <div className="mt-1 h-2 w-full rounded-full bg-gray-200 dark:bg-gray-700">
-                <div
-                  className="h-2 rounded-full bg-blue-500"
-                  style={{ width: `${evaluation.speed}%` }}
-                ></div>
-              </div>
-            </div>
-          </div>
-
-          <div className="mt-4 rounded-md bg-yellow-50 p-3 text-sm text-yellow-800 dark:bg-yellow-500/10 dark:text-yellow-300">
-            💡 {evaluation.tip}
-          </div>
-        </>
-      ) : (
-        /* Khi sai từ: chỉ hiển thị tip nhắc nhở */
-        <div className="mt-2 rounded-md bg-orange-50 p-3 text-sm text-orange-800 dark:bg-orange-500/10 dark:text-orange-300">
-          💡 Hãy nghe kỹ từ mẫu trước khi phát âm lại.
-        </div>
-      )}
-
-      <div className="mt-6 flex gap-3">
-        <Button size="sm" variant="outline" onClick={onTryAgain}>
-          Thử lại
-        </Button>
-      </div>
+    <div className="flex flex-1 items-end gap-[3px] h-12">
+      {pattern.map((h, i) => {
+        const frac = i / (pattern.length - 1);
+        const inZone = frac > 0.3 && frac < 0.65;
+        let colorClass = "bg-surface-container-high dark:bg-gray-600";
+        if (active) {
+          colorClass = deviation && inZone ? "bg-error dark:bg-red-500" : "bg-secondary dark:bg-secondary-fixed-dim";
+        }
+        return <span key={i} className={`w-1 rounded-full transition-colors ${colorClass}`} style={{ height: `${h}%` }} />;
+      })}
     </div>
   );
 };
 
 // =====================================================================
-// Component cho chế độ từ có sẵn
+// Component cho chế độ từ có sẵn — thiết kế theo mẫu "Speech Lab"
 // =====================================================================
-const PredefinedMode = ({ onSwitchMode }: { onSwitchMode?: () => void }) => {
-  const [selectedWord, setSelectedWord] = useState(wordList[0]);
+const PredefinedMode = () => {
   const [evaluation, setEvaluation] = useState<EvaluationResult | null>(null);
   const [isRecording, setIsRecording] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
+  const [wordList, setWordList] = useState<HistoryWord[]>([]);
+  const [selectedWord, setSelectedWord] = useState<HistoryWord | null>(null);
+  const [loadingWords, setLoadingWords] = useState(true);
+  const [recordedAudioUrl, setRecordedAudioUrl] = useState<string | null>(null);
+
+  // State cho tìm kiếm theo nghĩa tiếng Việt
+  const [vietSearch, setVietSearch] = useState("");
+  const [searchResults, setSearchResults] = useState<HistoryWord[]>([]);
+  const [searchingMeaning, setSearchingMeaning] = useState(false);
 
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const audioChunksRef = useRef<Blob[]>([]);
-  // ✅ FIX: Lưu mimeType thực tế để dùng lại khi tạo Blob
   const mimeTypeRef = useRef<string>("");
 
+  const [currentUser] = useState(() => getStoredUser());
+  const BASE_URL = import.meta.env.VITE_API_URL || "http://localhost:8080";
+
+  // Tải danh sách từ từ history khi mount
+  useEffect(() => {
+    if (!currentUser) {
+      setLoadingWords(false);
+      return;
+    }
+    const loadWords = async () => {
+      try {
+        const words = await fetchHistoryWords(currentUser.id);
+        setWordList(words);
+        if (words.length > 0) setSelectedWord(words[0]);
+      } catch (err) {
+        console.error("Failed to load history words", err);
+      } finally {
+        setLoadingWords(false);
+      }
+    };
+    loadWords();
+  }, [currentUser?.id]);
+
+  // Đọc từ được chọn từ sessionStorage (khi từ trang từ điển chuyển sang)
+  useEffect(() => {
+    const stored = sessionStorage.getItem("practiceWord");
+    if (stored) {
+      try {
+        const { word, reading, meaning } = JSON.parse(stored);
+        const newWord = { word, reading, meaning };
+        setWordList(prev => {
+          const exists = prev.some(w => w.word === word);
+          if (exists) return prev;
+          return [newWord, ...prev];
+        });
+        setSelectedWord(newWord);
+        sessionStorage.removeItem("practiceWord");
+      } catch (e) {
+        console.error(e);
+      }
+    }
+  }, []);
+
+  const clearRecordedAudio = () => {
+    setRecordedAudioUrl(prev => {
+      if (prev) URL.revokeObjectURL(prev);
+      return null;
+    });
+  };
+
   const handlePlayStandard = () => {
-    // Dùng Web Speech API để phát âm chuẩn
+    if (!selectedWord) return;
     const utterance = new SpeechSynthesisUtterance(selectedWord.word);
     utterance.lang = "ja-JP";
     utterance.rate = 0.8;
     window.speechSynthesis.speak(utterance);
   };
 
-  // =====================================================================
-  // ✅ FIX: handleStartRecording - dùng MIME type thực của trình duyệt
-  // =====================================================================
-  // Thay thế toàn bộ hàm handleStartRecording và handleStopRecording như sau:
+  const handlePlayRecording = () => {
+    if (!recordedAudioUrl) return;
+    const audio = new Audio(recordedAudioUrl);
+    audio.play();
+  };
 
-const handleStartRecording = async () => {
-  try {
-    const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-    const mimeType = getSupportedMimeType();
-    mimeTypeRef.current = mimeType;
-    const options = mimeType ? { mimeType } : {};
-    const mediaRecorder = new MediaRecorder(stream, options);
-    mediaRecorderRef.current = mediaRecorder;
-    audioChunksRef.current = [];
+  const handleStartRecording = async () => {
+    if (!selectedWord) return;
+    clearRecordedAudio();
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      const mimeType = getSupportedMimeType();
+      mimeTypeRef.current = mimeType;
+      const options = mimeType ? { mimeType } : {};
+      const mediaRecorder = new MediaRecorder(stream, options);
+      mediaRecorderRef.current = mediaRecorder;
+      audioChunksRef.current = [];
 
-    mediaRecorder.ondataavailable = (event) => {
-      if (event.data && event.data.size > 0) {
-        console.log(`Chunk size: ${event.data.size} bytes`);
-        audioChunksRef.current.push(event.data);
-      }
-    };
-
-    mediaRecorder.onstop = async () => {
-      // ✅ Gom tất cả chunk lại
-      const actualMime = mimeTypeRef.current || "audio/webm";
-      const audioBlob = new Blob(audioChunksRef.current, { type: actualMime });
-      console.log(`Final blob size: ${audioBlob.size} bytes`);
-
-      if (audioBlob.size < 5000) {
-        alert("File ghi âm quá nhỏ (có thể do lỗi microphone). Hãy thử lại và nói to hơn.");
-        setIsRecording(false);
-        setIsProcessing(false);
-        return;
-      }
-
-      const formData = new FormData();
-      const ext = actualMime.includes("ogg") ? "ogg" : "webm";
-      formData.append("audio", audioBlob, `recording.${ext}`);
-      formData.append("expected_text", selectedWord.word);
-
-      setIsProcessing(true);
-      try {
-        const response = await fetch("http://localhost:8080/api/pronunciation/assess", {
-          method: "POST",
-          body: formData,
-        });
-        const data = await response.json();
-        if (response.ok) {
-          setEvaluation({
-            overall: data.overall,
-            accent: data.accent,
-            intonation: data.intonation,
-            speed: data.speed,
-            tip: data.tip,
-            recognized_text: data.recognized_text,
-            wrong_word: data.wrong_word ?? false,
-          });
-        } else {
-          alert(data.error || "Lỗi đánh giá phát âm");
+      mediaRecorder.ondataavailable = (event) => {
+        if (event.data.size > 0) {
+          audioChunksRef.current.push(event.data);
         }
-      } catch (err) {
-        console.error(err);
-        alert("Không thể kết nối backend");
-      } finally {
-        setIsProcessing(false);
+      };
+
+      mediaRecorder.onstop = async () => {
         setIsRecording(false);
-        // Dừng tất cả track
-        stream.getTracks().forEach(track => track.stop());
-      }
-    };
+        if (audioChunksRef.current.length === 0) {
+          alert("Không có dữ liệu ghi âm. Vui lòng thử lại.");
+          setIsProcessing(false);
+          return;
+        }
 
-    // ✅ Tăng timeslice lên 1000ms để có chunk lớn hơn, hoặc bỏ hẳn (mặc định gom toàn bộ)
-    mediaRecorder.start(1000); // hoặc mediaRecorder.start() nếu muốn gom đến khi stop
-    setIsRecording(true);
-  } catch (err) {
-    console.error("Lỗi khi bắt đầu ghi âm:", err);
-    alert("Không thể truy cập microphone.");
-  }
-};
+        const audioBlob = new Blob(audioChunksRef.current, {
+          type: mimeTypeRef.current || "audio/webm",
+        });
+        setRecordedAudioUrl(URL.createObjectURL(audioBlob));
 
-const handleStopRecording = () => {
-  const recorder = mediaRecorderRef.current;
-  if (recorder && recorder.state !== "inactive") {
-    recorder.stop(); // Không cần requestData() nữa
-  }
-};
+        const formData = new FormData();
+        formData.append("audio", audioBlob, "recording.webm");
+        formData.append("expected_text", selectedWord.word);
+
+        setIsProcessing(true);
+        try {
+          const response = await fetch(
+            `${BASE_URL}/api/pronunciation/assess`,
+            { method: "POST", body: formData }
+          );
+          const data = await response.json();
+          if (response.ok) {
+            setEvaluation(data);
+          } else {
+            console.error("API error:", data);
+            alert(data.error || "Không thể đánh giá phát âm");
+          }
+        } catch (err) {
+          console.error("Lỗi khi gửi:", err);
+          alert("Lỗi kết nối. Vui lòng thử lại.");
+        } finally {
+          setIsProcessing(false);
+          stream.getTracks().forEach((track) => track.stop());
+        }
+      };
+
+      mediaRecorder.start(1000);
+      setIsRecording(true);
+    } catch (err) {
+      console.error("Lỗi khi bắt đầu ghi âm:", err);
+      alert("Không thể truy cập microphone. Vui lòng kiểm tra quyền.");
+
+      // FIX: Reset state khi có lỗi
+      setIsRecording(false);
+      setIsProcessing(false);
+    }
+  };
+
+  const handleStopRecording = () => {
+    const recorder = mediaRecorderRef.current;
+    if (recorder && recorder.state !== "inactive") {
+      recorder.stop();
+    }
+  };
 
   const handleTryAgain = () => {
     setEvaluation(null);
     setIsRecording(false);
     setIsProcessing(false);
+    clearRecordedAudio();
   };
 
-  const handleSelectWord = (item: (typeof wordList)[0]) => {
+  const handleSelectWord = (item: HistoryWord) => {
     setSelectedWord(item);
     setEvaluation(null);
     setIsRecording(false);
     setIsProcessing(false);
+    clearRecordedAudio();
   };
+
+  // Tìm kiếm từ theo nghĩa tiếng Việt (gọi Gemini)
+  const searchByVietnameseMeaning = async () => {
+    if (!vietSearch.trim()) return;
+    setSearchingMeaning(true);
+    try {
+      const res = await fetch(`${BASE_URL}/api/dictionary/search-by-meaning`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ vietnamese: vietSearch }),
+      });
+      const data = await res.json();
+      if (Array.isArray(data)) {
+        setSearchResults(data);
+      } else {
+        setSearchResults([]);
+      }
+    } catch (err) {
+      console.error(err);
+      alert("Không thể tìm từ theo nghĩa.");
+    } finally {
+      setSearchingMeaning(false);
+    }
+  };
+
+  const addWordFromSearch = (item: HistoryWord) => {
+    setWordList(prev => {
+      const exists = prev.some(w => w.word === item.word);
+      if (exists) return prev;
+      return [item, ...prev];
+    });
+    setSelectedWord(item);
+    setEvaluation(null);
+    clearRecordedAudio();
+    setSearchResults([]);
+    setVietSearch("");
+  };
+
+  if (!currentUser) {
+    return (
+      <div className="rounded-3xl border border-outline-variant/60 bg-surface-container-lowest p-12 text-center dark:border-gray-700 dark:bg-gray-900">
+        <p className="text-on-surface-variant dark:text-gray-400">Vui lòng đăng nhập để xem danh sách từ đã tra và luyện phát âm.</p>
+      </div>
+    );
+  }
+
+  if (loadingWords) {
+    return <div className="text-center py-12 text-on-surface-variant">Đang tải danh sách từ...</div>;
+  }
+
+  if (wordList.length === 0 || !selectedWord) {
+    return (
+      <div className="rounded-3xl border border-outline-variant/60 bg-surface-container-lowest p-12 text-center dark:border-gray-700 dark:bg-gray-900">
+        <p className="text-on-surface-variant dark:text-gray-400">
+          Chưa có từ nào trong lịch sử tra cứu. Hãy tra từ ở trang Từ điển trước.
+        </p>
+      </div>
+    );
+  }
+
+  const isDeviation = !!evaluation && !evaluation.wrong_word && evaluation.intonation < 75;
+  const otherWords = wordList.filter(w => w.word !== selectedWord.word);
+
+  let encouragement = {
+    title: "Sẵn sàng chưa?",
+    message: "Hãy nhấn nút ghi âm để nhận đánh giá phát âm từ AI.",
+  };
+  if (evaluation?.wrong_word) {
+    encouragement = { title: "Đừng nản lòng!", message: "Nghe kỹ từ mẫu rồi thử phát âm lại nhé." };
+  } else if (evaluation) {
+    if (evaluation.overall >= 80) {
+      encouragement = { title: "Xuất sắc!", message: "Phát âm của bạn rất chuẩn, tiếp tục phát huy nhé." };
+    } else if (evaluation.overall >= 60) {
+      encouragement = { title: "Khá tốt!", message: "Bạn đang tiến bộ, hãy chú ý thêm phần ngữ điệu." };
+    } else {
+      encouragement = { title: "Cố gắng thêm nhé!", message: "Luyện tập nhiều hơn sẽ giúp bạn cải thiện nhanh chóng." };
+    }
+  }
 
   return (
     <div className="space-y-6">
-      {/* Danh sách từ */}
-      <div className="rounded-lg border border-gray-200 bg-white p-5 shadow-sm dark:border-gray-700 dark:bg-gray-900">
-        <h2 className="mb-4 text-xl font-semibold text-gray-800 dark:text-white/90">
-          📖 Chọn từ để luyện
-        </h2>
-        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-          {wordList.map((item) => (
-            <button
-              key={item.word}
-              onClick={() => handleSelectWord(item)}
-              disabled={isRecording || isProcessing}
-              className={`rounded-lg border p-3 text-left transition-all ${
-                selectedWord.word === item.word
-                  ? "border-brand-500 bg-brand-50 dark:bg-brand-500/10"
-                  : "border-gray-200 bg-white hover:bg-gray-50 dark:border-gray-700 dark:bg-gray-900 dark:hover:bg-gray-800"
-              } ${isRecording || isProcessing ? "opacity-50 cursor-not-allowed" : ""}`}
-            >
-              <div className="text-lg font-bold text-gray-900 dark:text-white">{item.word}</div>
-              <div className="text-sm text-gray-500 dark:text-gray-400">{item.reading}</div>
-              <div className="text-sm text-gray-600 dark:text-gray-300">{item.meaning}</div>
-            </button>
-          ))}
+      {/* Thẻ mục tiêu phát âm */}
+      <div className="rounded-3xl border border-outline-variant/60 bg-surface-container-lowest p-8 text-center shadow-theme-xs dark:border-gray-700 dark:bg-gray-900">
+        <div className="mb-4 inline-flex items-center gap-2 text-sm font-medium text-secondary dark:text-secondary-fixed-dim">
+          <SpeakerIcon className="w-4 h-4" />
+          Từ mục tiêu
+        </div>
+        <div className="text-sm text-on-surface-variant dark:text-gray-400">{selectedWord.reading}</div>
+        <div lang="ja" className="my-2 text-5xl font-bold text-on-surface dark:text-white">{selectedWord.word}</div>
+        <div className="mb-8 text-base text-on-surface-variant dark:text-gray-400">{selectedWord.meaning}</div>
+
+        <button
+          onClick={!isRecording ? handleStartRecording : handleStopRecording}
+          disabled={isProcessing}
+          className={`mx-auto flex h-24 w-24 items-center justify-center rounded-full shadow-theme-md transition-colors disabled:opacity-50 ${
+            isRecording ? "bg-error text-on-error hover:bg-error/90" : "bg-primary text-on-primary hover:bg-brand-600"
+          }`}
+        >
+          <MicIcon className={`w-9 h-9 ${isRecording ? "animate-pulse" : ""}`} />
+        </button>
+        <p className="mt-4 text-sm font-medium text-on-surface-variant dark:text-gray-400">
+          {isRecording ? "Đang ghi âm — nhấn để dừng" : isProcessing ? "Đang xử lý..." : "Nhấn để ghi âm"}
+        </p>
+
+        <div className="mt-6">
+          <button
+            onClick={handlePlayStandard}
+            className="mx-auto flex items-center gap-2 rounded-full border border-outline-variant/60 px-4 py-1.5 text-xs font-medium text-on-surface-variant hover:border-outline hover:text-on-surface dark:border-gray-700 dark:text-gray-400 dark:hover:border-gray-600 dark:hover:text-white transition-colors"
+          >
+            <SpeakerIcon className="w-3.5 h-3.5" />
+            Nghe phát âm chuẩn
+          </button>
         </div>
       </div>
 
-      {/* Điều khiển phát âm */}
-      <div className="rounded-lg border border-gray-200 bg-white p-5 shadow-sm dark:border-gray-700 dark:bg-gray-900">
-        <h3 className="mb-3 text-md font-semibold text-gray-800 dark:text-white/90">
-          Đang luyện: {selectedWord.word}
-        </h3>
-        <div className="flex flex-wrap items-center gap-3">
-          <Button
-            size="sm"
-            variant="outline"
-            onClick={handlePlayStandard}
-            disabled={isRecording || isProcessing}
-          >
-            <svg className="mr-1 h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth={2}
-                d="M15.536 8.464a5 5 0 010 7.072m2.828-9.9a9 9 0 010 12.728M5.586 15H4a1 1 0 01-1-1v-4a1 1 0 011-1h1.586l4.707-4.707C10.923 3.663 12 4.109 12 5v14c0 .891-1.077 1.337-1.707.707L5.586 15z"
-              />
+      {/* Phân tích âm thanh + Danh sách từ khác */}
+      <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
+        <div className="rounded-3xl border border-outline-variant/60 bg-surface-container-lowest p-6 shadow-theme-xs dark:border-gray-700 dark:bg-gray-900 lg:col-span-2">
+          <h3 className="mb-5 flex items-center gap-2 text-base font-semibold text-on-surface dark:text-white/90">
+            <svg className="w-5 h-5 text-secondary" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M3 12h2l2-7 3 14 3-10 2 5h4" />
             </svg>
-            Nghe phát âm chuẩn
-          </Button>
+            Phân tích âm thanh
+          </h3>
 
-          {isProcessing ? (
-            <Button size="sm" disabled>
-              <svg className="mr-1 h-4 w-4 animate-spin" fill="none" viewBox="0 0 24 24">
-                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z" />
-              </svg>
-              Đang xử lý...
-            </Button>
-          ) : !isRecording ? (
-            <Button size="sm" onClick={handleStartRecording}>
-              <svg className="mr-1 h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 01-3-3V5a3 3 0 116 0v6a3 3 0 01-3 3z"
-                />
-              </svg>
-              Nhấn để ghi âm
-            </Button>
+          <div className="mb-5">
+            <div className="mb-2 flex items-center justify-between">
+              <span className="text-sm font-medium text-on-surface-variant dark:text-gray-300">Giọng chuẩn (Native)</span>
+              <button
+                onClick={handlePlayStandard}
+                className="flex h-7 w-7 items-center justify-center rounded-full bg-secondary-container text-on-secondary-container hover:opacity-80 transition-opacity"
+              >
+                <PlayIcon className="w-3.5 h-3.5" />
+              </button>
+            </div>
+            <div className="flex items-center rounded-xl bg-surface-container px-4 py-3 dark:bg-gray-800">
+              <Waveform active />
+            </div>
+          </div>
+
+          <div>
+            <div className="mb-2 flex items-center justify-between">
+              <span className="text-sm font-medium text-on-surface-variant dark:text-gray-300">Bản ghi của bạn</span>
+              <button
+                onClick={handlePlayRecording}
+                disabled={!recordedAudioUrl}
+                className="flex h-7 w-7 items-center justify-center rounded-full bg-secondary-container text-on-secondary-container hover:opacity-80 transition-opacity disabled:opacity-40 disabled:cursor-not-allowed"
+              >
+                <PlayIcon className="w-3.5 h-3.5" />
+              </button>
+            </div>
+            <div className={`flex items-center rounded-xl px-4 py-3 transition-colors ${isDeviation ? "bg-error-container/50 dark:bg-red-500/10" : "bg-surface-container dark:bg-gray-800"}`}>
+              <Waveform active={!!recordedAudioUrl} deviation={isDeviation} />
+            </div>
+            {isDeviation && (
+              <p className="mt-2 flex items-center gap-1.5 text-xs font-medium text-error dark:text-red-400">
+                <WarnIcon />
+                Phát hiện lệch ngữ điệu (pitch deviation)
+              </p>
+            )}
+            {!recordedAudioUrl && !isProcessing && (
+              <p className="mt-2 text-xs text-on-surface-variant dark:text-gray-500">Chưa có bản ghi — hãy nhấn nút ghi âm ở trên.</p>
+            )}
+            <ProcessingSteps active={isProcessing} />
+            {evaluation?.recognized_text && (
+              <p className="mt-2 text-xs text-on-surface-variant dark:text-gray-400">
+                Nhận diện được: <span className="font-semibold text-on-surface dark:text-white">「{evaluation.recognized_text}」</span>
+              </p>
+            )}
+          </div>
+        </div>
+
+        <div className="rounded-3xl border border-outline-variant/60 bg-surface-container-lowest p-6 shadow-theme-xs dark:border-gray-700 dark:bg-gray-900">
+          <h3 className="mb-4 text-base font-semibold text-on-surface dark:text-white/90">Từ khác để luyện</h3>
+          <div className="max-h-64 space-y-2 overflow-y-auto pr-1">
+            {otherWords.length === 0 && (
+              <p className="text-sm text-on-surface-variant dark:text-gray-400">Không còn từ khác trong danh sách.</p>
+            )}
+            {otherWords.map((item) => (
+              <button
+                key={item.word}
+                onClick={() => handleSelectWord(item)}
+                disabled={isRecording || isProcessing}
+                className="flex w-full items-center justify-between rounded-xl border border-outline-variant/60 px-4 py-3 text-left transition-colors hover:border-primary hover:bg-surface-container disabled:opacity-50 disabled:cursor-not-allowed dark:border-gray-700 dark:hover:border-brand-500 dark:hover:bg-gray-800"
+              >
+                <div className="min-w-0">
+                  <div lang="ja" className="truncate font-semibold text-on-surface dark:text-white">{item.word}</div>
+                  <div className="truncate text-xs text-on-surface-variant dark:text-gray-400">{item.meaning}</div>
+                </div>
+                <ChevronRightIcon className="w-4 h-4 flex-shrink-0 text-outline dark:text-gray-500" />
+              </button>
+            ))}
+          </div>
+
+          <div className="mt-5 border-t border-outline-variant/60 pt-5 dark:border-gray-700">
+            <label className="mb-2 block text-xs font-medium text-on-surface-variant dark:text-gray-400">
+              Tìm từ theo nghĩa tiếng Việt
+            </label>
+            <div className="flex gap-2">
+              <input
+                type="text"
+                value={vietSearch}
+                onChange={(e) => setVietSearch(e.target.value)}
+                onKeyDown={(e) => e.key === "Enter" && searchByVietnameseMeaning()}
+                placeholder="vd: học tập"
+                className="min-w-0 flex-1 rounded-full border border-outline-variant/60 px-3 py-2 text-sm text-on-surface focus:border-primary focus:outline-none focus:ring-3 focus:ring-brand-500/20 dark:border-gray-600 dark:bg-gray-800 dark:text-white"
+              />
+              <button
+                onClick={searchByVietnameseMeaning}
+                disabled={searchingMeaning || !vietSearch.trim()}
+                className="flex-shrink-0 rounded-full bg-primary px-4 text-xs font-medium text-on-primary hover:bg-brand-600 disabled:opacity-50 transition-colors"
+              >
+                {searchingMeaning ? "..." : "Tìm"}
+              </button>
+            </div>
+            {searchResults.length > 0 && (
+              <div className="mt-3 space-y-2">
+                {searchResults.map((item) => (
+                  <button
+                    key={item.word}
+                    onClick={() => addWordFromSearch(item)}
+                    className="flex w-full items-center justify-between rounded-xl border border-outline-variant/60 px-3 py-2 text-left text-sm hover:border-primary hover:bg-surface-container dark:border-gray-700 dark:hover:border-brand-500 dark:hover:bg-gray-800 transition-colors"
+                  >
+                    <span>
+                      <span lang="ja" className="font-semibold text-on-surface dark:text-white">{item.word}</span>
+                      <span className="ml-2 text-xs text-on-surface-variant dark:text-gray-400">{item.meaning}</span>
+                    </span>
+                    <ChevronRightIcon className="w-3.5 h-3.5 flex-shrink-0 text-outline dark:text-gray-500" />
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
+        </div>
+      </div>
+
+      {/* Điểm số + AI Tutor + Động viên */}
+      <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
+        <div className="rounded-3xl border border-outline-variant/60 bg-surface-container-lowest p-6 text-center shadow-theme-xs dark:border-gray-700 dark:bg-gray-900">
+          <h3 className="mb-4 text-base font-semibold text-on-surface dark:text-white/90">Điểm tổng quan</h3>
+          {evaluation && !evaluation.wrong_word ? (
+            <>
+              <div className="mb-5 flex justify-center">
+                <div className="relative flex h-28 w-28 items-center justify-center">
+                  <svg className="h-28 w-28 -rotate-90" viewBox="0 0 96 96">
+                    <circle cx="48" cy="48" r="40" fill="none" strokeWidth="8" className="stroke-surface-container-high dark:stroke-gray-700" />
+                    <circle
+                      cx="48"
+                      cy="48"
+                      r="40"
+                      fill="none"
+                      strokeWidth="8"
+                      strokeLinecap="round"
+                      strokeDasharray={2 * Math.PI * 40}
+                      strokeDashoffset={2 * Math.PI * 40 - (Math.min(evaluation.overall, 100) / 100) * (2 * Math.PI * 40)}
+                      className={`${scoreRingColor(evaluation.overall)} stroke-current transition-all duration-500`}
+                    />
+                  </svg>
+                  <div className="absolute flex flex-col items-center">
+                    <span className="text-3xl font-bold text-on-surface dark:text-white">{evaluation.overall}</span>
+                    <span className="text-xs text-on-surface-variant dark:text-gray-400">/ 100</span>
+                  </div>
+                </div>
+              </div>
+              <div className="space-y-3 text-left">
+                <div>
+                  <div className="flex justify-between text-sm text-on-surface dark:text-gray-200">
+                    <span>Phát âm thanh đầu</span>
+                    <span className="font-semibold">{evaluation.accent}%</span>
+                  </div>
+                  <div className="mt-1 h-2 w-full rounded-full bg-surface-container-high dark:bg-gray-700">
+                    <div className={`h-2 rounded-full ${scoreBarColor(evaluation.accent)}`} style={{ width: `${evaluation.accent}%` }}></div>
+                  </div>
+                </div>
+                <div>
+                  <div className="flex justify-between text-sm text-on-surface dark:text-gray-200">
+                    <span>Ngữ điệu (Pitch)</span>
+                    <span className={`font-semibold ${evaluation.intonation < 75 ? "text-error dark:text-red-400" : ""}`}>{evaluation.intonation}%</span>
+                  </div>
+                  <div className="mt-1 h-2 w-full rounded-full bg-surface-container-high dark:bg-gray-700">
+                    <div className={`h-2 rounded-full ${scoreBarColor(evaluation.intonation)}`} style={{ width: `${evaluation.intonation}%` }}></div>
+                  </div>
+                </div>
+                <div>
+                  <div className="flex justify-between text-sm text-on-surface dark:text-gray-200">
+                    <span>Tốc độ & nhịp điệu</span>
+                    <span className="font-semibold">{evaluation.speed}%</span>
+                  </div>
+                  <div className="mt-1 h-2 w-full rounded-full bg-surface-container-high dark:bg-gray-700">
+                    <div className={`h-2 rounded-full ${scoreBarColor(evaluation.speed)}`} style={{ width: `${evaluation.speed}%` }}></div>
+                  </div>
+                </div>
+              </div>
+            </>
           ) : (
-            <Button size="sm" variant="outline" onClick={handleStopRecording}>
-              <svg className="mr-1 h-4 w-4 animate-pulse text-red-500" fill="currentColor" viewBox="0 0 24 24">
-                <circle cx="12" cy="12" r="8" />
-              </svg>
-              Dừng ghi âm
-            </Button>
+            <div className="flex h-full min-h-[220px] flex-col items-center justify-center text-sm text-on-surface-variant dark:text-gray-400">
+              {evaluation?.wrong_word ? "Không thể chấm điểm do phát âm sai từ." : "Ghi âm để xem điểm số của bạn."}
+            </div>
+          )}
+        </div>
+
+        <div className="rounded-3xl bg-primary p-6 text-on-primary shadow-theme-md">
+          <h3 className="mb-3 flex items-center gap-2 text-base font-semibold">
+            <span className="flex h-7 w-7 items-center justify-center rounded-full bg-white/10">
+              <BoltIcon />
+            </span>
+            AI Tutor Feedback
+          </h3>
+
+          {!evaluation && (
+            <p className="text-sm text-white/70">Nhận xét chi tiết sẽ xuất hiện tại đây sau khi bạn ghi âm.</p>
+          )}
+
+          {evaluation?.wrong_word && (
+            <div className="space-y-3">
+              <div className="rounded-xl bg-white/10 p-3">
+                <p className="mb-1 flex items-center gap-1.5 text-xs font-semibold text-tertiary-fixed">
+                  <WarnIcon /> Lỗi phát hiện
+                </p>
+                <p className="text-sm text-white/90">
+                  Hệ thống nghe được:{" "}
+                  <span className="font-bold">「{evaluation.recognized_text || "không rõ"}」</span>
+                </p>
+              </div>
+              <div className="rounded-xl bg-secondary-fixed-dim/20 p-3 text-sm text-white/90">
+                Hãy nghe lại phát âm chuẩn ở thẻ phía trên và thử lại nhé.
+              </div>
+            </div>
+          )}
+
+          {evaluation && !evaluation.wrong_word && (
+            <div className="space-y-3">
+              {evaluation.recognized_text !== undefined && (
+                <p className="text-sm text-white/70">
+                  Whisper nhận diện: <span className="font-semibold text-white">{evaluation.recognized_text || "(không nhận diện được)"}</span>
+                </p>
+              )}
+              <div className="rounded-xl bg-white/10 p-3">
+                <p className="mb-1 text-xs font-semibold text-tertiary-fixed">Hướng dẫn cải thiện</p>
+                <p className="text-sm text-white/90">{evaluation.tip}</p>
+              </div>
+            </div>
+          )}
+        </div>
+
+        <div className="flex flex-col items-center justify-center rounded-3xl border border-outline-variant/60 bg-surface-container-lowest p-6 text-center shadow-theme-xs dark:border-gray-700 dark:bg-gray-900">
+          <span className="flex h-14 w-14 items-center justify-center rounded-full bg-secondary-container text-on-secondary-container">
+            <TrophyIcon />
+          </span>
+          <h3 className="mt-3 text-lg font-bold text-on-surface dark:text-white/90">{encouragement.title}</h3>
+          <p className="mt-1 text-sm text-on-surface-variant dark:text-gray-400">{encouragement.message}</p>
+          {evaluation && (
+            <button
+              onClick={handleTryAgain}
+              className="mt-4 rounded-full border border-primary px-6 py-1.5 text-sm font-medium text-primary hover:bg-surface-container dark:text-brand-300 dark:border-brand-400 dark:hover:bg-brand-500/10 transition-colors"
+            >
+              Thử lại
+            </button>
           )}
         </div>
       </div>
-
-      {/* Kết quả đánh giá */}
-      <EvaluationDisplay evaluation={evaluation} onTryAgain={handleTryAgain} />
     </div>
   );
 };
 
 // =====================================================================
-// Component cho chế độ nhận diện giọng nói (dùng Web Speech API)
+// Component cho chế độ nhận diện giọng nói
 // =====================================================================
 const VoiceMode = () => {
-  const [isListening, setIsListening] = useState(false);
-  const [recognizedText, setRecognizedText] = useState("");
+  const [expectedText, setExpectedText] = useState("");
+  const [isRecording, setIsRecording] = useState(false);
+  const [isProcessing, setIsProcessing] = useState(false);
   const [evaluation, setEvaluation] = useState<EvaluationResult | null>(null);
-  const recognitionRef = useRef<any>(null);
+  const [sampleReading, setSampleReading] = useState<string | null>(null);
+  const [sampleText, setSampleText] = useState("");
+  const [generatingSample, setGeneratingSample] = useState(false);
+  const [recordedAudioUrl, setRecordedAudioUrl] = useState<string | null>(null);
+  const mediaRecorderRef = useRef<MediaRecorder | null>(null);
+  const audioChunksRef = useRef<Blob[]>([]);
+  const BASE_URL = import.meta.env.VITE_API_URL || "http://localhost:8080";
 
-  useEffect(() => {
-    if (!("webkitSpeechRecognition" in window) && !("SpeechRecognition" in window)) {
-      alert(
-        "Trình duyệt của bạn không hỗ trợ nhận diện giọng nói. Hãy dùng Chrome, Edge hoặc Safari."
-      );
+  const clearRecordedAudio = () => {
+    setRecordedAudioUrl(prev => {
+      if (prev) URL.revokeObjectURL(prev);
+      return null;
+    });
+  };
+
+  const handleGenerateSample = async () => {
+    if (!expectedText.trim()) {
+      alert("Vui lòng nhập câu tiếng Nhật muốn luyện trước.");
       return;
     }
-    const SpeechRecognition =
-      (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
-    recognitionRef.current = new SpeechRecognition();
-    recognitionRef.current.continuous = false;
-    recognitionRef.current.interimResults = false;
-    recognitionRef.current.lang = "ja-JP";
-
-    recognitionRef.current.onresult = (event: any) => {
-      const transcript = event.results[0][0].transcript;
-      setRecognizedText(transcript);
-      setIsListening(false);
-      const result = simulateVoiceEvaluation(transcript);
-      setEvaluation(result);
-    };
-
-    recognitionRef.current.onerror = (event: any) => {
-      console.error("Speech recognition error", event.error);
-      setIsListening(false);
-      alert("Lỗi nhận diện giọng nói: " + event.error);
-    };
-
-    recognitionRef.current.onend = () => {
-      setIsListening(false);
-    };
-
-    return () => {
-      if (recognitionRef.current) {
-        recognitionRef.current.abort();
-      }
-    };
-  }, []);
-
-  const handleStartListening = () => {
-    if (!recognitionRef.current) {
-      alert("Trình duyệt không hỗ trợ nhận diện giọng nói.");
-      return;
-    }
-    setRecognizedText("");
+    setGeneratingSample(true);
     setEvaluation(null);
-    setIsListening(true);
-    recognitionRef.current.start();
-  };
-
-  const handleStopListening = () => {
-    if (recognitionRef.current) {
-      recognitionRef.current.stop();
-    }
-    setIsListening(false);
-  };
-
-  const handleTryAgain = () => {
-    if (recognizedText) {
-      const result = simulateVoiceEvaluation(recognizedText);
-      setEvaluation(result);
-    } else {
-      alert("Hãy nói vào microphone trước.");
+    clearRecordedAudio();
+    try {
+      const res = await fetch(`${BASE_URL}/api/dictionary/reading`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ text: expectedText }),
+      });
+      const data = await res.json();
+      setSampleText(expectedText);
+      setSampleReading(data.reading || "");
+    } catch (err) {
+      console.error("Lỗi tạo bản mẫu:", err);
+      alert("Không thể tạo bản mẫu. Vui lòng thử lại.");
+    } finally {
+      setGeneratingSample(false);
     }
   };
 
-  const handlePlayStandard = () => {
-    if (!recognizedText) {
-      alert("Chưa có văn bản nào được nhận diện. Hãy nói trước.");
-      return;
-    }
-    const utterance = new SpeechSynthesisUtterance(recognizedText);
+  const handlePlayNative = () => {
+    if (!sampleText) return;
+    const utterance = new SpeechSynthesisUtterance(sampleText);
     utterance.lang = "ja-JP";
     utterance.rate = 0.8;
     window.speechSynthesis.speak(utterance);
   };
 
+  const handlePlayRecording = () => {
+    if (!recordedAudioUrl) return;
+    const audio = new Audio(recordedAudioUrl);
+    audio.play();
+  };
+
+  const startRecording = async () => {
+    if (!sampleText) {
+      alert("Vui lòng tạo bản mẫu trước khi ghi âm.");
+      return;
+    }
+    clearRecordedAudio();
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      const mimeType = getSupportedMimeType();
+      const options = mimeType ? { mimeType } : {};
+      const mediaRecorder = new MediaRecorder(stream, options);
+      mediaRecorderRef.current = mediaRecorder;
+      audioChunksRef.current = [];
+
+      mediaRecorder.ondataavailable = (event) => {
+        if (event.data.size > 0) audioChunksRef.current.push(event.data);
+      };
+
+      mediaRecorder.onstop = async () => {
+        setIsRecording(false);
+        if (audioChunksRef.current.length === 0) {
+          alert("Không có dữ liệu ghi âm.");
+          setIsProcessing(false);
+          return;
+        }
+        const audioBlob = new Blob(audioChunksRef.current, { type: mimeType || "audio/webm" });
+        setRecordedAudioUrl(URL.createObjectURL(audioBlob));
+
+        const formData = new FormData();
+        formData.append("audio", audioBlob, "recording.webm");
+        formData.append("expected_text", sampleText);
+
+        setIsProcessing(true);
+        try {
+          const response = await fetch(`${BASE_URL}/api/pronunciation/assess`, {
+            method: "POST",
+            body: formData,
+          });
+          const data = await response.json();
+          if (response.ok) {
+            setEvaluation(data);
+          } else {
+            console.error("API error:", data);
+            alert(data.error || "Không thể đánh giá phát âm");
+          }
+        } catch (err) {
+          console.error("Lỗi gửi:", err);
+          alert("Lỗi kết nối. Vui lòng thử lại.");
+        } finally {
+          setIsProcessing(false);
+          stream.getTracks().forEach(track => track.stop());
+        }
+      };
+
+      mediaRecorder.start(1000);
+      setIsRecording(true);
+    } catch (err) {
+      console.error("Lỗi bắt đầu ghi âm:", err);
+      alert("Không thể truy cập microphone.");
+      setIsRecording(false);
+    }
+  };
+
+  const stopRecording = () => {
+    if (mediaRecorderRef.current && mediaRecorderRef.current.state !== "inactive") {
+      mediaRecorderRef.current.stop();
+    }
+  };
+
+  const handleTryAgain = () => {
+    setEvaluation(null);
+    setIsRecording(false);
+    setIsProcessing(false);
+    clearRecordedAudio();
+  };
+
+  const isDeviation = !!evaluation && !evaluation.wrong_word && evaluation.intonation < 75;
+  const ringCircumference = 2 * Math.PI * 40;
+  const ringOffset = evaluation
+    ? ringCircumference - (Math.min(evaluation.overall, 100) / 100) * ringCircumference
+    : ringCircumference;
+
   return (
     <div className="space-y-6">
-      <div className="rounded-lg border border-gray-200 bg-white p-5 shadow-sm dark:border-gray-700 dark:bg-gray-900">
-        <h2 className="mb-4 text-xl font-semibold text-gray-800 dark:text-white/90">
-          🎤 Phát âm bằng giọng nói
-        </h2>
-        <p className="mb-4 text-sm text-gray-600 dark:text-gray-400">
-          Nhấn nút bên dưới và nói một câu tiếng Nhật. Hệ thống sẽ nhận diện và đánh giá phát âm
-          của bạn.
-        </p>
-
-        <div className="flex flex-wrap items-center gap-3 mb-6">
-          {!isListening ? (
-            <Button size="sm" onClick={handleStartListening}>
-              <svg className="mr-1 h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 01-3-3V5a3 3 0 116 0v6a3 3 0 01-3 3z"
-                />
-              </svg>
-              Bắt đầu ghi âm
-            </Button>
-          ) : (
-            <>
-              <Button size="sm" variant="outline" disabled>
-                <svg
-                  className="mr-1 h-4 w-4 animate-pulse text-red-500"
-                  fill="currentColor"
-                  viewBox="0 0 24 24"
-                >
-                  <circle cx="12" cy="12" r="8" />
-                </svg>
-                Đang nghe...
-              </Button>
-              <Button size="sm" onClick={handleStopListening}>
-                <svg className="mr-1 h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M6 4a2 2 0 012-2h4a2 2 0 012 2v2a2 2 0 01-2 2H8a2 2 0 01-2-2V4z"
-                  />
-                </svg>
-                Dừng ghi âm
-              </Button>
-            </>
-          )}
+      <div className="rounded-3xl border border-outline-variant/60 bg-surface-container-lowest p-8 shadow-theme-xs dark:border-gray-700 dark:bg-gray-900">
+        <div className="mb-6 inline-flex items-center gap-2 text-sm font-medium text-secondary dark:text-secondary-fixed-dim">
+          <SpeakerIcon className="w-4 h-4" />
+          Câu tự do
+        </div>
+        <label className="mb-2 block text-sm font-medium text-on-surface dark:text-gray-300">
+          Nhập câu tiếng Nhật muốn luyện
+        </label>
+        <div className="flex flex-col gap-3 sm:flex-row">
+          <input
+            type="text"
+            value={expectedText}
+            onChange={(e) => setExpectedText(e.target.value)}
+            placeholder="Ví dụ: こんにちは、お元気ですか"
+            lang="ja"
+            className="min-w-0 flex-1 rounded-full border border-outline-variant/60 px-4 py-2.5 text-on-surface focus:border-primary focus:outline-none focus:ring-3 focus:ring-brand-500/20 dark:bg-gray-800 dark:border-gray-600 dark:text-white"
+          />
+          <button
+            onClick={handleGenerateSample}
+            disabled={generatingSample || !expectedText.trim()}
+            className="flex-shrink-0 rounded-full border border-outline-variant/60 px-4 py-2.5 text-sm font-medium text-on-surface-variant hover:border-outline hover:text-on-surface disabled:opacity-50 dark:border-gray-600 dark:text-gray-300 dark:hover:border-gray-500 transition-colors"
+          >
+            {generatingSample ? "Đang tạo..." : "📝 Tạo bản mẫu"}
+          </button>
         </div>
 
-        {recognizedText && (
-          <div className="mb-6 rounded-md bg-blue-50 p-4 dark:bg-blue-500/10">
-            <p className="text-sm font-medium text-blue-800 dark:text-blue-300">
-              Văn bản nhận diện được:
-            </p>
-            <p className="text-lg font-semibold text-gray-900 dark:text-white mt-1">
-              {recognizedText}
-            </p>
-            <div className="mt-3 flex gap-2">
-              <Button size="sm" variant="outline" onClick={handlePlayStandard}>
-                Nghe phát âm chuẩn
-              </Button>
+        {sampleReading !== null && (
+          <div className="mt-8 border-t border-outline-variant/60 pt-8 text-center dark:border-gray-700">
+            <div className="mb-4 inline-flex items-center gap-2 text-sm font-medium text-secondary dark:text-secondary-fixed-dim">
+              <SpeakerIcon className="w-4 h-4" />
+              Bản mẫu
             </div>
+            {sampleReading && <div className="text-sm text-on-surface-variant dark:text-gray-400">{sampleReading}</div>}
+            <div lang="ja" className="my-2 text-3xl font-bold text-on-surface dark:text-white">{sampleText}</div>
+
+            <button
+              onClick={!isRecording ? startRecording : stopRecording}
+              disabled={isProcessing}
+              className={`mx-auto mt-4 flex h-24 w-24 items-center justify-center rounded-full shadow-theme-md transition-colors disabled:opacity-50 ${
+                isRecording ? "bg-error text-on-error hover:bg-error/90" : "bg-primary text-on-primary hover:bg-brand-600"
+              }`}
+            >
+              <MicIcon className={`w-9 h-9 ${isRecording ? "animate-pulse" : ""}`} />
+            </button>
+            <p className="mt-4 text-sm font-medium text-on-surface-variant dark:text-gray-400">
+              {isRecording ? "Đang ghi âm — nhấn để dừng" : isProcessing ? "Đang xử lý..." : "Nhấn để ghi âm & đánh giá"}
+            </p>
+
+            <button
+              onClick={handlePlayNative}
+              className="mx-auto mt-4 flex items-center gap-2 rounded-full border border-outline-variant/60 px-4 py-1.5 text-xs font-medium text-on-surface-variant hover:border-outline hover:text-on-surface dark:border-gray-700 dark:text-gray-400 dark:hover:border-gray-600 dark:hover:text-white transition-colors"
+            >
+              <SpeakerIcon className="w-3.5 h-3.5" />
+              Nghe phát âm chuẩn
+            </button>
           </div>
         )}
       </div>
 
-      <EvaluationDisplay evaluation={evaluation} onTryAgain={handleTryAgain} />
+      {sampleReading !== null && (
+        <div className="rounded-3xl border border-outline-variant/60 bg-surface-container-lowest p-6 shadow-theme-xs dark:border-gray-700 dark:bg-gray-900">
+          <h3 className="mb-5 flex items-center gap-2 text-base font-semibold text-on-surface dark:text-white/90">
+            <svg className="w-5 h-5 text-secondary" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M3 12h2l2-7 3 14 3-10 2 5h4" />
+            </svg>
+            Phân tích âm thanh
+          </h3>
+
+          <div className="mb-5">
+            <div className="mb-2 flex items-center justify-between">
+              <span className="text-sm font-medium text-on-surface-variant dark:text-gray-300">Giọng chuẩn (Native)</span>
+              <button
+                onClick={handlePlayNative}
+                className="flex h-7 w-7 items-center justify-center rounded-full bg-secondary-container text-on-secondary-container hover:opacity-80 transition-opacity"
+              >
+                <PlayIcon className="w-3.5 h-3.5" />
+              </button>
+            </div>
+            <div className="flex items-center rounded-xl bg-surface-container px-4 py-3 dark:bg-gray-800">
+              <Waveform active />
+            </div>
+          </div>
+
+          <div>
+            <div className="mb-2 flex items-center justify-between">
+              <span className="text-sm font-medium text-on-surface-variant dark:text-gray-300">Bản ghi của bạn</span>
+              <button
+                onClick={handlePlayRecording}
+                disabled={!recordedAudioUrl}
+                className="flex h-7 w-7 items-center justify-center rounded-full bg-secondary-container text-on-secondary-container hover:opacity-80 transition-opacity disabled:opacity-40 disabled:cursor-not-allowed"
+              >
+                <PlayIcon className="w-3.5 h-3.5" />
+              </button>
+            </div>
+            <div className={`flex items-center rounded-xl px-4 py-3 transition-colors ${isDeviation ? "bg-error-container/50 dark:bg-red-500/10" : "bg-surface-container dark:bg-gray-800"}`}>
+              <Waveform active={!!recordedAudioUrl} deviation={isDeviation} />
+            </div>
+            {isDeviation && (
+              <p className="mt-2 flex items-center gap-1.5 text-xs font-medium text-error dark:text-red-400">
+                <WarnIcon />
+                Phát hiện lệch ngữ điệu (pitch deviation)
+              </p>
+            )}
+            {!recordedAudioUrl && !isProcessing && (
+              <p className="mt-2 text-xs text-on-surface-variant dark:text-gray-500">Chưa có bản ghi — hãy nhấn nút ghi âm ở trên.</p>
+            )}
+            <ProcessingSteps active={isProcessing} />
+            {evaluation?.recognized_text && (
+              <p className="mt-2 text-xs text-on-surface-variant dark:text-gray-400">
+                Nhận diện được: <span className="font-semibold text-on-surface dark:text-white">「{evaluation.recognized_text}」</span>
+              </p>
+            )}
+          </div>
+        </div>
+      )}
+
+      <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
+        <div className="rounded-3xl border border-outline-variant/60 bg-surface-container-lowest p-6 text-center shadow-theme-xs dark:border-gray-700 dark:bg-gray-900">
+          <h3 className="mb-4 text-base font-semibold text-on-surface dark:text-white/90">Điểm tổng quan</h3>
+          {evaluation && !evaluation.wrong_word ? (
+            <>
+              <div className="mb-5 flex justify-center">
+                <div className="relative flex h-24 w-24 items-center justify-center">
+                  <svg className="h-24 w-24 -rotate-90" viewBox="0 0 96 96">
+                    <circle cx="48" cy="48" r="40" fill="none" strokeWidth="8" className="stroke-surface-container-high dark:stroke-gray-700" />
+                    <circle
+                      cx="48" cy="48" r="40" fill="none" strokeWidth="8" strokeLinecap="round"
+                      strokeDasharray={ringCircumference}
+                      strokeDashoffset={ringOffset}
+                      className={`${scoreRingColor(evaluation.overall)} stroke-current transition-all duration-500`}
+                    />
+                  </svg>
+                  <div className="absolute flex flex-col items-center">
+                    <span className="text-2xl font-bold text-on-surface dark:text-white">{evaluation.overall}</span>
+                    <span className="text-xs text-on-surface-variant dark:text-gray-400">/ 100</span>
+                  </div>
+                </div>
+              </div>
+              <div className="space-y-3 text-left">
+                {[
+                  ["Phát âm thanh đầu", evaluation.accent],
+                  ["Ngữ điệu", evaluation.intonation],
+                  ["Tốc độ nói", evaluation.speed],
+                ].map(([label, value]) => (
+                  <div key={label as string}>
+                    <div className="flex justify-between text-sm text-on-surface dark:text-gray-200">
+                      <span>{label}</span>
+                      <span className="font-semibold">{value}%</span>
+                    </div>
+                    <div className="mt-1 h-2 w-full rounded-full bg-surface-container-high dark:bg-gray-700">
+                      <div className={`h-2 rounded-full ${scoreBarColor(value as number)}`} style={{ width: `${value}%` }}></div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </>
+          ) : (
+            <div className="flex min-h-[160px] flex-col items-center justify-center text-sm text-on-surface-variant dark:text-gray-400">
+              {evaluation?.wrong_word ? "Không thể chấm điểm do phát âm sai." : "Ghi âm để xem điểm số của bạn."}
+            </div>
+          )}
+        </div>
+
+        <div className="rounded-3xl bg-primary p-6 text-on-primary shadow-theme-md">
+          <h3 className="mb-3 flex items-center gap-2 text-base font-semibold">
+            <span className="flex h-7 w-7 items-center justify-center rounded-full bg-white/10">
+              <BoltIcon />
+            </span>
+            AI Tutor Feedback
+          </h3>
+          {!evaluation && <p className="text-sm text-white/70">Nhận xét sẽ xuất hiện sau khi bạn ghi âm.</p>}
+          {evaluation?.wrong_word && (
+            <div className="space-y-3">
+              <div className="rounded-xl bg-white/10 p-3">
+                <p className="mb-1 flex items-center gap-1.5 text-xs font-semibold text-tertiary-fixed">
+                  <WarnIcon /> Phát âm sai từ
+                </p>
+                {evaluation.recognized_text && (
+                  <p className="text-sm text-white/90">
+                    Nghe được: <span className="font-bold">「{evaluation.recognized_text}」</span>
+                  </p>
+                )}
+              </div>
+            </div>
+          )}
+          {evaluation && !evaluation.wrong_word && (
+            <div className="rounded-xl bg-white/10 p-3 text-sm text-white/90">{evaluation.tip}</div>
+          )}
+          {evaluation && (
+            <button
+              onClick={handleTryAgain}
+              className="mt-4 w-full rounded-full border border-white/30 py-1.5 text-sm font-medium text-white hover:bg-white/10 transition-colors"
+            >
+              Thử lại
+            </button>
+          )}
+        </div>
+      </div>
     </div>
   );
 };
 
 export default function CheckPronunciation() {
   const [activeMode, setActiveMode] = useState<"predefined" | "voice">("predefined");
+  const [searchParams] = useSearchParams();
+
+  // Xử lý query param khi vào trang (từ từ điển chuyển sang)
+  useEffect(() => {
+    const word = searchParams.get("word");
+    const reading = searchParams.get("reading");
+    const meaning = searchParams.get("meaning");
+    if (word) {
+      sessionStorage.setItem("practiceWord", JSON.stringify({ word, reading: reading || "", meaning: meaning || "" }));
+      setActiveMode("predefined");
+    }
+  }, [searchParams]);
 
   return (
     <>
@@ -593,26 +1037,39 @@ export default function CheckPronunciation() {
         description="Luyện phát âm từ có sẵn hoặc sử dụng giọng nói để nhận diện và sửa phát âm"
       />
       <div className="container mx-auto px-4 py-6">
-        <div className="mb-8 flex justify-center gap-4">
+        <div className="mb-6 flex justify-end">
+          <span className="inline-flex items-center gap-2 rounded-full bg-primary px-4 py-1.5 text-xs font-medium text-on-primary">
+            <span className="h-1.5 w-1.5 rounded-full bg-success-400 animate-pulse" />
+            AI đang lắng nghe
+          </span>
+        </div>
+
+        <div className="mb-8 grid grid-cols-1 gap-4 sm:grid-cols-2">
           <button
             onClick={() => setActiveMode("predefined")}
-            className={`rounded-lg px-6 py-2 font-medium transition-all ${
+            className={`rounded-2xl px-6 py-4 font-medium text-center transition-all ${
               activeMode === "predefined"
-                ? "bg-brand-600 text-white shadow-md"
-                : "bg-gray-200 text-gray-700 hover:bg-gray-300 dark:bg-gray-700 dark:text-gray-200 dark:hover:bg-gray-600"
+                ? "bg-primary text-on-primary shadow-theme-md"
+                : "bg-surface-container-lowest border border-outline-variant/60 text-on-surface hover:border-outline-variant dark:bg-gray-900 dark:border-gray-700 dark:text-gray-200 dark:hover:border-gray-600"
             }`}
           >
-            📚 Từ có sẵn
+            <div className="font-semibold">Từ có sẵn</div>
+            <div className={`text-sm ${activeMode === "predefined" ? "text-on-primary/80" : "text-on-surface-variant dark:text-gray-400"}`}>
+              Chọn từ trong danh sách
+            </div>
           </button>
           <button
             onClick={() => setActiveMode("voice")}
-            className={`rounded-lg px-6 py-2 font-medium transition-all ${
+            className={`rounded-2xl px-6 py-4 font-medium text-center transition-all ${
               activeMode === "voice"
-                ? "bg-brand-600 text-white shadow-md"
-                : "bg-gray-200 text-gray-700 hover:bg-gray-300 dark:bg-gray-700 dark:text-gray-200 dark:hover:bg-gray-600"
+                ? "bg-primary text-on-primary shadow-theme-md"
+                : "bg-surface-container-lowest border border-outline-variant/60 text-on-surface hover:border-outline-variant dark:bg-gray-900 dark:border-gray-700 dark:text-gray-200 dark:hover:border-gray-600"
             }`}
           >
-            🎤 Nhận diện giọng nói
+            <div className="font-semibold">Nhận diện giọng nói</div>
+            <div className={`text-sm ${activeMode === "voice" ? "text-on-primary/80" : "text-on-surface-variant dark:text-gray-400"}`}>
+              Nhập câu và ghi âm để đánh giá
+            </div>
           </button>
         </div>
 

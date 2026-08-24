@@ -1,0 +1,69 @@
+services:
+  db:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: Japanese_App
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: qazplmdcm
+    ports:
+      # Published so a locally-run backend (outside Docker) can reach
+      # Postgres at localhost:5432 — only backend/frontend need images
+      # built; db is a stock image with no build step of its own.
+      - "5432:5432"
+    volumes:
+      - db_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  backend:
+    build:
+      context: ./Backend
+    restart: unless-stopped
+    env_file:
+      - ./Backend/.env
+    environment:
+      # Overrides the localhost value from .env so the backend reaches the
+      # Postgres container by its service name instead of the host machine.
+      DATABASE_URL: postgresql://postgres:qazplmdcm@db:5432/Japanese_App
+      # jamdict (used by /api/dictionary) looks for its ~325MB JMdict SQLite
+      # database under $JAMDICT_HOME/data/jamdict.db. Points it at the copy
+      # under Backend/data/jamdict, which rides along on the volume below.
+      JAMDICT_HOME: /app/data/jamdict
+    depends_on:
+      db:
+        condition: service_healthy
+    ports:
+      - "8080:8080"
+    volumes:
+      # data/model/ is gitignored (1.3GB checkpoint) so it's provided at
+      # runtime from the host instead of being baked into the image.
+      - ./Backend/data:/app/data
+      # Persist downloaded ML models (faster-whisper, HF transformers) across restarts.
+      - backend_cache:/root/.cache
+
+  frontend:
+    build:
+      context: ./Frontend
+      args:
+        VITE_API_URL: http://localhost:8080
+    restart: unless-stopped
+    depends_on:
+      - backend
+    ports:
+      - "5173:80"
+
+  adminer:
+    image: adminer
+    restart: unless-stopped
+    depends_on:
+      - db
+    ports:
+      - "8081:8080"
+
+volumes:
+  db_data:
+  backend_cache:

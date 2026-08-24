@@ -24,7 +24,61 @@ passlib[bcrypt]==1.7.4
 bcrypt==4.1.1
 python-dotenv==1.0.0
 
-# NLP / dictionary
+fastapi==0.104.1
+uvicorn==0.46.0
+
+tensorflow==2.10.0
+torch==2.11.0
+transformers==4.41.2
+faster-whisper>=0.12.0
+
+fugashi==1.5.2
+unidic-lite==1.0.8
+pydantic>=2.5
+SQLAlchemy==2.0.0
+numpy==1.23.5
+psycopg2-binary==2.9.12
+python-multipart==0.0.27
+
+pdfplumber==0.11.9
+pdfminer.six==20251230
+pypdfium2==5.8.0
+PyMuPDF==1.27.2.3
+
+yt-dlp==2026.7.4
+ffmpeg-python==0.2.0
+
+# ML bổ sung
+ctranslate2==4.7.1
+onnxruntime==1.23.2
+tokenizers==0.19.1
+huggingface_hub==0.36.2
+safetensors==0.7.0
+
+# Audio
+pydub==0.25.1
+praat-parselmouth==0.4.7
+av==17.0.1
+
+# NLP / dịch
 jamdict==0.1a11.post2
 deep-translator==1.11.4
+googletrans==4.0.2
 gTTS==2.5.4
+
+# HTTP / async
+httpx==0.28.1
+anyio==3.7.1
+starlette==0.27.0
+
+# Web scraping
+beautifulsoup4==4.14.3
+
+# Cloud / API
+cloudinary==1.44.2
+google-api-python-client==2.196.0
+google-auth==2.50.0
+google-auth-oauthlib==0.4.6
+
+# Logging
+coloredlogs==15.0.1

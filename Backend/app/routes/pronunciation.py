@@ -1,10 +1,10 @@
-# app/routes/pronunciation.py
 import os
+import io
 import tempfile
 import hashlib
 import numpy as np
 from fastapi import APIRouter, UploadFile, File, Form, HTTPException
-from fastapi.responses import JSONResponse
+from fastapi.responses import JSONResponse, StreamingResponse
 from pydub import AudioSegment
 import parselmouth
 from parselmouth import Sound
@@ -87,10 +87,10 @@ def extract_pitch_intensity(audio_path: str):
 
 def compare_and_score(user_features: dict, ref_features: dict):
     pitch_diff = abs(user_features['mean_pitch'] - ref_features['mean_pitch'])
-    pitch_max_diff = 100
+    pitch_max_diff = 180 
     pitch_score = max(0, 100 - (pitch_diff / pitch_max_diff) * 100)
     intensity_diff = abs(user_features['mean_intensity'] - ref_features['mean_intensity'])
-    intensity_max_diff = 20
+    intensity_max_diff = 30  
     intensity_score = max(0, 100 - (intensity_diff / intensity_max_diff) * 100)
     overall = (pitch_score + intensity_score) / 2
     return {
@@ -113,7 +113,7 @@ def generate_reference_audio(text: str, output_path: str):
 
 # ---------- Endpoint đánh giá phát âm ----------
 @router.post("/assess")
-async def pronunciation_assess(
+def pronunciation_assess(
     audio: UploadFile = File(...),
     expected_text: str = Form(...)
 ):
@@ -123,7 +123,7 @@ async def pronunciation_assess(
         # Lưu file upload
         suffix = os.path.splitext(audio.filename or "recording.webm")[1] or ".webm"
         with tempfile.NamedTemporaryFile(delete=False, suffix=suffix) as tmp:
-            content = await audio.read()
+            content = audio.file.read()
             tmp.write(content)
             user_audio_path = tmp.name
         
@@ -173,7 +173,8 @@ async def pronunciation_assess(
         mora_per_sec = mora_count / total_duration if total_duration > 0 else 0
         speed_score = max(0, min(100, int(100 - abs(mora_per_sec - 7.5) * 10)))
         
-        overall = int(praat_score['overall'] * 0.6 + text_match_score * 0.4)
+        # Điều chỉnh trọng số: 30% praat, 70% text match
+        overall = int(praat_score['overall'] * 0.3 + text_match_score * 0.7)
         accent = praat_score['accent']
         intonation = praat_score['intonation']
         
@@ -207,5 +208,24 @@ async def pronunciation_assess(
             if path and os.path.exists(path):
                 try:
                     os.unlink(path)
-                except:
+                except Exception:
                     pass
+
+@router.post("/tts")
+def text_to_speech(text: str = Form(...)):
+    """
+    Chuyển văn bản tiếng Nhật thành giọng nói bằng gTTS,
+    trả về audio/mpeg dạng stream.
+    """
+    try:
+        tts = gTTS(text=text, lang='ja', slow=False)
+        audio_bytes = io.BytesIO()
+        tts.write_to_fp(audio_bytes)
+        audio_bytes.seek(0)
+        return StreamingResponse(
+            audio_bytes,
+            media_type="audio/mpeg",
+            headers={"Content-Disposition": "inline; filename=tts.mp3"}
+        )
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))

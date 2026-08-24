@@ -1,6 +1,10 @@
 Backend/data/model/
-__pycache__/
+Backend/data/jamdict/
+**/__pycache__/
 *.pyc
 Backend/venv/
 Backend/.env
+Backend/chatbot.db
+Backend/node_modules/
 Frontend/node_modules/
+Frontend/.env

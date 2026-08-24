@@ -2,6 +2,7 @@
 
 import React from "react";
 import type { ChatMessage as ChatMsg } from "../services/api";
+import FeedbackCard from "./FeedbackCard";
 
 interface Props {
   message: ChatMsg;
@@ -15,7 +16,7 @@ const ChatMessage: React.FC<Props> = ({ message }) => {
   });
 
   return (
-    <div className={`chat-message ${isUser ? "user" : "assistant"}`}>
+    <div className={`chat-message ${isUser ? "user" : "assistant"} ${message.isOffTopic ? "off-topic" : ""}`}>
       {!isUser && (
         <div className="avatar-badge">
           <span>AI</span>
@@ -26,6 +27,7 @@ const ChatMessage: React.FC<Props> = ({ message }) => {
           <p>{message.content}</p>
         </div>
         <span className="timestamp">{time}</span>
+        {!isUser && message.feedback && <FeedbackCard text={message.feedback} />}
       </div>
     </div>
   );
