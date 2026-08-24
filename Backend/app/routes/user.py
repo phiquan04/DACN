@@ -93,3 +93,16 @@ def upload_avatar(
         return {"avatar_url": url}
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Upload failed: {str(e)}")
+
+
+@router.delete("/avatar")
+def delete_avatar(
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    info = db.query(UserInformation).filter(UserInformation.user_id == current_user.id).first()
+    if info:
+        info.avatar_url = None
+        db.commit()
+
+    return {"avatar_url": None}

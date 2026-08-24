@@ -6,6 +6,11 @@ services:
       POSTGRES_DB: Japanese_App
       POSTGRES_USER: postgres
       POSTGRES_PASSWORD: qazplmdcm
+    ports:
+      # Published so a locally-run backend (outside Docker) can reach
+      # Postgres at localhost:5432 — only backend/frontend need images
+      # built; db is a stock image with no build step of its own.
+      - "5432:5432"
     volumes:
       - db_data:/var/lib/postgresql/data
     healthcheck:

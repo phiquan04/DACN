@@ -54,10 +54,14 @@ export default function UserProfiles() {
         ) : error ? (
           <p className="text-sm text-red-600">{error}</p>
         ) : profile ? (
-          <div className="space-y-6">
-            <UserMetaCard profile={profile} onSave={handleSaveProfile} />
-            <UserInfoCard profile={profile} onSave={handleSaveProfile} />
-            <UserAddressCard profile={profile} onSave={handleSaveProfile} />
+          <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
+            <div className="lg:col-span-1">
+              <UserMetaCard profile={profile} onSave={handleSaveProfile} />
+            </div>
+            <div className="space-y-6 lg:col-span-2">
+              <UserInfoCard profile={profile} onSave={handleSaveProfile} />
+              <UserAddressCard profile={profile} onSave={handleSaveProfile} />
+            </div>
           </div>
         ) : (
           <p>Không có thông tin hồ sơ.</p>
