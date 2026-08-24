@@ -3,8 +3,14 @@ import { Route, BrowserRouter as Router, Routes } from "react-router";
 import { ScrollToTop } from "./components/common/ScrollToTop";
 import PageLoader from "./components/common/PageLoader";
 import AppLayout from "./layout/AppLayout";
+import AdminLayout from "./layout/AdminLayout";
 
 const AdminHome = lazy(() => import("./pages/Admin/AdminHome"));
+const AdminUserManagement = lazy(() => import("./pages/Admin/UserManagement"));
+const AdminJLPTContentBank = lazy(() => import("./pages/Admin/JLPTContentBank"));
+const AdminChatScenarios = lazy(() => import("./pages/Admin/ChatScenarios"));
+const AdminVideoTranscripts = lazy(() => import("./pages/Admin/VideoTranscripts"));
+const AdminSettings = lazy(() => import("./pages/Admin/Settings"));
 const SignIn = lazy(() => import("./pages/AuthPages/SignIn"));
 const SignUp = lazy(() => import("./pages/AuthPages/SignUp"));
 const Calendar = lazy(() => import("./pages/Calendar"));
@@ -44,7 +50,14 @@ export default function App() {
              <Route path="/meeting/room/:roomID" element={<MeetingRoom />} />
 
             {/* Admin */}
-            <Route path="/admin" element={<AdminHome />} />
+            <Route path="/admin" element={<AdminLayout />}>
+              <Route index element={<AdminHome />} />
+              <Route path="users" element={<AdminUserManagement />} />
+              <Route path="jlpt-content" element={<AdminJLPTContentBank />} />
+              <Route path="chat-scenarios" element={<AdminChatScenarios />} />
+              <Route path="video-transcripts" element={<AdminVideoTranscripts />} />
+              <Route path="settings" element={<AdminSettings />} />
+            </Route>
 
             {/* Auth Layout */}
             <Route path="/signin" element={<SignIn />} />
