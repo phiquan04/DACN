@@ -1,19 +1,14 @@
-import { Navigate } from "react-router";
 import PageMeta from "../../components/common/PageMeta";
-import { getStoredUser } from "../../services/api";
 
 export default function AdminHome() {
-  const user = getStoredUser();
-
-  if (!user || user.role !== "admin") {
-    return <Navigate to="/signin" replace />;
-  }
-
   return (
     <>
       <PageMeta title="Admin | Manabi AI" description="Trang quản trị Manabi AI." />
-      <div className="flex min-h-screen items-center justify-center">
-        <h1 className="text-2xl font-bold">ADMIN</h1>
+      <div className="rounded-2xl border border-outline-variant/60 bg-surface-container-lowest p-6">
+        <h2 className="text-lg font-semibold text-on-surface">Tổng quan</h2>
+        <p className="mt-2 text-sm text-on-surface-variant">
+          Trang quản trị đang được xây dựng.
+        </p>
       </div>
     </>
   );

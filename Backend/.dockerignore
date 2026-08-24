@@ -1,9 +1,11 @@
 venv/
 __pycache__/
-**/__pycache__/
 *.pyc
+.pytest_cache/
 .env
-chatbot.db
-data/model/
-.git
-.gitignore
+.git/
+
+# Volume-mounted at runtime (see docker-compose.yml), never needed in the
+# image itself — excluding it keeps the build context from having to hash
+# ~1.7GB of model/dictionary data on every build.
+data/
