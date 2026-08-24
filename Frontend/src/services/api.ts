@@ -204,6 +204,14 @@ export async function uploadAvatar(file: File): Promise<{ avatar_url: string }> 
   });
 }
 
+export async function deleteAvatar(): Promise<{ avatar_url: null }> {
+  const token = getToken();
+  return request(`/api/user/avatar`, {
+    method: "DELETE",
+    headers: authHeaders(token),
+  });
+}
+
 export async function getUserProfile(): Promise<UserProfile> {
   const token = getToken();
   return request(`/api/user/profile`, {
