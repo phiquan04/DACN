@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { useSearchParams } from "react-router-dom";
 import PageMeta from "../../components/common/PageMeta";
+import ProcessingSteps from "../../components/pronunciation/ProcessingSteps";
 import { fetchHistoryWords, getStoredUser } from "../../services/api";
 
 // Kiểu dữ liệu cho kết quả đánh giá
@@ -464,9 +465,7 @@ const PredefinedMode = () => {
             {!recordedAudioUrl && !isProcessing && (
               <p className="mt-2 text-xs text-on-surface-variant dark:text-gray-500">Chưa có bản ghi — hãy nhấn nút ghi âm ở trên.</p>
             )}
-            {isProcessing && (
-              <p className="mt-2 text-xs text-on-surface-variant dark:text-gray-500">Đang xử lý bản ghi...</p>
-            )}
+            <ProcessingSteps active={isProcessing} />
             {evaluation?.recognized_text && (
               <p className="mt-2 text-xs text-on-surface-variant dark:text-gray-400">
                 Nhận diện được: <span className="font-semibold text-on-surface dark:text-white">「{evaluation.recognized_text}」</span>
@@ -920,6 +919,7 @@ const VoiceMode = () => {
             {!recordedAudioUrl && !isProcessing && (
               <p className="mt-2 text-xs text-on-surface-variant dark:text-gray-500">Chưa có bản ghi — hãy nhấn nút ghi âm ở trên.</p>
             )}
+            <ProcessingSteps active={isProcessing} />
             {evaluation?.recognized_text && (
               <p className="mt-2 text-xs text-on-surface-variant dark:text-gray-400">
                 Nhận diện được: <span className="font-semibold text-on-surface dark:text-white">「{evaluation.recognized_text}」</span>

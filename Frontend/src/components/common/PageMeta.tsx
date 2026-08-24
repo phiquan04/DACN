@@ -1,6 +1,8 @@
 import { useEffect } from "react";
 import { HelmetProvider, Helmet } from "react-helmet-async";
 import { PageHeaderProvider, usePageHeader } from "../../context/PageHeaderContext";
+import { ToastProvider } from "../../context/ToastContext";
+import ApiErrorBridge from "./ApiErrorBridge";
 
 const PageMeta = ({
   title,
@@ -26,7 +28,10 @@ const PageMeta = ({
 
 export const AppWrapper = ({ children }: { children: React.ReactNode }) => (
   <HelmetProvider>
-    <PageHeaderProvider>{children}</PageHeaderProvider>
+    <ToastProvider>
+      <ApiErrorBridge />
+      <PageHeaderProvider>{children}</PageHeaderProvider>
+    </ToastProvider>
   </HelmetProvider>
 );
 

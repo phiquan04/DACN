@@ -6,7 +6,7 @@ import ChatInput from "../../components/ChatInput";
 import { useSpeech } from "../../hooks/useSpeech";
 import { useVoiceInput } from "../../hooks/useVoiceInput";
 import {
-  sendChatMessage,
+  streamChatMessage,
   checkHealth,
   fetchScenarios,
   startConversation,
@@ -35,6 +35,7 @@ export default function ChatBot() {
   const [statusMsg, setStatusMsg] = useState("");
 
   const chatEndRef = useRef<HTMLDivElement>(null);
+  const streamAbortRef = useRef<AbortController | null>(null);
   const { speak, stop, isSpeaking } = useSpeech();
 
   const handleVoiceResultRef = useRef<(transcript: string) => void | null>(null);
@@ -67,8 +68,14 @@ export default function ChatBot() {
     chatEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages]);
 
+  // Abort any in-flight chat stream if the page is left mid-reply
+  useEffect(() => {
+    return () => streamAbortRef.current?.abort();
+  }, []);
+
   const initConversation = useCallback(
     async (scenario: ChatScenario | null) => {
+      streamAbortRef.current?.abort();
       stop();
       stopListening();
       setIsLoading(true);
@@ -131,30 +138,66 @@ export default function ChatBot() {
       setIsLoading(true);
       setIsThinking(true);
 
+      streamAbortRef.current?.abort();
+      const controller = new AbortController();
+      streamAbortRef.current = controller;
+
+      let replyText = "";
+      let assistantMsgStarted = false;
+
+      const appendToAssistantMessage = (delta: string) => {
+        replyText += delta;
+        setMessages((prev) => {
+          if (!assistantMsgStarted) {
+            assistantMsgStarted = true;
+            return [...prev, { role: "assistant", content: delta, timestamp: Date.now() }];
+          }
+          const next = [...prev];
+          const last = next[next.length - 1];
+          next[next.length - 1] = { ...last, content: last.content + delta };
+          return next;
+        });
+      };
+
       try {
-        const response = await sendChatMessage(conversationId, text);
-
-        const assistantMsg: ChatMsg = {
-          role: "assistant",
-          content: response.reply,
-          timestamp: Date.now(),
-          feedback: response.feedback,
-          isOffTopic: response.is_off_topic,
-        };
-        setMessages((prev) => [...prev, assistantMsg]);
-        setSuggestions(response.suggestions || []);
-        setIsThinking(false);
-
-        speak(response.reply);
-      } catch (err: any) {
-        setIsThinking(false);
-        const errMsg: ChatMsg = {
-          role: "assistant",
-          content: `エラーが発生しました。😢 ${err.message || "もう一度試してください。"}`,
-          timestamp: Date.now(),
-        };
-        setMessages((prev) => [...prev, errMsg]);
+        await streamChatMessage(
+          conversationId,
+          text,
+          {
+            onChunk: (delta) => {
+              if (!delta) return;
+              setIsThinking(false);
+              appendToAssistantMessage(delta);
+            },
+            onMeta: (meta) => {
+              setMessages((prev) => {
+                if (prev.length === 0) return prev;
+                const next = [...prev];
+                const last = next[next.length - 1];
+                next[next.length - 1] = {
+                  ...last,
+                  feedback: meta.feedback,
+                  isOffTopic: meta.is_off_topic,
+                };
+                return next;
+              });
+              setSuggestions(meta.suggestions || []);
+              if (replyText) speak(replyText);
+            },
+            onError: (message) => {
+              setIsThinking(false);
+              const errMsg: ChatMsg = {
+                role: "assistant",
+                content: `エラーが発生しました。😢 ${message || "もう一度試してください。"}`,
+                timestamp: Date.now(),
+              };
+              setMessages((prev) => [...prev, errMsg]);
+            },
+          },
+          controller.signal
+        );
       } finally {
+        setIsThinking(false);
         setIsLoading(false);
       }
     },
