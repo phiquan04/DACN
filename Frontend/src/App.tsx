@@ -1,6 +1,7 @@
 import { Route, BrowserRouter as Router, Routes } from "react-router";
 import { ScrollToTop } from "./components/common/ScrollToTop";
 import AppLayout from "./layout/AppLayout";
+import AdminHome from "./pages/Admin/AdminHome";
 import SignIn from "./pages/AuthPages/SignIn";
 import SignUp from "./pages/AuthPages/SignUp";
 import Calendar from "./pages/Calendar";
@@ -38,6 +39,9 @@ export default function App() {
             <Route path="/line-chart" element={<JapaneseWatch />} />
           </Route>
            <Route path="/meeting/room/:roomID" element={<MeetingRoom />} />
+
+          {/* Admin */}
+          <Route path="/admin" element={<AdminHome />} />
 
           {/* Auth Layout */}
           <Route path="/signin" element={<SignIn />} />
