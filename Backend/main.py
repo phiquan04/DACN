@@ -1,8 +1,24 @@
 import os
+import sys
 
 from dotenv import load_dotenv
 
 load_dotenv()
+
+# On Windows, stdout/stderr default to the console's legacy codepage (e.g.
+# cp1252), not UTF-8 — any print() of Japanese/Vietnamese text (word lookups,
+# debug logs) then raises UnicodeEncodeError and takes the request down with
+# it. Force UTF-8 unconditionally so logging never crashes on non-ASCII text.
+#
+# Setting the env var (not just reconfigure()) matters: `uvicorn --reload` on
+# Windows serves requests from a `multiprocessing.spawn` child that re-execs
+# a fresh `python.exe`, which re-reads PYTHONIOENCODING at interpreter start —
+# reconfigure() alone only fixes the parent/reloader process, not that child.
+os.environ.setdefault("PYTHONIOENCODING", "utf-8")
+os.environ.setdefault("PYTHONUTF8", "1")
+if hasattr(sys.stdout, "reconfigure"):
+    sys.stdout.reconfigure(encoding="utf-8", errors="replace")
+    sys.stderr.reconfigure(encoding="utf-8", errors="replace")
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware

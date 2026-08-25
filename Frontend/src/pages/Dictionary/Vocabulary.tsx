@@ -33,6 +33,7 @@ export default function Vocabulary() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [searchPerformed, setSearchPerformed] = useState(false);
+  const [activeTab, setActiveTab] = useState<"vocab" | "kanji">("vocab");
 
   const [examplesData, setExamplesData] = useState<{ japanese: string; vietnamese: string }[]>([]);
   const [synonymsData, setSynonymsData] = useState<string[]>([]);
@@ -138,7 +139,7 @@ export default function Vocabulary() {
     if (!file || !currentUser || !currentWord) return;
     setUploadingImage(true);
     try {
-      const img = await uploadImage({ word: currentWord, userId: currentUser.id, file });
+      const img = await uploadImage({ word: currentWord, file });
       setImages((prev) => [img, ...prev]);
     } catch (err) {
       console.error("Failed to upload image:", err);
@@ -150,7 +151,7 @@ export default function Vocabulary() {
   const handleDeleteImage = async (image: DictionaryImageItem) => {
     if (!currentUser) return;
     try {
-      await deleteImage(image.id, currentUser.id);
+      await deleteImage(image.id);
       setImages((prev) => prev.filter((i) => i.id !== image.id));
     } catch {
       // silent
@@ -175,7 +176,7 @@ export default function Vocabulary() {
     if (!content || !currentUser || !currentWord) return;
     setPostingComment(true);
     try {
-      const comment = await postComment({ word: currentWord, userId: currentUser.id, content });
+      const comment = await postComment({ word: currentWord, content });
       setComments((prev) => [comment, ...prev]);
       setNewComment("");
     } catch (err) {
@@ -188,7 +189,7 @@ export default function Vocabulary() {
   const handleDeleteComment = async (comment: DictionaryCommentItem) => {
     if (!currentUser) return;
     try {
-      await deleteComment(comment.id, currentUser.id);
+      await deleteComment(comment.id);
       setComments((prev) => prev.filter((c) => c.id !== comment.id));
     } catch {
       // silent
@@ -198,7 +199,7 @@ export default function Vocabulary() {
   const handleVoteComment = async (comment: DictionaryCommentItem, voteType: "up" | "down") => {
     if (!currentUser) return;
     try {
-      const updated = await voteComment(comment.id, currentUser.id, voteType);
+      const updated = await voteComment(comment.id, voteType);
       setComments((prev) => prev.map((c) => (c.id === updated.id ? updated : c)));
     } catch (err) {
       console.error("Failed to vote:", err);
@@ -222,6 +223,7 @@ export default function Vocabulary() {
     setError("");
     setSearchPerformed(true);
     setSearchTerm(trimmed);
+    setActiveTab("vocab");
     // Reset ngay khi bắt đầu tìm từ mới
     setExamplesData([]);
     setSynonymsData([]);
@@ -300,6 +302,7 @@ export default function Vocabulary() {
       setError("");
       setSearchPerformed(true);
       setLoading(false);
+      setActiveTab("vocab");
       setCurrentWord(item.word);
       setResults([
         {
@@ -322,6 +325,18 @@ export default function Vocabulary() {
       setNewComment("");
       loadImages(item.word);
       loadComments(item.word);
+      // Saved history rows don't store the kanji breakdown, so fetch it
+      // separately (lookup is cached server-side) instead of showing an
+      // incorrect "no kanji" state for words that do have kanji.
+      lookupWord(item.word)
+        .then((res) => {
+          setResults((prev) =>
+            prev.map((r) => (r.word === item.word ? { ...r, kanji: res.kanji } : r))
+          );
+        })
+        .catch(() => {
+          // best-effort — kanji tab just stays empty if this fails
+        });
       return;
     }
 
@@ -397,6 +412,34 @@ export default function Vocabulary() {
             </button>
           </form>
 
+          {/* Tabs: Từ vựng / Hán tự */}
+          {results.length > 0 && (
+            <div className="flex w-fit gap-1 rounded-full bg-surface-container p-1 dark:bg-gray-800">
+              <button
+                type="button"
+                onClick={() => setActiveTab("vocab")}
+                className={`rounded-full px-4 py-1.5 text-sm font-medium transition-colors ${
+                  activeTab === "vocab"
+                    ? "bg-surface-container-lowest text-brand-600 shadow-theme-xs dark:bg-gray-900 dark:text-brand-400"
+                    : "text-on-surface-variant hover:text-on-surface dark:text-gray-400 dark:hover:text-gray-200"
+                }`}
+              >
+                Từ vựng
+              </button>
+              <button
+                type="button"
+                onClick={() => setActiveTab("kanji")}
+                className={`rounded-full px-4 py-1.5 text-sm font-medium transition-colors ${
+                  activeTab === "kanji"
+                    ? "bg-surface-container-lowest text-brand-600 shadow-theme-xs dark:bg-gray-900 dark:text-brand-400"
+                    : "text-on-surface-variant hover:text-on-surface dark:text-gray-400 dark:hover:text-gray-200"
+                }`}
+              >
+                Hán tự
+              </button>
+            </div>
+          )}
+
           {/* Error */}
           {error && (
             <div className="rounded-xl border border-error/30 bg-error-container p-4 text-on-error-container dark:border-red-800 dark:bg-red-900/30 dark:text-red-300">
@@ -414,7 +457,7 @@ export default function Vocabulary() {
                 >
                   {/* Word and Reading - thêm nút luyện phát âm */}
                   <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
-                    <h3 className="text-xl font-bold text-gray-900 dark:text-white break-words">
+                    <h3 lang="ja" className="text-xl font-bold text-gray-900 dark:text-white break-words">
                       {item.word}
                     </h3>
                     <div className="flex items-center gap-2">
@@ -445,269 +488,320 @@ export default function Vocabulary() {
                     </div>
                   </div>
 
-                  {/* Kanji breakdown */}
-                  {item.kanji.length > 0 && (
-                    <div className="mb-4 grid grid-cols-1 sm:grid-cols-2 gap-2">
-                      {item.kanji.map((k) => (
-                        <div
-                          key={k.literal}
-                          className="flex gap-3 rounded-md border border-gray-100 bg-gray-50 p-2.5 dark:border-gray-800 dark:bg-gray-800/60"
-                        >
-                          <span className="text-2xl font-bold text-gray-900 dark:text-white shrink-0">
-                            {k.literal}
+                  {/* ===== Tab: Từ vựng ===== */}
+                  {activeTab === "vocab" && (
+                    <>
+                      {/* JLPT & Frequency */}
+                      <div className="mb-3 flex flex-wrap gap-2">
+                        {item.jlpt && item.jlpt !== "N/A" && (
+                          <span className="inline-block rounded-full bg-primary-fixed px-2.5 py-1 text-xs font-medium text-on-primary-fixed">
+                            JLPT {item.jlpt}
                           </span>
-                          <div className="min-w-0 text-xs text-gray-600 dark:text-gray-300 space-y-0.5">
-                            {k.hanviet.length > 0 && (
-                              <p className="font-medium text-brand-600 dark:text-brand-400 break-words">
-                                {k.hanviet.join(", ")}
-                              </p>
-                            )}
-                            {k.on_yomi.length > 0 && (
-                              <p className="break-words">On: {k.on_yomi.join("、")}</p>
-                            )}
-                            {k.kun_yomi.length > 0 && (
-                              <p className="break-words">Kun: {k.kun_yomi.join("、")}</p>
-                            )}
-                            {k.meaning && <p className="break-words">{k.meaning}</p>}
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  )}
-
-                  {/* JLPT & Frequency */}
-                  <div className="mb-3 flex flex-wrap gap-2">
-                    {item.jlpt && item.jlpt !== "N/A" && (
-                      <span className="inline-block rounded-full bg-primary-fixed px-2.5 py-1 text-xs font-medium text-on-primary-fixed">
-                        JLPT {item.jlpt}
-                      </span>
-                    )}
-                    {item.frequency && item.frequency !== "N/A" && (
-                      <span className="inline-block rounded-full bg-surface-container-high px-2.5 py-1 text-xs font-medium text-on-surface-variant">
-                        #{item.frequency}
-                      </span>
-                    )}
-                  </div>
-
-                  {/* Definitions */}
-                  <div className="space-y-2 mb-4">
-                    <h4 className="text-sm font-semibold text-on-surface dark:text-gray-300">Nghĩa:</h4>
-                    {item.definitions.map((def, defIdx) => (
-                      <div key={defIdx} className="text-sm">
-                        <p className="text-gray-800 dark:text-gray-200 break-words">{def.meaning}</p>
-                        {(def.pos_label || def.pos) && (
-                          <p className="text-xs text-gray-500 dark:text-gray-400 break-words">
-                            ({def.pos_label || def.pos})
-                          </p>
+                        )}
+                        {item.frequency && item.frequency !== "N/A" && (
+                          <span className="inline-block rounded-full bg-surface-container-high px-2.5 py-1 text-xs font-medium text-on-surface-variant">
+                            #{item.frequency}
+                          </span>
                         )}
                       </div>
-                    ))}
-                  </div>
 
-                  {/* Examples box */}
-                  <div className="mb-4 p-3 rounded-xl bg-surface-container dark:bg-gray-800">
-                    <div className="flex justify-between items-center mb-2 flex-wrap gap-2">
-                      <h4 className="text-sm font-semibold text-on-surface dark:text-gray-300">
-                        Ví dụ:
-                      </h4>
-                    </div>
-
-                    {loadingExamples && (
-                      <div className="space-y-2 animate-pulse">
-                        <div className="h-3 bg-surface-container-high dark:bg-gray-700 rounded w-3/4" />
-                        <div className="h-3 bg-surface-container-high dark:bg-gray-700 rounded w-1/2" />
-                        <div className="h-3 bg-surface-container-high dark:bg-gray-700 rounded w-3/4 mt-2" />
-                        <div className="h-3 bg-surface-container-high dark:bg-gray-700 rounded w-1/2" />
-                      </div>
-                    )}
-
-                    {!loadingExamples && examplesData.length > 0 && (
-                      <div className="space-y-2">
-                        {examplesData.slice(0, 3).map((ex, exIdx) => (
-                          <div key={exIdx} className="text-sm">
-                            <p lang="ja" className="text-on-surface font-medium dark:text-gray-200 break-words">{ex.japanese}</p>
-                            <p className="text-xs text-on-surface-variant dark:text-gray-400 break-words">{ex.vietnamese}</p>
-                          </div>
-                        ))}
-                      </div>
-                    )}
-
-                    {!loadingExamples && examplesData.length === 0 && (
-                      <p className="text-xs text-outline italic">Không tìm được ví dụ.</p>
-                    )}
-                  </div>
-
-                  {/* Synonyms box */}
-                  <div className="p-3 rounded-xl bg-surface-container dark:bg-gray-800">
-                    <div className="flex justify-between items-center mb-2 flex-wrap gap-2">
-                      <h4 className="text-sm font-semibold text-on-surface dark:text-gray-300">
-                        Từ đồng nghĩa:
-                      </h4>
-                    </div>
-
-                    {loadingSynonyms && (
-                      <div className="flex gap-2 animate-pulse">
-                        <div className="h-6 bg-surface-container-high dark:bg-gray-700 rounded-full w-16" />
-                        <div className="h-6 bg-surface-container-high dark:bg-gray-700 rounded-full w-20" />
-                        <div className="h-6 bg-surface-container-high dark:bg-gray-700 rounded-full w-14" />
-                      </div>
-                    )}
-
-                    {!loadingSynonyms && synonymsData.length > 0 && (
-                      <div className="flex flex-wrap gap-2">
-                        {synonymsData.slice(0, 8).map((syn, synIdx) => (
-                          <span
-                            key={synIdx}
-                            className="inline-block rounded-full bg-secondary-container/60 px-3 py-1 text-xs font-medium text-on-secondary-container break-words"
-                          >
-                            {syn}
-                          </span>
-                        ))}
-                      </div>
-                    )}
-
-                    {!loadingSynonyms && synonymsData.length === 0 && (
-                      <p className="text-xs text-outline italic">Không tìm được từ đồng nghĩa.</p>
-                    )}
-                  </div>
-
-                  {/* Images box */}
-                  <div className="mt-4 p-3 rounded-xl bg-surface-container dark:bg-gray-800">
-                    <div className="flex justify-between items-center mb-2 flex-wrap gap-2">
-                      <h4 className="text-sm font-semibold text-on-surface dark:text-gray-300">
-                        Ảnh minh họa:
-                      </h4>
-                      {currentUser && (
-                        <label className="cursor-pointer text-xs font-medium text-brand-600 hover:text-brand-700 dark:text-brand-400">
-                          {uploadingImage ? "Đang tải lên..." : "+ Thêm ảnh"}
-                          <input
-                            type="file"
-                            accept="image/*"
-                            className="hidden"
-                            disabled={uploadingImage}
-                            onChange={handleUploadImage}
-                          />
-                        </label>
-                      )}
-                    </div>
-
-                    {loadingImages && (
-                      <div className="flex gap-2 animate-pulse">
-                        <div className="h-20 w-20 bg-surface-container-high dark:bg-gray-700 rounded-lg" />
-                        <div className="h-20 w-20 bg-surface-container-high dark:bg-gray-700 rounded-lg" />
-                      </div>
-                    )}
-
-                    {!loadingImages && images.length > 0 && (
-                      <div className="flex flex-wrap gap-2">
-                        {images.map((img) => (
-                          <div key={img.id} className="group relative">
-                            <img
-                              src={img.image_url}
-                              alt={img.caption || item.word}
-                              title={`${img.caption || ""}${img.caption ? " — " : ""}bởi ${img.uploader_username}`}
-                              className="h-20 w-20 rounded-lg object-cover border border-outline-variant/60 dark:border-gray-700"
-                            />
-                            {currentUser?.id === img.uploaded_by && (
-                              <button
-                                onClick={() => handleDeleteImage(img)}
-                                title="Xóa ảnh"
-                                className="absolute -top-1.5 -right-1.5 hidden h-5 w-5 items-center justify-center rounded-full bg-error text-on-error text-xs group-hover:flex"
-                              >
-                                ×
-                              </button>
+                      {/* Definitions */}
+                      <div className="space-y-2 mb-4">
+                        <h4 className="text-sm font-semibold text-on-surface dark:text-gray-300">Nghĩa:</h4>
+                        {item.definitions.map((def, defIdx) => (
+                          <div key={defIdx} className="text-sm">
+                            <p className="text-gray-800 dark:text-gray-200 break-words">{def.meaning}</p>
+                            {(def.pos_label || def.pos) && (
+                              <p className="text-xs text-gray-500 dark:text-gray-400 break-words">
+                                ({def.pos_label || def.pos})
+                              </p>
                             )}
                           </div>
                         ))}
                       </div>
-                    )}
 
-                    {!loadingImages && images.length === 0 && (
-                      <p className="text-xs text-outline italic">Chưa có ảnh minh họa nào.</p>
-                    )}
-                  </div>
+                      {/* Examples box */}
+                      <div className="mb-4 p-3 rounded-xl bg-surface-container dark:bg-gray-800">
+                        <div className="flex justify-between items-center mb-2 flex-wrap gap-2">
+                          <h4 className="text-sm font-semibold text-on-surface dark:text-gray-300">
+                            Ví dụ:
+                          </h4>
+                        </div>
 
-                  {/* Comments box */}
-                  <div className="mt-4 p-3 rounded-xl bg-surface-container dark:bg-gray-800">
-                    <h4 className="mb-2 text-sm font-semibold text-on-surface dark:text-gray-300">
-                      Đóng góp ý kiến:
-                    </h4>
+                        {loadingExamples && (
+                          <div className="space-y-2 animate-pulse">
+                            <div className="h-3 bg-surface-container-high dark:bg-gray-700 rounded w-3/4" />
+                            <div className="h-3 bg-surface-container-high dark:bg-gray-700 rounded w-1/2" />
+                            <div className="h-3 bg-surface-container-high dark:bg-gray-700 rounded w-3/4 mt-2" />
+                            <div className="h-3 bg-surface-container-high dark:bg-gray-700 rounded w-1/2" />
+                          </div>
+                        )}
 
-                    {currentUser ? (
-                      <div className="mb-3 flex gap-2">
-                        <input
-                          type="text"
-                          value={newComment}
-                          onChange={(e) => setNewComment(e.target.value)}
-                          onKeyDown={(e) => e.key === "Enter" && handlePostComment()}
-                          placeholder="Chia sẻ cách hiểu, ví dụ của bạn..."
-                          disabled={postingComment}
-                          className="flex-1 rounded-full border border-outline-variant/60 bg-surface-container-lowest px-3 py-1.5 text-sm text-on-surface dark:border-gray-700 dark:bg-gray-900 dark:text-gray-200"
-                        />
-                        <button
-                          type="button"
-                          disabled={postingComment || !newComment.trim()}
-                          onClick={handlePostComment}
-                          className="shrink-0 rounded-full bg-primary px-4 py-1.5 text-sm font-semibold text-on-primary disabled:opacity-50 dark:bg-primary-container"
-                        >
-                          Gửi
-                        </button>
-                      </div>
-                    ) : (
-                      <p className="mb-3 text-xs text-outline italic">Đăng nhập để đóng góp ý kiến.</p>
-                    )}
-
-                    {loadingComments && (
-                      <div className="space-y-2 animate-pulse">
-                        <div className="h-3 bg-surface-container-high dark:bg-gray-700 rounded w-2/3" />
-                        <div className="h-3 bg-surface-container-high dark:bg-gray-700 rounded w-1/2" />
-                      </div>
-                    )}
-
-                    {!loadingComments && comments.length > 0 && (
-                      <ul className="space-y-3">
-                        {comments.map((c) => (
-                          <li key={c.id} className="text-sm">
-                            <div className="flex items-start justify-between gap-2">
-                              <div className="min-w-0">
-                                <span className="font-medium text-on-surface dark:text-gray-200">{c.username}</span>{" "}
-                                <span className="text-on-surface-variant dark:text-gray-300 break-words">{c.content}</span>
+                        {!loadingExamples && examplesData.length > 0 && (
+                          <div className="space-y-2">
+                            {examplesData.slice(0, 3).map((ex, exIdx) => (
+                              <div key={exIdx} className="text-sm">
+                                <p lang="ja" className="text-on-surface font-medium dark:text-gray-200 break-words">{ex.japanese}</p>
+                                <p className="text-xs text-on-surface-variant dark:text-gray-400 break-words">{ex.vietnamese}</p>
                               </div>
-                              {currentUser?.id === c.user_id && (
-                                <button
-                                  onClick={() => handleDeleteComment(c)}
-                                  className="shrink-0 text-xs text-outline-variant hover:text-error dark:text-gray-600"
-                                  title="Xóa bình luận"
-                                >
-                                  Xóa
-                                </button>
-                              )}
-                            </div>
-                            <div className="mt-1 flex items-center gap-3 text-xs text-outline">
-                              <button
-                                onClick={() => handleVoteComment(c, "up")}
-                                disabled={!currentUser}
-                                className={`hover:text-brand-600 ${c.my_vote === "up" ? "text-brand-600 font-medium" : ""}`}
-                              >
-                                👍 {c.upvotes}
-                              </button>
-                              <button
-                                onClick={() => handleVoteComment(c, "down")}
-                                disabled={!currentUser}
-                                className={`hover:text-error ${c.my_vote === "down" ? "text-error font-medium" : ""}`}
-                              >
-                                👎 {c.downvotes}
-                              </button>
-                            </div>
-                          </li>
-                        ))}
-                      </ul>
-                    )}
+                            ))}
+                          </div>
+                        )}
 
-                    {!loadingComments && comments.length === 0 && (
-                      <p className="text-xs text-outline italic">Chưa có ý kiến đóng góp nào.</p>
-                    )}
-                  </div>
+                        {!loadingExamples && examplesData.length === 0 && (
+                          <p className="text-xs text-outline italic">Không tìm được ví dụ.</p>
+                        )}
+                      </div>
+
+                      {/* Synonyms box */}
+                      <div className="p-3 rounded-xl bg-surface-container dark:bg-gray-800">
+                        <div className="flex justify-between items-center mb-2 flex-wrap gap-2">
+                          <h4 className="text-sm font-semibold text-on-surface dark:text-gray-300">
+                            Từ đồng nghĩa:
+                          </h4>
+                        </div>
+
+                        {loadingSynonyms && (
+                          <div className="flex gap-2 animate-pulse">
+                            <div className="h-6 bg-surface-container-high dark:bg-gray-700 rounded-full w-16" />
+                            <div className="h-6 bg-surface-container-high dark:bg-gray-700 rounded-full w-20" />
+                            <div className="h-6 bg-surface-container-high dark:bg-gray-700 rounded-full w-14" />
+                          </div>
+                        )}
+
+                        {!loadingSynonyms && synonymsData.length > 0 && (
+                          <div className="flex flex-wrap gap-2">
+                            {synonymsData.slice(0, 8).map((syn, synIdx) => (
+                              <span
+                                key={synIdx}
+                                className="inline-block rounded-full bg-secondary-container/60 px-3 py-1 text-xs font-medium text-on-secondary-container break-words"
+                              >
+                                {syn}
+                              </span>
+                            ))}
+                          </div>
+                        )}
+
+                        {!loadingSynonyms && synonymsData.length === 0 && (
+                          <p className="text-xs text-outline italic">Không tìm được từ đồng nghĩa.</p>
+                        )}
+                      </div>
+
+                      {/* Images box */}
+                      <div className="mt-4 p-3 rounded-xl bg-surface-container dark:bg-gray-800">
+                        <div className="flex justify-between items-center mb-2 flex-wrap gap-2">
+                          <h4 className="text-sm font-semibold text-on-surface dark:text-gray-300">
+                            Ảnh minh họa:
+                          </h4>
+                          {currentUser && (
+                            <label className="cursor-pointer text-xs font-medium text-brand-600 hover:text-brand-700 dark:text-brand-400">
+                              {uploadingImage ? "Đang tải lên..." : "+ Thêm ảnh"}
+                              <input
+                                type="file"
+                                accept="image/*"
+                                className="hidden"
+                                disabled={uploadingImage}
+                                onChange={handleUploadImage}
+                              />
+                            </label>
+                          )}
+                        </div>
+
+                        {loadingImages && (
+                          <div className="flex gap-2 animate-pulse">
+                            <div className="h-20 w-20 bg-surface-container-high dark:bg-gray-700 rounded-lg" />
+                            <div className="h-20 w-20 bg-surface-container-high dark:bg-gray-700 rounded-lg" />
+                          </div>
+                        )}
+
+                        {!loadingImages && images.length > 0 && (
+                          <div className="flex flex-wrap gap-2">
+                            {images.map((img) => (
+                              <div key={img.id} className="group relative">
+                                <img
+                                  src={img.image_url}
+                                  alt={img.caption || item.word}
+                                  title={`${img.caption || ""}${img.caption ? " — " : ""}bởi ${img.uploader_username}`}
+                                  className="h-20 w-20 rounded-lg object-cover border border-outline-variant/60 dark:border-gray-700"
+                                />
+                                {currentUser?.id === img.uploaded_by && (
+                                  <button
+                                    onClick={() => handleDeleteImage(img)}
+                                    title="Xóa ảnh"
+                                    className="absolute -top-1.5 -right-1.5 hidden h-5 w-5 items-center justify-center rounded-full bg-error text-on-error text-xs group-hover:flex"
+                                  >
+                                    ×
+                                  </button>
+                                )}
+                              </div>
+                            ))}
+                          </div>
+                        )}
+
+                        {!loadingImages && images.length === 0 && (
+                          <p className="text-xs text-outline italic">Chưa có ảnh minh họa nào.</p>
+                        )}
+                      </div>
+
+                      {/* Comments box */}
+                      <div className="mt-4 p-3 rounded-xl bg-surface-container dark:bg-gray-800">
+                        <h4 className="mb-2 text-sm font-semibold text-on-surface dark:text-gray-300">
+                          Đóng góp ý kiến:
+                        </h4>
+
+                        {currentUser ? (
+                          <div className="mb-3 flex gap-2">
+                            <input
+                              type="text"
+                              value={newComment}
+                              onChange={(e) => setNewComment(e.target.value)}
+                              onKeyDown={(e) => e.key === "Enter" && handlePostComment()}
+                              placeholder="Chia sẻ cách hiểu, ví dụ của bạn..."
+                              disabled={postingComment}
+                              className="flex-1 rounded-full border border-outline-variant/60 bg-surface-container-lowest px-3 py-1.5 text-sm text-on-surface dark:border-gray-700 dark:bg-gray-900 dark:text-gray-200"
+                            />
+                            <button
+                              type="button"
+                              disabled={postingComment || !newComment.trim()}
+                              onClick={handlePostComment}
+                              className="shrink-0 rounded-full bg-primary px-4 py-1.5 text-sm font-semibold text-on-primary disabled:opacity-50 dark:bg-primary-container"
+                            >
+                              Gửi
+                            </button>
+                          </div>
+                        ) : (
+                          <p className="mb-3 text-xs text-outline italic">Đăng nhập để đóng góp ý kiến.</p>
+                        )}
+
+                        {loadingComments && (
+                          <div className="space-y-2 animate-pulse">
+                            <div className="h-3 bg-surface-container-high dark:bg-gray-700 rounded w-2/3" />
+                            <div className="h-3 bg-surface-container-high dark:bg-gray-700 rounded w-1/2" />
+                          </div>
+                        )}
+
+                        {!loadingComments && comments.length > 0 && (
+                          <ul className="space-y-3">
+                            {comments.map((c) => (
+                              <li key={c.id} className="text-sm">
+                                <div className="flex items-start justify-between gap-2">
+                                  <div className="min-w-0">
+                                    <span className="font-medium text-on-surface dark:text-gray-200">{c.username}</span>{" "}
+                                    <span className="text-on-surface-variant dark:text-gray-300 break-words">{c.content}</span>
+                                  </div>
+                                  {currentUser?.id === c.user_id && (
+                                    <button
+                                      onClick={() => handleDeleteComment(c)}
+                                      className="shrink-0 text-xs text-outline-variant hover:text-error dark:text-gray-600"
+                                      title="Xóa bình luận"
+                                    >
+                                      Xóa
+                                    </button>
+                                  )}
+                                </div>
+                                <div className="mt-1 flex items-center gap-3 text-xs text-outline">
+                                  <button
+                                    onClick={() => handleVoteComment(c, "up")}
+                                    disabled={!currentUser}
+                                    className={`hover:text-brand-600 ${c.my_vote === "up" ? "text-brand-600 font-medium" : ""}`}
+                                  >
+                                    👍 {c.upvotes}
+                                  </button>
+                                  <button
+                                    onClick={() => handleVoteComment(c, "down")}
+                                    disabled={!currentUser}
+                                    className={`hover:text-error ${c.my_vote === "down" ? "text-error font-medium" : ""}`}
+                                  >
+                                    👎 {c.downvotes}
+                                  </button>
+                                </div>
+                              </li>
+                            ))}
+                          </ul>
+                        )}
+
+                        {!loadingComments && comments.length === 0 && (
+                          <p className="text-xs text-outline italic">Chưa có ý kiến đóng góp nào.</p>
+                        )}
+                      </div>
+                    </>
+                  )}
+
+                  {/* ===== Tab: Hán tự ===== */}
+                  {activeTab === "kanji" && (
+                    <div>
+                      {item.kanji.length > 0 ? (
+                        item.kanji.map((k, kIdx) => (
+                          <div
+                            key={k.literal}
+                            className={`py-5 ${
+                              kIdx > 0 ? "border-t border-outline-variant/60 dark:border-gray-700" : "pt-0"
+                            }`}
+                          >
+                            <div className="flex items-start gap-4">
+                              <span className="shrink-0 text-6xl font-bold leading-none text-gray-900 dark:text-white">
+                                {k.literal}
+                              </span>
+                              <div className="min-w-0 flex-1 space-y-2">
+                                <div className="flex flex-wrap items-center gap-2">
+                                  {k.hanviet.length > 0 && (
+                                    <span className="rounded-full bg-primary-fixed px-3 py-1 text-sm font-semibold text-on-primary-fixed break-words">
+                                      {k.hanviet.join(", ")}
+                                    </span>
+                                  )}
+                                  {k.jlpt && (
+                                    <span className="inline-block rounded-full bg-surface-container-high px-2.5 py-1 text-xs font-medium text-on-surface-variant">
+                                      JLPT {k.jlpt}
+                                    </span>
+                                  )}
+                                  {k.grade && (
+                                    <span className="inline-block rounded-full bg-surface-container-high px-2.5 py-1 text-xs font-medium text-on-surface-variant">
+                                      Lớp {k.grade}
+                                    </span>
+                                  )}
+                                  {k.stroke_count != null && (
+                                    <span className="inline-block rounded-full bg-surface-container-high px-2.5 py-1 text-xs font-medium text-on-surface-variant">
+                                      {k.stroke_count} nét
+                                    </span>
+                                  )}
+                                  <button
+                                    type="button"
+                                    onClick={() => playPronunciation(k.literal)}
+                                    title="Nghe âm đọc"
+                                    className="shrink-0 rounded-full p-1.5 text-outline hover:bg-surface-container-high hover:text-brand-600 dark:text-gray-400 dark:hover:bg-gray-800 transition-colors"
+                                  >
+                                    <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
+                                      <path d="M9.383 3.076A1 1 0 0110 4v12a1 1 0 01-1.617.79L4.117 13.5H2a1 1 0 01-1-1v-5a1 1 0 011-1h2.117l4.266-3.29a1 1 0 011-.134zM14.657 5.343a1 1 0 011.414 0A7.975 7.975 0 0118 10a7.975 7.975 0 01-1.929 5.657 1 1 0 11-1.414-1.414A5.975 5.975 0 0016 10a5.975 5.975 0 00-1.343-4.243 1 1 0 010-1.414z" />
+                                    </svg>
+                                  </button>
+                                </div>
+
+                                {k.on_yomi.length > 0 && (
+                                  <p className="text-sm text-gray-700 dark:text-gray-300 break-words">
+                                    <span className="font-medium text-gray-500 dark:text-gray-400">On: </span>
+                                    {k.on_yomi.join("、")}
+                                  </p>
+                                )}
+                                {k.kun_yomi.length > 0 && (
+                                  <p className="text-sm text-gray-700 dark:text-gray-300 break-words">
+                                    <span className="font-medium text-gray-500 dark:text-gray-400">Kun: </span>
+                                    {k.kun_yomi.join("、")}
+                                  </p>
+                                )}
+                                {k.meaning && (
+                                  <p className="text-sm text-gray-800 dark:text-gray-200 break-words">{k.meaning}</p>
+                                )}
+                              </div>
+                            </div>
+                          </div>
+                        ))
+                      ) : (
+                        <p className="py-6 text-center text-xs italic text-outline dark:text-gray-500">
+                          Từ này không có Hán tự.
+                        </p>
+                      )}
+                    </div>
+                  )}
                 </div>
               ))}
             </div>

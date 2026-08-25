@@ -15,7 +15,7 @@ from typing import List, Optional
 from jamdict import Jamdict
 from deep_translator import GoogleTranslator
 from gtts import gTTS
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, joinedload, selectinload
 import httpx
 import os
 
@@ -25,7 +25,7 @@ if _backend_root not in sys.path:
 
 try:
     from app.models.database import (
-        get_db, SearchHistory, User, DictionaryImage, DictionaryComment, DictionaryCommentVote,
+        get_db, SearchHistory, DictionaryImage, DictionaryComment, DictionaryCommentVote,
     )
     from app.utils.pos_labels import translate_pos_list
 except ModuleNotFoundError:
@@ -33,15 +33,14 @@ except ModuleNotFoundError:
     if _alt_root not in sys.path:
         sys.path.insert(0, _alt_root)
     from database import (
-        get_db, SearchHistory, User, DictionaryImage, DictionaryComment, DictionaryCommentVote,
+        get_db, SearchHistory, DictionaryImage, DictionaryComment, DictionaryCommentVote,
     )
     from utils.pos_labels import translate_pos_list
 
-cloudinary.config(
-    cloud_name=os.getenv("CLOUDINARY_CLOUD_NAME"),
-    api_key=os.getenv("CLOUDINARY_API_KEY"),
-    api_secret=os.getenv("CLOUDINARY_API_SECRET"),
-)
+from app.routes.auth import get_current_user, UserResponse
+from app.utils.cloudinary import init_cloudinary
+
+init_cloudinary()
 
 router = APIRouter(prefix="/dictionary", tags=["dictionary"])
 
@@ -62,6 +61,8 @@ OPENROUTER_API_KEY = os.getenv("OPENROUTER_API_KEY")
 # app/routes/pronunciation.py's reference audio).
 _audio_cache_dir = os.path.join(tempfile.gettempdir(), "dictionary_audio")
 os.makedirs(_audio_cache_dir, exist_ok=True)
+
+MAX_UPLOAD_IMAGE_BYTES = 5 * 1024 * 1024  # 5 MB
 
 CJK_RE = re.compile(r'[一-鿿]')
 
@@ -145,11 +146,9 @@ class ImageItem(BaseModel):
     created_at: str
 
 class CommentVoteRequest(BaseModel):
-    user_id: int
     vote_type: str  # 'up' or 'down'
 
 class CreateCommentRequest(BaseModel):
-    user_id: int
     word: str
     content: str
 
@@ -546,8 +545,9 @@ async def dictionary_lookup(req: LookupRequest):
         kanji = entry.kana_forms[0].text
 
     reading = entry.kana_forms[0].text if entry.kana_forms else ""
-    definitions = await fetch_definitions(entry)
-    kanji_breakdown = await fetch_kanji_breakdown(kanji)
+    definitions, kanji_breakdown = await asyncio.gather(
+        fetch_definitions(entry), fetch_kanji_breakdown(kanji)
+    )
     jlpt = str(entry.jlpt_old) if hasattr(entry, 'jlpt_old') and entry.jlpt_old else \
            str(entry.jlpt) if hasattr(entry, 'jlpt') and entry.jlpt else "N/A"
     frequency = str(entry.frequency) if hasattr(entry, 'frequency') and entry.frequency else "N/A"
@@ -573,12 +573,19 @@ async def get_pronunciation_audio(text: str):
     filename = f"{hashlib.md5(text.encode('utf-8')).hexdigest()}.mp3"
     path = os.path.join(_audio_cache_dir, filename)
     if not os.path.exists(path):
+        # Save to a temp file first and rename into place — a failure mid-write
+        # (e.g. dropped connection to gTTS) then leaves no partial file at
+        # `path`, so the next request retries instead of serving a corrupt cache hit.
+        tmp_path = f"{path}.{os.getpid()}.tmp"
         try:
             await asyncio.get_event_loop().run_in_executor(
-                None, lambda: gTTS(text=text, lang='ja', slow=False).save(path)
+                None, lambda: gTTS(text=text, lang='ja', slow=False).save(tmp_path)
             )
+            os.replace(tmp_path, path)
         except Exception as e:
             print(f"[Dictionary TTS] Failed for '{text}': {e}", flush=True)
+            if os.path.exists(tmp_path):
+                os.remove(tmp_path)
             raise HTTPException(status_code=502, detail="Failed to generate audio")
 
     return FileResponse(path, media_type="audio/mpeg")
@@ -604,9 +611,9 @@ async def get_images(word: str, db: Session = Depends(get_db)):
 @router.post("/images", response_model=ImageItem)
 async def upload_image(
     word: str = Form(...),
-    user_id: int = Form(...),
     caption: str = Form(""),
     file: UploadFile = File(...),
+    current_user: UserResponse = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
     word = word.strip()
@@ -614,11 +621,11 @@ async def upload_image(
         raise HTTPException(status_code=400, detail="Missing 'word'")
     if not (file.content_type or "").startswith("image/"):
         raise HTTPException(status_code=400, detail="File must be an image")
-    user = db.query(User).filter(User.id == user_id).first()
-    if not user:
-        raise HTTPException(status_code=404, detail="User not found")
 
-    content = await file.read()
+    content = await file.read(MAX_UPLOAD_IMAGE_BYTES + 1)
+    if len(content) > MAX_UPLOAD_IMAGE_BYTES:
+        raise HTTPException(status_code=413, detail="Image too large (max 5MB)")
+
     try:
         upload_result = await asyncio.get_event_loop().run_in_executor(
             None,
@@ -633,7 +640,7 @@ async def upload_image(
         image_url=upload_result["secure_url"],
         cloudinary_public_id=upload_result.get("public_id"),
         caption=caption or None,
-        uploaded_by=user_id,
+        uploaded_by=current_user.id,
     )
     db.add(record)
     db.commit()
@@ -641,16 +648,20 @@ async def upload_image(
 
     return ImageItem(
         id=record.id, image_url=record.image_url, caption=record.caption or "",
-        uploaded_by=record.uploaded_by, uploader_username=user.username,
+        uploaded_by=record.uploaded_by, uploader_username=current_user.username,
         created_at=record.created_at.isoformat() if record.created_at else "",
     )
 
 @router.delete("/images/{image_id}")
-async def delete_image(image_id: int, user_id: int, db: Session = Depends(get_db)):
+async def delete_image(
+    image_id: int,
+    current_user: UserResponse = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
     record = db.query(DictionaryImage).filter(DictionaryImage.id == image_id).first()
     if not record:
         raise HTTPException(status_code=404, detail="Image not found")
-    if record.uploaded_by != user_id:
+    if record.uploaded_by != current_user.id:
         raise HTTPException(status_code=403, detail="You can only delete your own images")
 
     if record.cloudinary_public_id:
@@ -681,6 +692,7 @@ def _comment_to_item(comment: DictionaryComment, requesting_user_id: Optional[in
 async def get_comments(word: str, user_id: Optional[int] = None, db: Session = Depends(get_db)):
     comments = (
         db.query(DictionaryComment)
+        .options(joinedload(DictionaryComment.author), selectinload(DictionaryComment.votes))
         .filter(DictionaryComment.word == word)
         .order_by(DictionaryComment.created_at.desc())
         .all()
@@ -688,34 +700,44 @@ async def get_comments(word: str, user_id: Optional[int] = None, db: Session = D
     return [_comment_to_item(c, user_id) for c in comments]
 
 @router.post("/comments", response_model=CommentItem)
-async def create_comment(req: CreateCommentRequest, db: Session = Depends(get_db)):
+async def create_comment(
+    req: CreateCommentRequest,
+    current_user: UserResponse = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
     word = req.word.strip()
     content = req.content.strip()
     if not word or not content:
         raise HTTPException(status_code=400, detail="Missing 'word' or 'content'")
-    user = db.query(User).filter(User.id == req.user_id).first()
-    if not user:
-        raise HTTPException(status_code=404, detail="User not found")
 
-    comment = DictionaryComment(word=word, user_id=req.user_id, content=content)
+    comment = DictionaryComment(word=word, user_id=current_user.id, content=content)
     db.add(comment)
     db.commit()
     db.refresh(comment)
-    return _comment_to_item(comment, req.user_id)
+    return _comment_to_item(comment, current_user.id)
 
 @router.delete("/comments/{comment_id}")
-async def delete_comment(comment_id: int, user_id: int, db: Session = Depends(get_db)):
+async def delete_comment(
+    comment_id: int,
+    current_user: UserResponse = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
     comment = db.query(DictionaryComment).filter(DictionaryComment.id == comment_id).first()
     if not comment:
         raise HTTPException(status_code=404, detail="Comment not found")
-    if comment.user_id != user_id:
+    if comment.user_id != current_user.id:
         raise HTTPException(status_code=403, detail="You can only delete your own comments")
     db.delete(comment)
     db.commit()
     return {"success": True}
 
 @router.post("/comments/{comment_id}/vote", response_model=CommentItem)
-async def vote_comment(comment_id: int, req: CommentVoteRequest, db: Session = Depends(get_db)):
+async def vote_comment(
+    comment_id: int,
+    req: CommentVoteRequest,
+    current_user: UserResponse = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
     if req.vote_type not in ('up', 'down'):
         raise HTTPException(status_code=400, detail="vote_type must be 'up' or 'down'")
     comment = db.query(DictionaryComment).filter(DictionaryComment.id == comment_id).first()
@@ -724,7 +746,7 @@ async def vote_comment(comment_id: int, req: CommentVoteRequest, db: Session = D
 
     existing = db.query(DictionaryCommentVote).filter(
         DictionaryCommentVote.comment_id == comment_id,
-        DictionaryCommentVote.user_id == req.user_id,
+        DictionaryCommentVote.user_id == current_user.id,
     ).first()
 
     if existing and existing.vote_type == req.vote_type:
@@ -732,10 +754,10 @@ async def vote_comment(comment_id: int, req: CommentVoteRequest, db: Session = D
     elif existing:
         existing.vote_type = req.vote_type
     else:
-        db.add(DictionaryCommentVote(comment_id=comment_id, user_id=req.user_id, vote_type=req.vote_type))
+        db.add(DictionaryCommentVote(comment_id=comment_id, user_id=current_user.id, vote_type=req.vote_type))
     db.commit()
     db.refresh(comment)
-    return _comment_to_item(comment, req.user_id)
+    return _comment_to_item(comment, current_user.id)
 
 @router.get("/examples/{word}")
 async def get_examples(word: str, db: Session = Depends(get_db)):

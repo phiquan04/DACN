@@ -143,18 +143,20 @@ export default function ChatBot() {
       streamAbortRef.current = controller;
 
       let replyText = "";
-      let assistantMsgStarted = false;
+      const assistantStreamId = Date.now() + Math.random();
 
       const appendToAssistantMessage = (delta: string) => {
         replyText += delta;
         setMessages((prev) => {
-          if (!assistantMsgStarted) {
-            assistantMsgStarted = true;
-            return [...prev, { role: "assistant", content: delta, timestamp: Date.now() }];
+          const idx = prev.findIndex((m) => m.streamId === assistantStreamId);
+          if (idx === -1) {
+            return [
+              ...prev,
+              { role: "assistant", content: delta, timestamp: Date.now(), streamId: assistantStreamId },
+            ];
           }
           const next = [...prev];
-          const last = next[next.length - 1];
-          next[next.length - 1] = { ...last, content: last.content + delta };
+          next[idx] = { ...next[idx], content: next[idx].content + delta };
           return next;
         });
       };
@@ -170,17 +172,13 @@ export default function ChatBot() {
               appendToAssistantMessage(delta);
             },
             onMeta: (meta) => {
-              setMessages((prev) => {
-                if (prev.length === 0) return prev;
-                const next = [...prev];
-                const last = next[next.length - 1];
-                next[next.length - 1] = {
-                  ...last,
-                  feedback: meta.feedback,
-                  isOffTopic: meta.is_off_topic,
-                };
-                return next;
-              });
+              setMessages((prev) =>
+                prev.map((m) =>
+                  m.streamId === assistantStreamId
+                    ? { ...m, feedback: meta.feedback, isOffTopic: meta.is_off_topic }
+                    : m
+                )
+              );
               setSuggestions(meta.suggestions || []);
               if (replyText) speak(replyText);
             },
