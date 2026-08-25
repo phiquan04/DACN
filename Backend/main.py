@@ -24,11 +24,13 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 
+from config import get_config
 from app.models import init_db
 from app.routes import register_routers
 
 def app():
     """Application factory"""
+    cfg = get_config()
     app = FastAPI(
         title="Japanese VA Backend",
         description="Backend API for Japanese Learning Virtual Assistant",
@@ -73,9 +75,13 @@ def app():
     @app.exception_handler(Exception)
     async def global_exception_handler(request, exc):
         print(f"Unhandled exception: {exc}", flush=True)
+        # Full detail is logged above; the response only echoes it back in
+        # DEBUG mode — otherwise a 500 could leak internal error messages
+        # (file paths, DB errors, stack info) to the client.
+        detail = str(exc) if cfg.DEBUG else "Internal server error"
         return JSONResponse(
             status_code=500,
-            content={"error": str(exc)}
+            content={"error": detail}
         )
     
     return app

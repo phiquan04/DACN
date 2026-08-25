@@ -10,7 +10,9 @@ from app.utils.auth import (
     hash_password,
     verify_password,
     create_access_token,
+    create_refresh_token,
     verify_token,
+    verify_refresh_token,
     Token
 )
 
@@ -70,10 +72,19 @@ def _to_user_response(user: User) -> UserResponse:
 class SignUpResponse(BaseModel):
     user: UserResponse
     access_token: str
+    refresh_token: str
     token_type: str = "bearer"
 
 class SignInResponse(BaseModel):
     user: UserResponse
+    access_token: str
+    refresh_token: str
+    token_type: str = "bearer"
+
+class RefreshRequest(BaseModel):
+    refresh_token: str
+
+class RefreshResponse(BaseModel):
     access_token: str
     token_type: str = "bearer"
 
@@ -110,14 +121,16 @@ def sign_up(user_data: UserSignUp, db: Session = Depends(get_db)):
     db.commit()
     db.refresh(new_user)
 
-    # Create access token
+    # Create access + refresh tokens
     access_token = create_access_token(
         user_id=new_user.id, username=new_user.username, role=new_user.role.code if new_user.role else "user"
     )
+    refresh_token = create_refresh_token(user_id=new_user.id)
 
     return SignUpResponse(
         user=_to_user_response(new_user),
         access_token=access_token,
+        refresh_token=refresh_token,
         token_type="bearer"
     )
 
@@ -141,12 +154,35 @@ def sign_in(user_data: UserSignIn, db: Session = Depends(get_db)):
     access_token = create_access_token(
         user_id=user.id, username=user.username, role=user.role.code if user.role else "user"
     )
+    refresh_token = create_refresh_token(user_id=user.id)
 
     return SignInResponse(
         user=_to_user_response(user),
         access_token=access_token,
+        refresh_token=refresh_token,
         token_type="bearer"
     )
+
+@router.post("/refresh", response_model=RefreshResponse)
+def refresh_access_token(req: RefreshRequest, db: Session = Depends(get_db)):
+    user_id = verify_refresh_token(req.refresh_token)
+    if user_id is None:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid or expired refresh token",
+            headers={"WWW-Authenticate": "Bearer"}
+        )
+
+    user = db.query(User).filter(User.id == user_id).first()
+    if not user:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="User not found")
+    if not user.is_active:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="User account is inactive")
+
+    access_token = create_access_token(
+        user_id=user.id, username=user.username, role=user.role.code if user.role else "user"
+    )
+    return RefreshResponse(access_token=access_token, token_type="bearer")
 
 @router.get("/me", response_model=UserResponse)
 def get_current_user(authorization: Optional[str] = Header(None), db: Session = Depends(get_db)):
