@@ -3,13 +3,19 @@ import re
 import sys
 import asyncio
 import json
+import hashlib
+import tempfile
 import requests
-from fastapi import APIRouter, HTTPException, Depends, Response
+import cloudinary
+import cloudinary.uploader
+from fastapi import APIRouter, HTTPException, Depends, Response, UploadFile, File, Form
+from fastapi.responses import FileResponse
 from pydantic import BaseModel
 from typing import List, Optional
 from jamdict import Jamdict
 from deep_translator import GoogleTranslator
-from sqlalchemy.orm import Session
+from gtts import gTTS
+from sqlalchemy.orm import Session, joinedload, selectinload
 import httpx
 import os
 
@@ -18,12 +24,23 @@ if _backend_root not in sys.path:
     sys.path.insert(0, _backend_root)
 
 try:
-    from app.models.database import get_db, SearchHistory, User
+    from app.models.database import (
+        get_db, User, SearchHistory, DictionaryImage, DictionaryComment, DictionaryCommentVote,
+    )
+    from app.utils.pos_labels import translate_pos_list
 except ModuleNotFoundError:
     _alt_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
     if _alt_root not in sys.path:
         sys.path.insert(0, _alt_root)
-    from database import get_db, SearchHistory, User
+    from database import (
+        get_db, User, SearchHistory, DictionaryImage, DictionaryComment, DictionaryCommentVote,
+    )
+    from utils.pos_labels import translate_pos_list
+
+from app.routes.auth import get_current_user, UserResponse
+from app.utils.cloudinary import init_cloudinary
+
+init_cloudinary()
 
 router = APIRouter(prefix="/dictionary", tags=["dictionary"])
 
@@ -34,9 +51,20 @@ _example_cache: dict = {}
 _synonym_cache: dict = {}
 _meaning_search_cache: dict = {}
 _reading_cache: dict = {}
+_kanji_cache: dict = {}
 
 GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
 OPENROUTER_API_KEY = os.getenv("OPENROUTER_API_KEY")
+
+# gTTS audio is regenerated the first time a word/text is requested, then
+# served from disk on every later request (same cache-aside pattern as
+# app/routes/pronunciation.py's reference audio).
+_audio_cache_dir = os.path.join(tempfile.gettempdir(), "dictionary_audio")
+os.makedirs(_audio_cache_dir, exist_ok=True)
+
+MAX_UPLOAD_IMAGE_BYTES = 5 * 1024 * 1024  # 5 MB
+
+CJK_RE = re.compile(r'[一-鿿]')
 
 try:
     jmdict = Jamdict()
@@ -54,10 +82,21 @@ class LookupRequest(BaseModel):
 class Definition(BaseModel):
     meaning: str
     pos: str
+    pos_label: str = ""
 
 class Example(BaseModel):
     japanese: str
     vietnamese: str
+
+class KanjiInfo(BaseModel):
+    literal: str
+    on_yomi: List[str] = []
+    kun_yomi: List[str] = []
+    hanviet: List[str] = []
+    meaning: str = ""
+    stroke_count: Optional[int] = None
+    jlpt: Optional[str] = None
+    grade: Optional[str] = None
 
 class LookupResponse(BaseModel):
     word: str
@@ -67,6 +106,7 @@ class LookupResponse(BaseModel):
     synonyms: List[str]
     jlpt: str
     frequency: str
+    kanji: List[KanjiInfo] = []
 
 class SaveHistoryRequest(BaseModel):
     user_id: int
@@ -97,6 +137,33 @@ class VietnameseMeaningRequest(BaseModel):
 class ReadingRequest(BaseModel):
     text: str
 
+class ImageItem(BaseModel):
+    id: int
+    image_url: str
+    caption: Optional[str] = ""
+    uploaded_by: int
+    uploader_username: str
+    created_at: str
+
+class CommentVoteRequest(BaseModel):
+    vote_type: str  # 'up' or 'down'
+
+class CreateCommentRequest(BaseModel):
+    word: str
+    content: str
+
+class CommentItem(BaseModel):
+    id: int
+    word: str
+    user_id: int
+    username: str
+    avatar_url: Optional[str] = None
+    content: str
+    upvotes: int
+    downvotes: int
+    my_vote: Optional[str] = None
+    created_at: str
+
 async def call_ai(prompt: str) -> str:
     url = "https://openrouter.ai/api/v1/chat/completions"
     
@@ -122,6 +189,25 @@ async def call_ai(prompt: str) -> str:
         return ""
 
 # ---------- Translation ----------
+async def _translate_via_ai(text: str) -> str:
+    """Fallback translator using the same OpenRouter LLM as the chatbot.
+
+    deep_translator's GoogleTranslator hits Google's free, unofficial
+    translate endpoint — it gets rate-limited (HTTP 429) fairly often, which
+    otherwise silently leaves definitions in English. This gives every
+    lookup a second, paid/authenticated path instead of just failing.
+    """
+    prompt = (
+        f'Dịch từ/cụm từ tiếng Anh sau đây sang tiếng Việt. '
+        f'Chỉ trả về đúng bản dịch, không giải thích, không dấu ngoặc kép: "{text}"'
+    )
+    try:
+        response = await call_ai(prompt)
+    except Exception as e:
+        print(f"AI translation error for '{text}': {e}", flush=True)
+        return ""
+    return response.strip().strip('"').strip() if response else ""
+
 async def translate_batch(texts: List[str]) -> List[str]:
     results = []
     for i, text in enumerate(texts):
@@ -130,16 +216,22 @@ async def translate_batch(texts: List[str]) -> List[str]:
         cache_key = f"trans:{text}"
         if cache_key in _translation_cache:
             results.append(_translation_cache[cache_key])
-        else:
-            try:
-                result = await asyncio.get_event_loop().run_in_executor(
-                    None, translator.translate, text
-                )
-                _translation_cache[cache_key] = result
-                results.append(result)
-            except Exception as e:
-                print(f"Translation error for '{text}': {e}", flush=True)
-                results.append(text)
+            continue
+
+        result = None
+        try:
+            result = await asyncio.get_event_loop().run_in_executor(
+                None, translator.translate, text
+            )
+        except Exception as e:
+            print(f"Translation error for '{text}': {e}", flush=True)
+
+        if not result:
+            result = await _translate_via_ai(text)
+
+        result = result or text  # last resort: show the original English rather than nothing
+        _translation_cache[cache_key] = result
+        results.append(result)
     return results
 
 async def fetch_definitions(entry) -> List[Definition]:
@@ -148,16 +240,79 @@ async def fetch_definitions(entry) -> List[Definition]:
         glosses = [g.text for g in sense.gloss if g.text] if hasattr(sense, 'gloss') else []
         if glosses:
             english_text = ', '.join(glosses)
-            pos = ", ".join(sense.pos) if hasattr(sense, 'pos') and sense.pos else ""
-            senses_data.append((english_text, pos))
+            pos_list = list(sense.pos) if hasattr(sense, 'pos') and sense.pos else []
+            pos = ", ".join(pos_list)
+            pos_label = translate_pos_list(pos_list)
+            senses_data.append((english_text, pos, pos_label))
     if not senses_data:
         return []
-    english_texts = [en for en, _ in senses_data]
+    english_texts = [en for en, _, _ in senses_data]
     translated = await translate_batch(english_texts)
     return [
-        Definition(meaning=vi, pos=pos)
-        for vi, (_, pos) in zip(translated, senses_data)
+        Definition(meaning=vi, pos=pos, pos_label=pos_label)
+        for vi, (_, pos, pos_label) in zip(translated, senses_data)
     ]
+
+# ---------- Kanji breakdown (from KANJIDIC2, bundled in jamdict) ----------
+async def fetch_kanji_breakdown(text: str) -> List[KanjiInfo]:
+    if not jmdict:
+        return []
+    literals = []
+    for ch in text:
+        if CJK_RE.match(ch) and ch not in literals:
+            literals.append(ch)
+    if not literals:
+        return []
+
+    pending = []  # info dicts (without translated meaning) for literals not yet cached
+    results_by_literal = {}
+    for literal in literals:
+        if literal in _kanji_cache:
+            results_by_literal[literal] = _kanji_cache[literal]
+            continue
+        try:
+            lookup = jmdict.lookup(literal)
+        except Exception as e:
+            print(f"[Kanji lookup] Error for '{literal}': {e}", flush=True)
+            continue
+        if not lookup.chars:
+            continue
+        kchar = lookup.chars[0]
+        on_yomi, kun_yomi, hanviet, meanings_en = [], [], [], []
+        for rmg in kchar.rm_groups:
+            for rd in rmg.readings:
+                if rd.r_type == 'ja_on' and rd.value not in on_yomi:
+                    on_yomi.append(rd.value)
+                elif rd.r_type == 'ja_kun' and rd.value not in kun_yomi:
+                    kun_yomi.append(rd.value)
+                elif rd.r_type == 'vietnam' and rd.value not in hanviet:
+                    hanviet.append(rd.value)
+            for m in rmg.meanings:
+                if not m.m_lang and m.value not in meanings_en:
+                    meanings_en.append(m.value)
+        pending.append({
+            "literal": literal,
+            "on_yomi": on_yomi,
+            "kun_yomi": kun_yomi,
+            "hanviet": hanviet,
+            "stroke_count": kchar.stroke_count,
+            "jlpt": str(kchar.jlpt) if kchar.jlpt else None,
+            "grade": str(kchar.grade) if kchar.grade else None,
+            "meaning_en": ', '.join(meanings_en[:4]),
+        })
+
+    if pending:
+        translated = await translate_batch([p["meaning_en"] for p in pending])
+        for info, meaning_vi in zip(pending, translated):
+            kanji_info = KanjiInfo(
+                literal=info["literal"], on_yomi=info["on_yomi"], kun_yomi=info["kun_yomi"],
+                hanviet=info["hanviet"], meaning=meaning_vi, stroke_count=info["stroke_count"],
+                jlpt=info["jlpt"], grade=info["grade"],
+            )
+            _kanji_cache[info["literal"]] = kanji_info
+            results_by_literal[info["literal"]] = kanji_info
+
+    return [results_by_literal[literal] for literal in literals if literal in results_by_literal]
 
 # ---------- Synonyms endpoint ----------
 @router.get("/synonyms/{word}")
@@ -403,7 +558,7 @@ async def dictionary_lookup(req: LookupRequest):
     if not result.entries:
         response = LookupResponse(
             word=word, reading="", definitions=[],
-            examples=[], synonyms=[], jlpt="N/A", frequency="N/A"
+            examples=[], synonyms=[], jlpt="N/A", frequency="N/A", kanji=[]
         )
         _cache[word] = response
         return response
@@ -416,7 +571,9 @@ async def dictionary_lookup(req: LookupRequest):
         kanji = entry.kana_forms[0].text
 
     reading = entry.kana_forms[0].text if entry.kana_forms else ""
-    definitions = await fetch_definitions(entry)
+    definitions, kanji_breakdown = await asyncio.gather(
+        fetch_definitions(entry), fetch_kanji_breakdown(kanji)
+    )
     jlpt = str(entry.jlpt_old) if hasattr(entry, 'jlpt_old') and entry.jlpt_old else \
            str(entry.jlpt) if hasattr(entry, 'jlpt') and entry.jlpt else "N/A"
     frequency = str(entry.frequency) if hasattr(entry, 'frequency') and entry.frequency else "N/A"
@@ -425,10 +582,212 @@ async def dictionary_lookup(req: LookupRequest):
 
     response = LookupResponse(
         word=kanji, reading=reading, definitions=definitions,
-        examples=[], synonyms=[], jlpt=jlpt, frequency=frequency
+        examples=[], synonyms=[], jlpt=jlpt, frequency=frequency,
+        kanji=kanji_breakdown,
     )
     _cache[word] = response
     return response
+
+# ---------- Pronunciation audio ----------
+@router.get("/audio")
+async def get_pronunciation_audio(text: str):
+    """Serve gTTS audio for a word or reading, generating it once and caching on disk."""
+    text = text.strip()
+    if not text:
+        raise HTTPException(status_code=400, detail="Missing 'text' query parameter")
+
+    filename = f"{hashlib.md5(text.encode('utf-8')).hexdigest()}.mp3"
+    path = os.path.join(_audio_cache_dir, filename)
+    if not os.path.exists(path):
+        # Save to a temp file first and rename into place — a failure mid-write
+        # (e.g. dropped connection to gTTS) then leaves no partial file at
+        # `path`, so the next request retries instead of serving a corrupt cache hit.
+        tmp_path = f"{path}.{os.getpid()}.tmp"
+        try:
+            await asyncio.get_event_loop().run_in_executor(
+                None, lambda: gTTS(text=text, lang='ja', slow=False).save(tmp_path)
+            )
+            os.replace(tmp_path, path)
+        except Exception as e:
+            print(f"[Dictionary TTS] Failed for '{text}': {e}", flush=True)
+            if os.path.exists(tmp_path):
+                os.remove(tmp_path)
+            raise HTTPException(status_code=502, detail="Failed to generate audio")
+
+    return FileResponse(path, media_type="audio/mpeg")
+
+# ---------- Community images ----------
+@router.get("/images/{word}", response_model=List[ImageItem])
+async def get_images(word: str, db: Session = Depends(get_db)):
+    records = (
+        db.query(DictionaryImage)
+        .filter(DictionaryImage.word == word)
+        .order_by(DictionaryImage.created_at.desc())
+        .all()
+    )
+    return [
+        ImageItem(
+            id=r.id, image_url=r.image_url, caption=r.caption or "",
+            uploaded_by=r.uploaded_by, uploader_username=r.uploader.username if r.uploader else "",
+            created_at=r.created_at.isoformat() if r.created_at else "",
+        )
+        for r in records
+    ]
+
+@router.post("/images", response_model=ImageItem)
+async def upload_image(
+    word: str = Form(...),
+    caption: str = Form(""),
+    file: UploadFile = File(...),
+    current_user: UserResponse = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    word = word.strip()
+    if not word:
+        raise HTTPException(status_code=400, detail="Missing 'word'")
+    if not (file.content_type or "").startswith("image/"):
+        raise HTTPException(status_code=400, detail="File must be an image")
+
+    content = await file.read(MAX_UPLOAD_IMAGE_BYTES + 1)
+    if len(content) > MAX_UPLOAD_IMAGE_BYTES:
+        raise HTTPException(status_code=413, detail="Image too large (max 5MB)")
+
+    try:
+        upload_result = await asyncio.get_event_loop().run_in_executor(
+            None,
+            lambda: cloudinary.uploader.upload(content, folder="dictionary_images"),
+        )
+    except Exception as e:
+        print(f"[Cloudinary upload] Error: {e}", flush=True)
+        raise HTTPException(status_code=502, detail="Failed to upload image")
+
+    record = DictionaryImage(
+        word=word,
+        image_url=upload_result["secure_url"],
+        cloudinary_public_id=upload_result.get("public_id"),
+        caption=caption or None,
+        uploaded_by=current_user.id,
+    )
+    db.add(record)
+    db.commit()
+    db.refresh(record)
+
+    return ImageItem(
+        id=record.id, image_url=record.image_url, caption=record.caption or "",
+        uploaded_by=record.uploaded_by, uploader_username=current_user.username,
+        created_at=record.created_at.isoformat() if record.created_at else "",
+    )
+
+@router.delete("/images/{image_id}")
+async def delete_image(
+    image_id: int,
+    current_user: UserResponse = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    record = db.query(DictionaryImage).filter(DictionaryImage.id == image_id).first()
+    if not record:
+        raise HTTPException(status_code=404, detail="Image not found")
+    if record.uploaded_by != current_user.id:
+        raise HTTPException(status_code=403, detail="You can only delete your own images")
+
+    if record.cloudinary_public_id:
+        try:
+            await asyncio.get_event_loop().run_in_executor(
+                None, lambda: cloudinary.uploader.destroy(record.cloudinary_public_id)
+            )
+        except Exception as e:
+            print(f"[Cloudinary destroy] Error: {e}", flush=True)  # best-effort; still remove the DB row
+
+    db.delete(record)
+    db.commit()
+    return {"success": True}
+
+# ---------- Community comments ----------
+def _comment_to_item(comment: DictionaryComment, requesting_user_id: Optional[int]) -> CommentItem:
+    upvotes = sum(1 for v in comment.votes if v.vote_type == 'up')
+    downvotes = sum(1 for v in comment.votes if v.vote_type == 'down')
+    my_vote = next((v.vote_type for v in comment.votes if v.user_id == requesting_user_id), None)
+    return CommentItem(
+        id=comment.id, word=comment.word, user_id=comment.user_id,
+        username=comment.author.username if comment.author else "",
+        avatar_url=comment.author.information.avatar_url if comment.author and comment.author.information else None,
+        content=comment.content, upvotes=upvotes, downvotes=downvotes, my_vote=my_vote,
+        created_at=comment.created_at.isoformat() if comment.created_at else "",
+    )
+
+@router.get("/comments/{word}", response_model=List[CommentItem])
+async def get_comments(word: str, user_id: Optional[int] = None, db: Session = Depends(get_db)):
+    comments = (
+        db.query(DictionaryComment)
+        .options(
+            joinedload(DictionaryComment.author).joinedload(User.information),
+            selectinload(DictionaryComment.votes),
+        )
+        .filter(DictionaryComment.word == word)
+        .order_by(DictionaryComment.created_at.desc())
+        .all()
+    )
+    return [_comment_to_item(c, user_id) for c in comments]
+
+@router.post("/comments", response_model=CommentItem)
+async def create_comment(
+    req: CreateCommentRequest,
+    current_user: UserResponse = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    word = req.word.strip()
+    content = req.content.strip()
+    if not word or not content:
+        raise HTTPException(status_code=400, detail="Missing 'word' or 'content'")
+
+    comment = DictionaryComment(word=word, user_id=current_user.id, content=content)
+    db.add(comment)
+    db.commit()
+    db.refresh(comment)
+    return _comment_to_item(comment, current_user.id)
+
+@router.delete("/comments/{comment_id}")
+async def delete_comment(
+    comment_id: int,
+    current_user: UserResponse = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    comment = db.query(DictionaryComment).filter(DictionaryComment.id == comment_id).first()
+    if not comment:
+        raise HTTPException(status_code=404, detail="Comment not found")
+    if comment.user_id != current_user.id:
+        raise HTTPException(status_code=403, detail="You can only delete your own comments")
+    db.delete(comment)
+    db.commit()
+    return {"success": True}
+
+@router.post("/comments/{comment_id}/vote", response_model=CommentItem)
+async def vote_comment(
+    comment_id: int,
+    req: CommentVoteRequest,
+    current_user: UserResponse = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    if req.vote_type not in ('up', 'down'):
+        raise HTTPException(status_code=400, detail="vote_type must be 'up' or 'down'")
+    comment = db.query(DictionaryComment).filter(DictionaryComment.id == comment_id).first()
+    if not comment:
+        raise HTTPException(status_code=404, detail="Comment not found")
+
+    existing = db.query(DictionaryCommentVote).filter(
+        DictionaryCommentVote.comment_id == comment_id,
+        DictionaryCommentVote.user_id == current_user.id,
+    ).first()
+
+    if existing and existing.vote_type == req.vote_type:
+        db.delete(existing)  # clicking the same vote again toggles it off
+    elif existing:
+        existing.vote_type = req.vote_type
+    else:
+        db.add(DictionaryCommentVote(comment_id=comment_id, user_id=current_user.id, vote_type=req.vote_type))
+    db.commit()
+    db.refresh(comment)
+    return _comment_to_item(comment, current_user.id)
 
 @router.get("/examples/{word}")
 async def get_examples(word: str, db: Session = Depends(get_db)):

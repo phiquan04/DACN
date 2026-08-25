@@ -73,6 +73,24 @@ File này không nằm trong git (`.gitignore`), cần tự tạo. Các key cầ
 
 Khi chạy **full Docker**, `docker-compose.yml` tự override `DATABASE_URL` thành `postgresql://postgres:qazplmdcm@db:5432/Japanese_App` (dùng tên service `db` thay vì `localhost`) — không cần sửa `.env` khi đổi qua lại giữa 2 cách chạy.
 
+## Migration database (Alembic)
+
+Schema DB được quản lý bằng [Alembic](https://alembic.sqlalchemy.org/) (`Backend/alembic/`). `init_db()` vẫn tự `create_all` các bảng chưa tồn tại mỗi lần khởi động backend (không hại gì), nhưng **thay đổi trên bảng đã tồn tại (thêm/sửa cột...) phải đi qua migration**, không tự viết `ALTER TABLE` tay nữa.
+
+Sau khi sửa model trong `Backend/app/models/`:
+```powershell
+cd Backend
+.\venv\Scripts\activate
+alembic revision --autogenerate -m "mô tả ngắn gọn thay đổi"
+```
+Kiểm tra lại file sinh ra trong `alembic/versions/` rồi áp dụng:
+```powershell
+alembic upgrade head
+```
+
+- **DB mới hoàn toàn** (vừa `docker compose up -d db` lần đầu): chạy `alembic upgrade head` trước, hoặc cứ chạy backend để `create_all` tự tạo bảng rồi chạy `alembic stamp head` một lần để đánh dấu đã ở baseline.
+- **DB đã có sẵn từ trước** (đã pull nhánh này, DB đã có đủ bảng/cột qua `create_all` cũ): chạy `alembic stamp head` một lần duy nhất để đánh dấu đang ở baseline mà không chạy lại `CREATE TABLE`, sau đó từ giờ dùng `alembic upgrade head` như bình thường cho các migration tiếp theo.
+
 ## Lệnh dọn dẹp / bảo trì Docker
 
 Build nhiều lần khiến build cache phình to, chiếm ổ C (WSL2 virtual disk trên Windows không tự co lại). Dọn định kỳ:
