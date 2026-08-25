@@ -1,94 +1,21 @@
-import { useState } from "react";
 import PageMeta from "../../components/common/PageMeta";
 import Button from "../../components/ui/button/Button";
-
-interface CorrectionResult {
-  correctedText: string;
-  diffs: string[];
-}
+import { useGrammarCheck } from "./hooks/useGrammarCheck";
+import DiffText from "./components/DiffText";
 
 export default function FixGrammar() {
-  const [sentence, setSentence] = useState("");
-  const [result, setResult] = useState<CorrectionResult | null>(null);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const [alternatives, setAlternatives] = useState<string[]>([]);
-  const [altLoading, setAltLoading] = useState(false);
-  const [altError, setAltError] = useState<string | null>(null);
-
-  const handleCheck = async () => {
-    if (!sentence.trim()) return;
-    setLoading(true);
-    setError(null);
-    setResult(null);
-    setAlternatives([]);
-
-    try {
-      const response = await fetch("http://127.0.0.1:8080/api/correct", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ text: sentence }),
-      });
-
-      if (!response.ok) throw new Error(`Server error: ${response.status}`);
-
-      const data: CorrectionResult = await response.json();
-      setResult(data);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Đã xảy ra lỗi");
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const handleAlternative = async () => {
-    if (!result?.correctedText) return;
-    setAltLoading(true);
-    setAltError(null);
-    setAlternatives([]);
-
-    try {
-      const response = await fetch("http://127.0.0.1:8080/api/alternative", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ text: result.correctedText }),
-      });
-
-      if (!response.ok) {
-        const errData = await response.json();
-        console.error("Alternative API error:", JSON.stringify(errData));
-        throw new Error(errData?.error || `Server error: ${response.status}`);
-      }
-
-      const data = await response.json();
-      setAlternatives(data.alternatives);
-    } catch (err) {
-      setAltError(err instanceof Error ? err.message : "Không thể tạo cách diễn đạt khác.");
-    } finally {
-      setAltLoading(false);
-    }
-  };
-
-  const renderDiff = (diffs: string[]) => {
-    return diffs.map((diff, index) => {
-      const op = diff[0];
-      const char = diff[2];
-      if (op === " ") return <span key={index}>{char}</span>;
-      if (op === "+")
-        return (
-          <span key={index} className="text-blue-600 dark:text-blue-400 font-medium">
-            {char}
-          </span>
-        );
-      if (op === "-")
-        return (
-          <span key={index} className="line-through text-red-500 dark:text-red-400">
-            {char}
-          </span>
-        );
-      return null;
-    });
-  };
+  const {
+    sentence,
+    setSentence,
+    result,
+    loading,
+    error,
+    alternatives,
+    altLoading,
+    altError,
+    handleCheck,
+    handleAlternative,
+  } = useGrammarCheck();
 
   const isChanged = result && result.correctedText !== sentence.replace(/\s/g, "");
 
@@ -135,7 +62,7 @@ export default function FixGrammar() {
             {isChanged ? (
               <>
                 <div className="rounded-md bg-gray-50 p-4 text-base leading-relaxed dark:bg-gray-800">
-                  {renderDiff(result.diffs)}
+                  <DiffText diffs={result.diffs} />
                 </div>
                 <div className="mt-3 flex gap-4 text-xs text-gray-500 dark:text-gray-400">
                   <span>
