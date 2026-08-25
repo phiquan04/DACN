@@ -25,7 +25,7 @@ if _backend_root not in sys.path:
 
 try:
     from app.models.database import (
-        get_db, SearchHistory, DictionaryImage, DictionaryComment, DictionaryCommentVote,
+        get_db, User, SearchHistory, DictionaryImage, DictionaryComment, DictionaryCommentVote,
     )
     from app.utils.pos_labels import translate_pos_list
 except ModuleNotFoundError:
@@ -33,7 +33,7 @@ except ModuleNotFoundError:
     if _alt_root not in sys.path:
         sys.path.insert(0, _alt_root)
     from database import (
-        get_db, SearchHistory, DictionaryImage, DictionaryComment, DictionaryCommentVote,
+        get_db, User, SearchHistory, DictionaryImage, DictionaryComment, DictionaryCommentVote,
     )
     from utils.pos_labels import translate_pos_list
 
@@ -157,6 +157,7 @@ class CommentItem(BaseModel):
     word: str
     user_id: int
     username: str
+    avatar_url: Optional[str] = None
     content: str
     upvotes: int
     downvotes: int
@@ -188,6 +189,25 @@ async def call_ai(prompt: str) -> str:
         return ""
 
 # ---------- Translation ----------
+async def _translate_via_ai(text: str) -> str:
+    """Fallback translator using the same OpenRouter LLM as the chatbot.
+
+    deep_translator's GoogleTranslator hits Google's free, unofficial
+    translate endpoint — it gets rate-limited (HTTP 429) fairly often, which
+    otherwise silently leaves definitions in English. This gives every
+    lookup a second, paid/authenticated path instead of just failing.
+    """
+    prompt = (
+        f'Dịch từ/cụm từ tiếng Anh sau đây sang tiếng Việt. '
+        f'Chỉ trả về đúng bản dịch, không giải thích, không dấu ngoặc kép: "{text}"'
+    )
+    try:
+        response = await call_ai(prompt)
+    except Exception as e:
+        print(f"AI translation error for '{text}': {e}", flush=True)
+        return ""
+    return response.strip().strip('"').strip() if response else ""
+
 async def translate_batch(texts: List[str]) -> List[str]:
     results = []
     for i, text in enumerate(texts):
@@ -196,16 +216,22 @@ async def translate_batch(texts: List[str]) -> List[str]:
         cache_key = f"trans:{text}"
         if cache_key in _translation_cache:
             results.append(_translation_cache[cache_key])
-        else:
-            try:
-                result = await asyncio.get_event_loop().run_in_executor(
-                    None, translator.translate, text
-                )
-                _translation_cache[cache_key] = result
-                results.append(result)
-            except Exception as e:
-                print(f"Translation error for '{text}': {e}", flush=True)
-                results.append(text)
+            continue
+
+        result = None
+        try:
+            result = await asyncio.get_event_loop().run_in_executor(
+                None, translator.translate, text
+            )
+        except Exception as e:
+            print(f"Translation error for '{text}': {e}", flush=True)
+
+        if not result:
+            result = await _translate_via_ai(text)
+
+        result = result or text  # last resort: show the original English rather than nothing
+        _translation_cache[cache_key] = result
+        results.append(result)
     return results
 
 async def fetch_definitions(entry) -> List[Definition]:
@@ -684,6 +710,7 @@ def _comment_to_item(comment: DictionaryComment, requesting_user_id: Optional[in
     return CommentItem(
         id=comment.id, word=comment.word, user_id=comment.user_id,
         username=comment.author.username if comment.author else "",
+        avatar_url=comment.author.information.avatar_url if comment.author and comment.author.information else None,
         content=comment.content, upvotes=upvotes, downvotes=downvotes, my_vote=my_vote,
         created_at=comment.created_at.isoformat() if comment.created_at else "",
     )
@@ -692,7 +719,10 @@ def _comment_to_item(comment: DictionaryComment, requesting_user_id: Optional[in
 async def get_comments(word: str, user_id: Optional[int] = None, db: Session = Depends(get_db)):
     comments = (
         db.query(DictionaryComment)
-        .options(joinedload(DictionaryComment.author), selectinload(DictionaryComment.votes))
+        .options(
+            joinedload(DictionaryComment.author).joinedload(User.information),
+            selectinload(DictionaryComment.votes),
+        )
         .filter(DictionaryComment.word == word)
         .order_by(DictionaryComment.created_at.desc())
         .all()

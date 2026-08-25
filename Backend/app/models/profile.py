@@ -1,7 +1,7 @@
 from datetime import datetime
 
 from sqlalchemy import Column, Integer, String, DateTime, ForeignKey
-from sqlalchemy.orm import relationship
+from sqlalchemy.orm import backref, relationship
 
 from .base import Base
 
@@ -22,4 +22,6 @@ class UserInformation(Base):
     created_at = Column(DateTime, default=datetime.utcnow)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
-    user = relationship('User', backref='information', uselist=False)
+    # unique=True on user_id makes this a true one-to-one — uselist=False on
+    # both sides so `user.information` is the single row, not a list.
+    user = relationship('User', backref=backref('information', uselist=False), uselist=False)

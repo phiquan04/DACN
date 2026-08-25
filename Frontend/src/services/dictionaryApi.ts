@@ -205,6 +205,7 @@ export interface DictionaryCommentItem {
   word: string;
   user_id: number;
   username: string;
+  avatar_url?: string | null;
   content: string;
   upvotes: number;
   downvotes: number;
