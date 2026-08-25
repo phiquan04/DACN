@@ -41,6 +41,7 @@ def create_access_token(user_id: int, username: str, role: str = "user", expires
         "user_id": user_id,
         "username": username,
         "role": role,
+        "type": "access",
         "exp": expire
     }
 
@@ -48,7 +49,7 @@ def create_access_token(user_id: int, username: str, role: str = "user", expires
     return encoded_jwt
 
 def verify_token(token: str) -> Optional[TokenData]:
-    """Verify and decode a JWT token"""
+    """Verify and decode a JWT access token"""
     try:
         payload = jwt.decode(token, config.SECRET_KEY, algorithms=[config.ALGORITHM])
         user_id: int = payload.get("user_id")
@@ -59,5 +60,29 @@ def verify_token(token: str) -> Optional[TokenData]:
             return None
 
         return TokenData(user_id=user_id, username=username, role=role)
+    except JWTError:
+        return None
+
+def create_refresh_token(user_id: int) -> str:
+    """Create a long-lived JWT refresh token, used only to mint new access
+    tokens via /auth/refresh. Carries a 'type' claim (and no username/role)
+    so it can't be presented in place of an access token — verify_token
+    above already rejects it since it has no 'username' claim, and
+    verify_refresh_token below rejects an access token the same way."""
+    expire = datetime.now(timezone.utc) + timedelta(days=config.REFRESH_TOKEN_EXPIRE_DAYS)
+    to_encode = {
+        "user_id": user_id,
+        "type": "refresh",
+        "exp": expire
+    }
+    return jwt.encode(to_encode, config.SECRET_KEY, algorithm=config.ALGORITHM)
+
+def verify_refresh_token(token: str) -> Optional[int]:
+    """Verify a refresh token and return the user_id it was issued for, or None."""
+    try:
+        payload = jwt.decode(token, config.SECRET_KEY, algorithms=[config.ALGORITHM])
+        if payload.get("type") != "refresh":
+            return None
+        return payload.get("user_id")
     except JWTError:
         return None
