@@ -17,6 +17,22 @@ export function setApiErrorReporter(reporter: ErrorReporter | null): void {
   errorReporter = reporter;
 }
 
+type UnauthorizedHandler = () => void;
+let unauthorizedHandler: UnauthorizedHandler | null = null;
+
+/**
+ * Wires a global handler (e.g. clearing the session and redirecting to
+ * sign-in) that fires whenever an authenticated request comes back 401 —
+ * i.e. the access token expired or was revoked. Not fired for
+ * /auth/signin or /auth/signup, where a 401 just means wrong credentials,
+ * not an expired session.
+ */
+export function setUnauthorizedHandler(handler: UnauthorizedHandler | null): void {
+  unauthorizedHandler = handler;
+}
+
+const AUTH_ENDPOINTS_WITHOUT_SESSION = ["/api/auth/signin", "/api/auth/signup"];
+
 interface RequestOptions extends RequestInit {
   /** Skip the global error reporter — use for best-effort/background calls. */
   silent?: boolean;
@@ -46,7 +62,17 @@ export async function request<T>(path: string, options: RequestOptions = {}): Pr
     } catch {
       // response body wasn't JSON — keep the default message
     }
-    if (!silent) errorReporter?.(message);
+
+    const isSessionExpiry =
+      res.status === 401 && !AUTH_ENDPOINTS_WITHOUT_SESSION.some((p) => path.startsWith(p));
+    if (isSessionExpiry) {
+      // A stale/expired token isn't a per-request error worth a toast —
+      // hand off to the session handler (clears the token, redirects to
+      // sign-in) instead of reporting it like a normal failure.
+      unauthorizedHandler?.();
+    } else if (!silent) {
+      errorReporter?.(message);
+    }
     throw new ApiError(message, res.status);
   }
 
