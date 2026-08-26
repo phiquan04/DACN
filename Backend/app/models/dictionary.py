@@ -19,6 +19,7 @@ class SearchHistory(Base):
     synonyms = Column(JSON, default=list)          # Lưu list [string]
     jlpt = Column(String(10), nullable=True)
     frequency = Column(String(20), nullable=True)
+    kanji = Column(JSON, default=list)             # Lưu list [{literal, on_yomi, kun_yomi, hanviet, meaning, stroke_count, jlpt, grade}]
     created_at = Column(DateTime, default=datetime.utcnow)
 
     user = relationship('User', backref='search_history')

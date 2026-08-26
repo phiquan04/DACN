@@ -39,6 +39,7 @@ export interface SearchHistoryItem {
   synonyms: string[];
   jlpt: string;
   frequency: string;
+  kanji: KanjiInfo[];
   created_at: string;
 }
 
@@ -82,6 +83,7 @@ export async function saveSearchHistory(params: {
   synonyms?: string[];
   jlpt?: string;
   frequency?: string;
+  kanji?: KanjiInfo[];
 }): Promise<void> {
   const token = getToken();
   try {
@@ -99,6 +101,7 @@ export async function saveSearchHistory(params: {
         synonyms: params.synonyms ?? [],
         jlpt: params.jlpt ?? "",
         frequency: params.frequency ?? "",
+        kanji: params.kanji ?? [],
       }),
     });
   } catch {

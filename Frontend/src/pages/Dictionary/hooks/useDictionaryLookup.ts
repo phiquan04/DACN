@@ -122,6 +122,7 @@ export function useDictionaryLookup({ currentUser, onWordResolved, onWordReset, 
               synonyms,
               jlpt: result.jlpt,
               frequency: result.frequency,
+              kanji: result.kanji,
             });
             onSaved();
           }
@@ -154,8 +155,8 @@ export function useDictionaryLookup({ currentUser, onWordResolved, onWordReset, 
       setSearchTerm(item.word);
 
       // Các mục lịch sử được lưu từ sau khi có tính năng "lưu toàn bộ" đã có
-      // sẵn đầy đủ definitions/jlpt/frequency/examples/synonyms -> hiển thị
-      // ngay từ dữ liệu đã lưu, không cần gọi lại API.
+      // sẵn đầy đủ definitions/jlpt/frequency/examples/synonyms/kanji -> hiển
+      // thị ngay từ dữ liệu đã lưu, không cần gọi lại API.
       if (item.definitions && item.definitions.length > 0) {
         setError("");
         setSearchPerformed(true);
@@ -171,7 +172,7 @@ export function useDictionaryLookup({ currentUser, onWordResolved, onWordReset, 
             synonyms: item.synonyms ?? [],
             jlpt: item.jlpt || "N/A",
             frequency: item.frequency || "N/A",
-            kanji: [],
+            kanji: item.kanji ?? [],
           },
         ]);
         setExamplesData(item.examples ?? []);
@@ -180,18 +181,33 @@ export function useDictionaryLookup({ currentUser, onWordResolved, onWordReset, 
         setLoadingSynonyms(false);
         onWordReset();
         onWordResolved(item.word);
-        // Saved history rows don't store the kanji breakdown, so fetch it
-        // separately (lookup is cached server-side) instead of showing an
-        // incorrect "no kanji" state for words that do have kanji.
-        lookupWord(item.word)
-          .then((res) => {
-            setResults((prev) =>
-              prev.map((r) => (r.word === item.word ? { ...r, kanji: res.kanji } : r))
-            );
-          })
-          .catch(() => {
-            // best-effort — kanji tab just stays empty if this fails
-          });
+        // Bản ghi lịch sử cũ (lưu trước khi có trường kanji) chưa có sẵn hán
+        // tự -> tra lại một lần để bổ sung, các lần bấm sau sẽ hiện ngay lập tức.
+        if (!item.kanji || item.kanji.length === 0) {
+          lookupWord(item.word)
+            .then((res) => {
+              setResults((prev) =>
+                prev.map((r) => (r.word === item.word ? { ...r, kanji: res.kanji } : r))
+              );
+              if (currentUser && res.kanji.length > 0) {
+                saveSearchHistory({
+                  userId: currentUser.id,
+                  word: item.word,
+                  reading: item.reading,
+                  meaning: item.meaning,
+                  definitions: item.definitions,
+                  examples: item.examples,
+                  synonyms: item.synonyms,
+                  jlpt: item.jlpt,
+                  frequency: item.frequency,
+                  kanji: res.kanji,
+                }).then(onSaved);
+              }
+            })
+            .catch(() => {
+              // best-effort — kanji tab just stays empty if this fails
+            });
+        }
         return;
       }
 
@@ -199,7 +215,7 @@ export function useDictionaryLookup({ currentUser, onWordResolved, onWordReset, 
       // -> tra cứu lại như bình thường.
       performSearch(item.word);
     },
-    [onWordReset, onWordResolved, performSearch]
+    [currentUser, onSaved, onWordReset, onWordResolved, performSearch]
   );
 
   const playPronunciation = useCallback((text: string) => {
