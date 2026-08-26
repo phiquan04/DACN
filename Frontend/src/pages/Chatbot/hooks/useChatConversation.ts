@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
+import { getErrorInfo } from "../../../utils/errors";
 import { useSpeech } from "../../../hooks/useSpeech";
 import { useVoiceInput } from "../../../hooks/useVoiceInput";
 import {
@@ -86,11 +87,12 @@ export function useChatConversation() {
         } else {
           setMessages([FREE_CHAT_WELCOME]);
         }
-      } catch (err: any) {
+      } catch (err) {
+        const { message } = getErrorInfo(err);
         setMessages([
           {
             role: "assistant",
-            content: `エラーが発生しました。😢 ${err.message || "もう一度試してください。"}`,
+            content: `エラーが発生しました。😢 ${message || "もう一度試してください。"}`,
             timestamp: Date.now(),
           },
         ]);

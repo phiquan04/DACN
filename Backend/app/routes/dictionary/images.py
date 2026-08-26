@@ -7,8 +7,8 @@ import cloudinary.uploader
 from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile
 from sqlalchemy.orm import Session
 
+from app.dependencies import get_current_user, UserResponse
 from app.models.database import get_db, DictionaryImage
-from app.routes.auth import get_current_user, UserResponse
 from app.schemas.dictionary import ImageItem
 from app.utils.cloudinary import init_cloudinary
 

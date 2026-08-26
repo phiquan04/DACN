@@ -5,6 +5,9 @@ import { useNavigate } from "react-router-dom";
 const APP_ID = Number(import.meta.env.VITE_ZEGO_APP_ID);
 const SERVER_SECRET = import.meta.env.VITE_ZEGO_SERVER_SECRET as string;
 
+/** `leaveRoom` isn't in the SDK's shipped type declarations (only `destroy` is), but the cleanup below has always defensively fallen back to it, so the type keeps that possibility open instead of asserting it away. */
+type ZegoRoomInstance = ZegoUIKitPrebuilt & { leaveRoom?: () => void };
+
 function getSessionUserId(): string {
   const key = "meeting_user_id";
   let id = sessionStorage.getItem(key);
@@ -19,7 +22,7 @@ function getSessionUserId(): string {
 export function useZegoRoom(roomID: string | undefined, userName: string) {
   const navigate = useNavigate();
   const containerRef = useRef<HTMLDivElement>(null);
-  const zpRef = useRef<any>(null);
+  const zpRef = useRef<ZegoRoomInstance | null>(null);
   const userID = useRef(getSessionUserId()).current;
 
   const [status, setStatus] = useState<"loading" | "ready" | "error">("loading");

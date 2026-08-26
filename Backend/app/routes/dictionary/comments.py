@@ -4,8 +4,8 @@ from typing import List, Optional
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session, joinedload, selectinload
 
+from app.dependencies import get_current_user, UserResponse
 from app.models.database import get_db, User, DictionaryComment, DictionaryCommentVote
-from app.routes.auth import get_current_user, UserResponse
 from app.schemas.dictionary import CommentItem, CommentVoteRequest, CreateCommentRequest
 
 router = APIRouter()

@@ -2,30 +2,17 @@ import json
 from typing import Optional
 
 import httpx
-from fastapi import APIRouter, Depends, Header, HTTPException
+from fastapi import APIRouter, Depends, HTTPException
 from fastapi.responses import StreamingResponse
 from sqlalchemy.orm import Session
 
+from app.dependencies import get_optional_user_id
 from app.models import ChatScenario, Conversation, Message
 from app.models.database import get_db
 from app.schemas.chat import ChatRequest, StartConversationRequest
 from app.services import chat_ai
-from app.utils.auth import verify_token
 
 router = APIRouter()
-
-
-def get_optional_user_id(authorization: Optional[str] = Header(None)) -> Optional[int]:
-    if not authorization:
-        return None
-    try:
-        scheme, token = authorization.split()
-        if scheme.lower() != "bearer":
-            return None
-    except ValueError:
-        return None
-    token_data = verify_token(token)
-    return token_data.user_id if token_data else None
 
 
 def sse(event: str, data: dict) -> str:

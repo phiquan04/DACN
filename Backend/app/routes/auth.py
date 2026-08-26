@@ -1,17 +1,15 @@
-from fastapi import APIRouter, Depends, HTTPException, status, Header
+from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 from pydantic import BaseModel, EmailStr, Field
-from datetime import timedelta
-from typing import Optional
 
 from app.models import User, Role
 from app.models.database import get_db
+from app.dependencies import UserResponse, get_current_user, to_user_response
 from app.utils.auth import (
     hash_password,
     verify_password,
     create_access_token,
     create_refresh_token,
-    verify_token,
     verify_refresh_token,
     Token
 )
@@ -48,26 +46,6 @@ class UserSignIn(BaseModel):
                 "password": "securepass123"
             }
         }
-
-class UserResponse(BaseModel):
-    id: int
-    username: str
-    email: str
-    is_active: bool
-    role: str
-
-    class Config:
-        from_attributes = True
-
-
-def _to_user_response(user: User) -> UserResponse:
-    return UserResponse(
-        id=user.id,
-        username=user.username,
-        email=user.email,
-        is_active=user.is_active,
-        role=user.role.code if user.role else "user",
-    )
 
 class SignUpResponse(BaseModel):
     user: UserResponse
@@ -128,7 +106,7 @@ def sign_up(user_data: UserSignUp, db: Session = Depends(get_db)):
     refresh_token = create_refresh_token(user_id=new_user.id)
 
     return SignUpResponse(
-        user=_to_user_response(new_user),
+        user=to_user_response(new_user),
         access_token=access_token,
         refresh_token=refresh_token,
         token_type="bearer"
@@ -157,7 +135,7 @@ def sign_in(user_data: UserSignIn, db: Session = Depends(get_db)):
     refresh_token = create_refresh_token(user_id=user.id)
 
     return SignInResponse(
-        user=_to_user_response(user),
+        user=to_user_response(user),
         access_token=access_token,
         refresh_token=refresh_token,
         token_type="bearer"
@@ -185,38 +163,5 @@ def refresh_access_token(req: RefreshRequest, db: Session = Depends(get_db)):
     return RefreshResponse(access_token=access_token, token_type="bearer")
 
 @router.get("/me", response_model=UserResponse)
-def get_current_user(authorization: Optional[str] = Header(None), db: Session = Depends(get_db)):
-    if not authorization:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Not authenticated",
-            headers={"WWW-Authenticate": "Bearer"}
-        )
-    
-    try:
-        scheme, token = authorization.split()
-        if scheme.lower() != "bearer":
-            raise ValueError()
-    except ValueError:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Invalid authorization header format",
-            headers={"WWW-Authenticate": "Bearer"}
-        )
-    
-    token_data = verify_token(token)
-    if not token_data:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Invalid or expired token",
-            headers={"WWW-Authenticate": "Bearer"}
-        )
-    
-    user = db.query(User).filter(User.id == token_data.user_id).first()
-    if not user:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="User not found"
-        )
-
-    return _to_user_response(user)
+def get_me(current_user: UserResponse = Depends(get_current_user)):
+    return current_user

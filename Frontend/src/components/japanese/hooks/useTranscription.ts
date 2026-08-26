@@ -1,4 +1,5 @@
 import { useCallback, useState } from "react";
+import { getErrorInfo } from "../../../utils/errors";
 import { API_BASE, formatTime, toSRTTime, type Segment, type YouTubeVideo } from "../japaneseVideoUtils";
 
 /** Runs a video through /api/transcribe and holds the resulting Japanese/Vietnamese segments, plus copy/export actions over them. */
@@ -78,11 +79,12 @@ export function useTranscription() {
 
       setSegments(data.segments);
       setStatus("done");
-    } catch (err: any) {
-      if (err.name === "AbortError") {
+    } catch (err) {
+      const { name, message } = getErrorInfo(err);
+      if (name === "AbortError") {
         setErrorMsg("Quá thời gian (>3 phút). Video quá dài hoặc mạng chậm.");
       } else {
-        setErrorMsg(err.message ?? "Không thể kết nối server");
+        setErrorMsg(message ?? "Không thể kết nối server");
       }
       setStatus("error");
     }

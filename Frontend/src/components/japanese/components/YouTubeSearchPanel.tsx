@@ -1,4 +1,5 @@
 import { useCallback, useState } from "react";
+import { getErrorInfo } from "../../../utils/errors";
 import { API_BASE, type YouTubeVideo } from "../japaneseVideoUtils";
 import VideoCard from "./VideoCard";
 
@@ -59,11 +60,12 @@ export default function YouTubeSearchPanel({
 
       if (data.error) throw new Error(data.error);
       setResults(data.videos ?? []);
-    } catch (err: any) {
-      if (err.name === "AbortError") {
+    } catch (err) {
+      const { name, message } = getErrorInfo(err);
+      if (name === "AbortError") {
         setSearchError("Tìm kiếm quá thời gian. Vui lòng thử lại.");
       } else {
-        setSearchError(err.message ?? "Không thể tìm kiếm");
+        setSearchError(message ?? "Không thể tìm kiếm");
       }
       setResults([]);
     } finally {
