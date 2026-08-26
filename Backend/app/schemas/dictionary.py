@@ -50,6 +50,7 @@ class SaveHistoryRequest(BaseModel):
     synonyms: Optional[List[str]] = []
     jlpt: Optional[str] = ""
     frequency: Optional[str] = ""
+    kanji: Optional[List[dict]] = []
 
 
 class HistoryItem(BaseModel):
@@ -62,6 +63,7 @@ class HistoryItem(BaseModel):
     synonyms: Optional[List[str]] = []
     jlpt: Optional[str] = ""
     frequency: Optional[str] = ""
+    kanji: Optional[List[dict]] = []
     created_at: str
 
 

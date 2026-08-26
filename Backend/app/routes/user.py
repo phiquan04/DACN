@@ -2,11 +2,13 @@ from fastapi import APIRouter, Depends, UploadFile, File, HTTPException
 from sqlalchemy.orm import Session
 from pydantic import BaseModel
 from typing import Optional
-from app.models.database import get_db, User, UserInformation
-from app.routes.auth import get_current_user
+from app.models.database import get_db, UserInformation
+from app.dependencies import get_current_user, UserResponse
 from app.utils.cloudinary import upload_image
 
 router = APIRouter(prefix="/user", tags=["user"])
+
+MAX_AVATAR_BYTES = 5 * 1024 * 1024  # 5 MB, same cap as dictionary community images
 
 
 class UserProfileUpdate(BaseModel):
@@ -42,7 +44,7 @@ def build_profile_response(user, info: UserInformation | None):
 
 @router.get("/profile", response_model=UserProfileResponse)
 def get_profile(
-    current_user: User = Depends(get_current_user),
+    current_user: UserResponse = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
     info = db.query(UserInformation).filter(UserInformation.user_id == current_user.id).first()
@@ -52,7 +54,7 @@ def get_profile(
 @router.put("/profile", response_model=UserProfileResponse)
 def update_profile(
     data: UserProfileUpdate,
-    current_user: User = Depends(get_current_user),
+    current_user: UserResponse = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
     info = db.query(UserInformation).filter(UserInformation.user_id == current_user.id).first()
@@ -70,17 +72,21 @@ def update_profile(
 @router.post("/avatar")
 def upload_avatar(
     file: UploadFile = File(...),
-    current_user: User = Depends(get_current_user),
+    current_user: UserResponse = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
     # Kiểm tra loại file
     if not file.content_type.startswith("image/"):
         raise HTTPException(status_code=400, detail="Only image files allowed")
 
+    content = file.file.read(MAX_AVATAR_BYTES + 1)
+    if len(content) > MAX_AVATAR_BYTES:
+        raise HTTPException(status_code=413, detail="Image too large (max 5MB)")
+
     try:
         # Upload lên Cloudinary
-        url = upload_image(file.file.read())
-        
+        url = upload_image(content)
+
         # Lưu URL vào database
         info = db.query(UserInformation).filter(UserInformation.user_id == current_user.id).first()
         if not info:
@@ -97,7 +103,7 @@ def upload_avatar(
 
 @router.delete("/avatar")
 def delete_avatar(
-    current_user: User = Depends(get_current_user),
+    current_user: UserResponse = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
     info = db.query(UserInformation).filter(UserInformation.user_id == current_user.id).first()

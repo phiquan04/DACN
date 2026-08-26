@@ -35,6 +35,8 @@ def save_search_history(req: SaveHistoryRequest, db: Session = Depends(get_db)):
             existing.jlpt = req.jlpt
         if req.frequency:
             existing.frequency = req.frequency
+        if req.kanji:
+            existing.kanji = req.kanji
         existing.created_at = datetime.utcnow()
         db.commit()
         db.refresh(existing)
@@ -50,6 +52,7 @@ def save_search_history(req: SaveHistoryRequest, db: Session = Depends(get_db)):
             synonyms=req.synonyms or [],
             jlpt=req.jlpt,
             frequency=req.frequency,
+            kanji=req.kanji or [],
         )
         db.add(record)
         db.commit()
@@ -77,6 +80,7 @@ def get_search_history(user_id: int, db: Session = Depends(get_db)):
             "synonyms": r.synonyms or [],
             "jlpt": r.jlpt or "",
             "frequency": r.frequency or "",
+            "kanji": r.kanji or [],
             "created_at": r.created_at.isoformat() if r.created_at else "",
         }
         for r in records
