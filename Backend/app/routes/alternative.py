@@ -2,14 +2,18 @@ import os
 import re
 import json
 import time
+from typing import Optional
+
 import requests as req
-from fastapi import APIRouter, HTTPException
-from pydantic import BaseModel
+from fastapi import APIRouter, Depends, HTTPException
+from sqlalchemy.orm import Session
+
+from app.dependencies import get_optional_user_id
+from app.models import GrammarCorrection
+from app.models.database import get_db
+from app.schemas.grammar import AlternativeRequest
 
 router = APIRouter()
-
-class AlternativeRequest(BaseModel):
-    text: str
 
 
 def _call_openrouter(api_key: str, prompt: str, retries: int = 3) -> str:
@@ -48,7 +52,11 @@ def _call_openrouter(api_key: str, prompt: str, retries: int = 3) -> str:
 
 
 @router.post('/alternative')
-def alternative(request: AlternativeRequest):
+def alternative(
+    request: AlternativeRequest,
+    user_id: Optional[int] = Depends(get_optional_user_id),
+    db: Session = Depends(get_db),
+):
     try:
         api_key = os.environ.get('OPENROUTER_API_KEY')
         if not api_key:
@@ -67,8 +75,23 @@ def alternative(request: AlternativeRequest):
         raw = _call_openrouter(api_key, prompt)
         clean = re.sub(r'```json|```', '', raw).strip()
         data = json.loads(clean)
+        alternatives = data['alternatives']
 
-        return {'alternatives': data['alternatives']}
+        # Attach to the originating history record, if any (best-effort).
+        if request.history_id is not None and user_id is not None:
+            try:
+                record = db.query(GrammarCorrection).filter(
+                    GrammarCorrection.id == request.history_id,
+                    GrammarCorrection.user_id == user_id,
+                ).first()
+                if record:
+                    record.alternatives = alternatives
+                    db.commit()
+            except Exception as e:
+                print(f'Failed to save alternatives to history: {e}')
+                db.rollback()
+
+        return {'alternatives': alternatives}
 
     except HTTPException:
         raise
