@@ -8,13 +8,13 @@ export default function DiffText({ diffs }: { diffs: string[] }) {
         if (op === " ") return <span key={index}>{char}</span>;
         if (op === "+")
           return (
-            <span key={index} className="text-blue-600 dark:text-blue-400 font-medium">
+            <span key={index} className="text-teal-600 dark:text-teal-400 font-medium">
               {char}
             </span>
           );
         if (op === "-")
           return (
-            <span key={index} className="line-through text-red-500 dark:text-red-400">
+            <span key={index} className="line-through text-rose-500 dark:text-rose-400">
               {char}
             </span>
           );

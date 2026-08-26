@@ -59,3 +59,33 @@ Requires `Backend/.env` (gitignored) with `DATABASE_URL`, `OPENROUTER_API_KEY` (
 - `pages/` — one directory per feature, matching the route groups in `App.tsx` (`Dictionary`, `Grammar`, `Pronunciation`, `Chatbot`, `Meeting`, `PracticeTest`, `VideoLearn`, `Admin`, `AuthPages`, `OtherPage`).
 
 **Page titles belong in the navbar, not inline in the page body.** Pages call `usePageHeader().setPageHeader(title, subtitle?)` (from `context/PageHeaderContext.tsx`) to set the title shown in the top navbar, rather than rendering an `<h1>`/heading inside the page content.
+
+## Design system & UI conventions
+
+TailwindCSS only (TailAdmin base) — no CSS modules, no styled-components. Every
+surface must render correctly in both light and dark mode: any `bg-`/`text-`/
+`border-` utility needs its `dark:` counterpart.
+
+**Color roles** (keep consistent across features):
+- `brand-*` — primary actions, active nav, pagination current page
+- `teal-*` — anything AI-generated (corrections, suggestions, AI chat)
+- `rose-*` — user errors / detected mistakes (never for destructive buttons)
+- `emerald-*` — success, "no errors found"
+- `gray-*` — text hierarchy: `gray-800` primary, `gray-500` secondary, `gray-400` meta
+
+**Cards & lists:** `rounded-xl border border-gray-200 bg-white shadow-sm` +
+`dark:border-gray-700 dark:bg-gray-900`. List rows are compact one-per-line
+horizontal cards, spaced with `flex flex-col gap-2.5` (not `space-y-*`).
+Hover state = border turns `teal-500` + soft shadow, no scale/translate.
+
+**Japanese text:** always `lang="ja"` on elements containing Japanese so the
+browser picks correct CJK glyphs. Long sentences `truncate` on one line with a
+`title` attribute; full text lives in the detail modal, never wrapped in the row.
+
+**Filter chips:** `rounded-full px-4 py-1.5 text-xs`; active = `bg-gray-900 text-white`
+(inverted in dark mode), inactive = bordered.
+
+**Icons:** 2px-stroke SVG from the shared icon set, 20px in nav / 16px inline.
+No emoji, no Unicode glyphs (`→`, `✓`) as icons in new code.
+
+**Page titles** go through `usePageHeader()` (see above), never an inline `<h1>`.

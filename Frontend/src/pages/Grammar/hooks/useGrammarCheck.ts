@@ -1,11 +1,19 @@
 import { useState } from "react";
+import {
+  correctGrammar,
+  fetchAlternatives,
+  type GrammarErrorExplanation,
+} from "../../../services/grammarApi";
 
 export interface CorrectionResult {
   correctedText: string;
   diffs: string[];
+  explanation: GrammarErrorExplanation[];
+  historyId: number | null;
 }
 
-/** Grammar-check flow: submit a sentence for correction, then optionally ask for alternative phrasings of the corrected text. */
+/** Grammar-check flow: submit a sentence for correction (with per-error explanation
+ * grounded on the model's diff), then optionally ask for alternative phrasings. */
 export function useGrammarCheck() {
   const [sentence, setSentence] = useState("");
   const [result, setResult] = useState<CorrectionResult | null>(null);
@@ -23,16 +31,13 @@ export function useGrammarCheck() {
     setAlternatives([]);
 
     try {
-      const response = await fetch("http://127.0.0.1:8080/api/correct", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ text: sentence }),
+      const data = await correctGrammar(sentence);
+      setResult({
+        correctedText: data.correctedText,
+        diffs: data.diffs,
+        explanation: data.explanation ?? [],
+        historyId: data.history_id,
       });
-
-      if (!response.ok) throw new Error(`Server error: ${response.status}`);
-
-      const data: CorrectionResult = await response.json();
-      setResult(data);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Đã xảy ra lỗi");
     } finally {
@@ -47,20 +52,8 @@ export function useGrammarCheck() {
     setAlternatives([]);
 
     try {
-      const response = await fetch("http://127.0.0.1:8080/api/alternative", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ text: result.correctedText }),
-      });
-
-      if (!response.ok) {
-        const errData = await response.json();
-        console.error("Alternative API error:", JSON.stringify(errData));
-        throw new Error(errData?.error || `Server error: ${response.status}`);
-      }
-
-      const data = await response.json();
-      setAlternatives(data.alternatives);
+      const alts = await fetchAlternatives(result.correctedText, result.historyId);
+      setAlternatives(alts);
     } catch (err) {
       setAltError(err instanceof Error ? err.message : "Không thể tạo cách diễn đạt khác.");
     } finally {
