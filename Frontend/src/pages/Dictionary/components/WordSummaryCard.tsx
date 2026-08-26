@@ -1,5 +1,5 @@
 import type { DictionaryResult } from "../../../services/api";
-import { uniquePosLabels } from "../dictionaryUtils";
+import { classifyPos, POS_BADGE_CLASSES, uniquePosLabels } from "../dictionaryUtils";
 
 interface WordSummaryCardProps {
   item: DictionaryResult;
@@ -24,7 +24,7 @@ export default function WordSummaryCard({ item, onPlayPronunciation, onPracticeP
             {uniquePosLabels(item.definitions).map((pos) => (
               <span
                 key={pos}
-                className="inline-block rounded-full bg-surface-container-high px-2.5 py-1 text-xs font-medium text-on-surface-variant dark:bg-gray-800 dark:text-gray-300"
+                className={`inline-block rounded-full px-2.5 py-1 text-xs font-semibold ${POS_BADGE_CLASSES[classifyPos(pos)]}`}
               >
                 {pos}
               </span>
@@ -64,7 +64,8 @@ export default function WordSummaryCard({ item, onPlayPronunciation, onPracticeP
         </div>
       </div>
 
-      {/* Meaning: primary sense large, remaining senses listed below */}
+      {/* Meaning: primary sense large, remaining senses listed below. Part-of-speech is
+          shown once already (the colored badges next to furigana above) — not repeated here. */}
       {item.definitions.length > 0 && (
         <div className="space-y-1">
           <p className="text-lg text-gray-900 dark:text-gray-100 break-words">
@@ -73,9 +74,6 @@ export default function WordSummaryCard({ item, onPlayPronunciation, onPracticeP
           {item.definitions.slice(1).map((def, defIdx) => (
             <p key={defIdx} className="text-sm text-gray-600 dark:text-gray-400 break-words">
               {def.meaning}
-              {(def.pos_label || def.pos) && (
-                <span className="text-outline dark:text-gray-500"> ({def.pos_label || def.pos})</span>
-              )}
             </p>
           ))}
         </div>

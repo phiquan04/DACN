@@ -13,6 +13,9 @@ import {
 
 interface UseDictionaryLookupOptions {
   currentUser: User | null;
+  /** Already-loaded search history — checked before hitting the API so re-searching a word
+   * looked up before displays instantly from here instead of re-fetching. */
+  historyItems: SearchHistoryItem[];
   /** Called once a word has been resolved (fresh search or a history click) — used to (re)load its images/comments. */
   onWordResolved: (word: string) => void;
   /** Called right before a new lookup starts — used to clear the previous word's images/comments. */
@@ -22,7 +25,13 @@ interface UseDictionaryLookupOptions {
 }
 
 /** Core dictionary lookup flow: search, restore-from-history, and the examples/synonyms that ride along with it. */
-export function useDictionaryLookup({ currentUser, onWordResolved, onWordReset, onSaved }: UseDictionaryLookupOptions) {
+export function useDictionaryLookup({
+  currentUser,
+  historyItems,
+  onWordResolved,
+  onWordReset,
+  onSaved,
+}: UseDictionaryLookupOptions) {
   const navigate = useNavigate();
 
   const [searchTerm, setSearchTerm] = useState("");
@@ -70,6 +79,65 @@ export function useDictionaryLookup({ currentUser, onWordResolved, onWordReset, 
     }
   }, []);
 
+  /** Renders a fully-cached history item instantly (no API calls) and, best-effort,
+   * backfills kanji for older entries saved before that field existed. Shared by
+   * both a sidebar history click and re-searching a word already in history. */
+  const displayCachedItem = useCallback(
+    (item: SearchHistoryItem) => {
+      setError("");
+      setSearchPerformed(true);
+      setSearchTerm(item.word);
+      setLoading(false);
+      setActiveTab("vocab");
+      setCurrentWord(item.word);
+      setResults([
+        {
+          word: item.word,
+          reading: item.reading,
+          definitions: item.definitions,
+          examples: item.examples ?? [],
+          synonyms: item.synonyms ?? [],
+          jlpt: item.jlpt || "N/A",
+          frequency: item.frequency || "N/A",
+          kanji: item.kanji ?? [],
+        },
+      ]);
+      setExamplesData(item.examples ?? []);
+      setSynonymsData(item.synonyms ?? []);
+      setLoadingExamples(false);
+      setLoadingSynonyms(false);
+      onWordReset();
+      onWordResolved(item.word);
+
+      // Bản ghi lịch sử cũ (lưu trước khi có trường kanji) chưa có sẵn hán
+      // tự -> tra lại một lần để bổ sung, các lần bấm sau sẽ hiện ngay lập tức.
+      if (!item.kanji || item.kanji.length === 0) {
+        lookupWord(item.word)
+          .then((res) => {
+            setResults((prev) => prev.map((r) => (r.word === item.word ? { ...r, kanji: res.kanji } : r)));
+            if (currentUser && res.kanji.length > 0) {
+              saveSearchHistory({
+                userId: currentUser.id,
+                word: item.word,
+                reading: item.reading,
+                meaning: item.meaning,
+                definitions: item.definitions,
+                examples: item.examples,
+                synonyms: item.synonyms,
+                jlpt: item.jlpt,
+                frequency: item.frequency,
+                kanji: res.kanji,
+              }).then(onSaved);
+            }
+          })
+          .catch(() => {
+            // best-effort — kanji tab just stays empty if this fails
+          });
+      }
+    },
+    [currentUser, onSaved, onWordReset, onWordResolved]
+  );
+
   const performSearch = useCallback(
     async (term: string) => {
       const trimmed = term.trim();
@@ -80,6 +148,16 @@ export function useDictionaryLookup({ currentUser, onWordResolved, onWordReset, 
         setExamplesData([]);
         setSynonymsData([]);
         onWordReset();
+        return;
+      }
+
+      // Từ này đã có đầy đủ dữ liệu trong lịch sử tra cứu -> hiển thị ngay,
+      // không gọi lại API (lookup + examples + synonyms).
+      const cached = historyItems.find(
+        (h) => h.word === trimmed && h.definitions && h.definitions.length > 0
+      );
+      if (cached) {
+        displayCachedItem(cached);
         return;
       }
 
@@ -138,7 +216,7 @@ export function useDictionaryLookup({ currentUser, onWordResolved, onWordReset, 
         setLoading(false);
       }
     },
-    [currentUser, loadExamples, loadSynonyms, onWordReset, onWordResolved, onSaved]
+    [currentUser, displayCachedItem, historyItems, loadExamples, loadSynonyms, onWordReset, onWordResolved, onSaved]
   );
 
   const handleSearch = useCallback(
@@ -149,65 +227,25 @@ export function useDictionaryLookup({ currentUser, onWordResolved, onWordReset, 
     [performSearch, searchTerm]
   );
 
+  /** Looks up an arbitrary word directly (not from the search bar's current input) —
+   * used by e.g. clicking a synonym after confirming in its modal. */
+  const searchWord = useCallback(
+    (word: string) => {
+      window.scrollTo({ top: 0, behavior: "smooth" });
+      performSearch(word);
+    },
+    [performSearch]
+  );
+
   const loadFromHistory = useCallback(
     (item: SearchHistoryItem) => {
       window.scrollTo({ top: 0, behavior: "smooth" });
-      setSearchTerm(item.word);
 
       // Các mục lịch sử được lưu từ sau khi có tính năng "lưu toàn bộ" đã có
       // sẵn đầy đủ definitions/jlpt/frequency/examples/synonyms/kanji -> hiển
       // thị ngay từ dữ liệu đã lưu, không cần gọi lại API.
       if (item.definitions && item.definitions.length > 0) {
-        setError("");
-        setSearchPerformed(true);
-        setLoading(false);
-        setActiveTab("vocab");
-        setCurrentWord(item.word);
-        setResults([
-          {
-            word: item.word,
-            reading: item.reading,
-            definitions: item.definitions,
-            examples: item.examples ?? [],
-            synonyms: item.synonyms ?? [],
-            jlpt: item.jlpt || "N/A",
-            frequency: item.frequency || "N/A",
-            kanji: item.kanji ?? [],
-          },
-        ]);
-        setExamplesData(item.examples ?? []);
-        setSynonymsData(item.synonyms ?? []);
-        setLoadingExamples(false);
-        setLoadingSynonyms(false);
-        onWordReset();
-        onWordResolved(item.word);
-        // Bản ghi lịch sử cũ (lưu trước khi có trường kanji) chưa có sẵn hán
-        // tự -> tra lại một lần để bổ sung, các lần bấm sau sẽ hiện ngay lập tức.
-        if (!item.kanji || item.kanji.length === 0) {
-          lookupWord(item.word)
-            .then((res) => {
-              setResults((prev) =>
-                prev.map((r) => (r.word === item.word ? { ...r, kanji: res.kanji } : r))
-              );
-              if (currentUser && res.kanji.length > 0) {
-                saveSearchHistory({
-                  userId: currentUser.id,
-                  word: item.word,
-                  reading: item.reading,
-                  meaning: item.meaning,
-                  definitions: item.definitions,
-                  examples: item.examples,
-                  synonyms: item.synonyms,
-                  jlpt: item.jlpt,
-                  frequency: item.frequency,
-                  kanji: res.kanji,
-                }).then(onSaved);
-              }
-            })
-            .catch(() => {
-              // best-effort — kanji tab just stays empty if this fails
-            });
-        }
+        displayCachedItem(item);
         return;
       }
 
@@ -215,7 +253,7 @@ export function useDictionaryLookup({ currentUser, onWordResolved, onWordReset, 
       // -> tra cứu lại như bình thường.
       performSearch(item.word);
     },
-    [currentUser, onSaved, onWordReset, onWordResolved, performSearch]
+    [displayCachedItem, performSearch]
   );
 
   const playPronunciation = useCallback((text: string) => {
@@ -252,6 +290,7 @@ export function useDictionaryLookup({ currentUser, onWordResolved, onWordReset, 
     loadingSynonyms,
     currentWord,
     handleSearch,
+    searchWord,
     loadFromHistory,
     playPronunciation,
     goToPronunciationPractice,

@@ -26,6 +26,28 @@ export function uniquePosLabels(definitions: DictionaryDefinition[]): string[] {
   return Array.from(new Set(labels));
 }
 
+export type PosCategory = "noun" | "verb" | "adjective" | "other";
+
+/** Buckets a JMdict part-of-speech label into one of 4 categories for color-coding.
+ * Vietnamese labels (from the backend's pos_label) all use a consistent prefix per
+ * category (see Backend/app/utils/pos_labels.py), so a prefix check is reliable;
+ * the raw English `pos` is checked too as a fallback for any unmapped label. */
+export function classifyPos(label: string): PosCategory {
+  const lower = label.toLowerCase();
+  if (label.startsWith("Danh từ") || lower.includes("noun")) return "noun";
+  if (label.startsWith("Động từ") || lower.includes("verb")) return "verb";
+  if (label.startsWith("Tính từ") || lower.includes("adjective")) return "adjective";
+  return "other";
+}
+
+/** Tailwind classes per part-of-speech category: noun=green, verb=red, adjective=yellow, other=blue. */
+export const POS_BADGE_CLASSES: Record<PosCategory, string> = {
+  noun: "bg-emerald-100 text-emerald-700 dark:bg-emerald-500/20 dark:text-emerald-300",
+  verb: "bg-rose-100 text-rose-700 dark:bg-rose-500/20 dark:text-rose-300",
+  adjective: "bg-amber-100 text-amber-700 dark:bg-amber-500/20 dark:text-amber-300",
+  other: "bg-sky-100 text-sky-700 dark:bg-sky-500/20 dark:text-sky-300",
+};
+
 /** KanjiVG's file naming: lowercase hex of the Unicode code point, zero-padded to 5 digits. */
 export function kanjiVgUrl(literal: string): string {
   const codePoint = literal.codePointAt(0);

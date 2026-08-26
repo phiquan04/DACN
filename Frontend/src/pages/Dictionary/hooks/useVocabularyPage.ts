@@ -18,6 +18,7 @@ export function useVocabularyPage() {
 
   const lookup = useDictionaryLookup({
     currentUser,
+    historyItems: history.history,
     onWordResolved: (word) => {
       images.load(word);
       comments.load(word);

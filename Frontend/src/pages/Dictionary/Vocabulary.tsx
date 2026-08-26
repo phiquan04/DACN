@@ -98,7 +98,11 @@ export default function Vocabulary() {
                   {lookup.activeTab === "vocab" && (
                     <>
                       <ExamplesCard word={item.word} examples={lookup.examplesData} loading={lookup.loadingExamples} />
-                      <SynonymsCard synonyms={lookup.synonymsData} loading={lookup.loadingSynonyms} />
+                      <SynonymsCard
+                        synonyms={lookup.synonymsData}
+                        loading={lookup.loadingSynonyms}
+                        onLookupWord={lookup.searchWord}
+                      />
                       <ImagesCard
                         word={item.word}
                         images={images.images}
@@ -126,7 +130,7 @@ export default function Vocabulary() {
 
                   {/* ===== Tab: Hán tự ===== */}
                   {lookup.activeTab === "kanji" && (
-                    <KanjiTab kanji={item.kanji} onPlayPronunciation={lookup.playPronunciation} />
+                    <KanjiTab kanji={item.kanji} />
                   )}
                 </div>
               ))}
