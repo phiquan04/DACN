@@ -68,6 +68,7 @@ File này không nằm trong git (`.gitignore`), cần tự tạo. Các key cầ
 | `OPENAI_API_KEY` | (nếu tính năng nào dùng trực tiếp OpenAI) |
 | `CLOUDINARY_CLOUD_NAME` / `CLOUDINARY_API_KEY` / `CLOUDINARY_API_SECRET` | Upload ảnh (avatar...) |
 | `YOUTUBE_API_KEY` | Tìm kiếm video luyện nghe |
+| `ZEGO_APP_ID` / `ZEGO_SERVER_SECRET` | App ID và server secret của ZegoCloud (dùng để backend ký token cho tính năng Meeting/họp trực tuyến) — lấy tại [zegocloud.com](https://console.zegocloud.com/) |
 | `ALLOWED_ORIGINS` | Danh sách origin frontend được phép gọi API (CORS), phân tách bởi dấu phẩy — mặc định đã gồm `http://localhost:5173,http://127.0.0.1:5173,http://localhost:5174,http://127.0.0.1:5174` |
 | `ENVIRONMENT` | `development` hoặc `production` |
 

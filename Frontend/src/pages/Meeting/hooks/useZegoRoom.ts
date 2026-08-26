@@ -1,39 +1,21 @@
 import { ZegoUIKitPrebuilt } from "@zegocloud/zego-uikit-prebuilt";
 import { useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
-
-const APP_ID = Number(import.meta.env.VITE_ZEGO_APP_ID);
-const SERVER_SECRET = import.meta.env.VITE_ZEGO_SERVER_SECRET as string;
+import { getMeetingToken } from "../../../services/meetingApi";
 
 /** `leaveRoom` isn't in the SDK's shipped type declarations (only `destroy` is), but the cleanup below has always defensively fallen back to it, so the type keeps that possibility open instead of asserting it away. */
 type ZegoRoomInstance = ZegoUIKitPrebuilt & { leaveRoom?: () => void };
-
-function getSessionUserId(): string {
-  const key = "meeting_user_id";
-  let id = sessionStorage.getItem(key);
-  if (!id) {
-    id = Math.random().toString(36).substring(2, 10);
-    sessionStorage.setItem(key, id);
-  }
-  return id;
-}
 
 /** Joins a Zego video-conference room into `containerRef`'s element once mounted, and tears it down on unmount/room change. */
 export function useZegoRoom(roomID: string | undefined, userName: string) {
   const navigate = useNavigate();
   const containerRef = useRef<HTMLDivElement>(null);
   const zpRef = useRef<ZegoRoomInstance | null>(null);
-  const userID = useRef(getSessionUserId()).current;
 
   const [status, setStatus] = useState<"loading" | "ready" | "error">("loading");
   const [errorMsg, setErrorMsg] = useState("");
 
   useEffect(() => {
-    if (!APP_ID || !SERVER_SECRET) {
-      setErrorMsg("Chưa cấu hình Zego App ID hoặc Server Secret");
-      setStatus("error");
-      return;
-    }
     if (!roomID || !containerRef.current) return;
 
     let isMounted = true;
@@ -44,15 +26,17 @@ export function useZegoRoom(roomID: string | undefined, userName: string) {
       try {
         setStatus("loading");
 
-        const kitToken = ZegoUIKitPrebuilt.generateKitTokenForTest(
-          APP_ID,
-          SERVER_SECRET,
-          roomID,
-          userID,
-          userName
-        );
+        const { token, app_id, user_id } = await getMeetingToken(roomID);
 
         if (!isMounted) return;
+
+        const kitToken = ZegoUIKitPrebuilt.generateKitTokenForProduction(
+          app_id,
+          token,
+          roomID,
+          user_id,
+          userName
+        );
 
         const zp = ZegoUIKitPrebuilt.create(kitToken);
         zpRef.current = zp;
@@ -69,6 +53,16 @@ export function useZegoRoom(roomID: string | undefined, userName: string) {
           showScreenSharingButton: true,
           showTurnOffRemoteCameraButton: true,
           showTurnOffRemoteMicrophoneButton: true,
+          branding: {
+            logoURL: `${window.location.origin}/meeting-logo.svg`,
+          },
+          preJoinViewConfig: {
+            title: "Manabi AI — Phòng học trực tuyến",
+          },
+          leaveRoomDialogConfig: {
+            titleText: "Rời phòng học?",
+            descriptionText: "Bạn có chắc chắn muốn rời khỏi phòng học trực tuyến này không?",
+          },
           onLeaveRoom: () => {
             window.close();
             navigate("/meeting");
@@ -102,7 +96,7 @@ export function useZegoRoom(roomID: string | undefined, userName: string) {
         zpRef.current = null;
       }
     };
-  }, [roomID, userName, userID, navigate]);
+  }, [roomID, userName, navigate]);
 
   return { containerRef, status, errorMsg };
 }
