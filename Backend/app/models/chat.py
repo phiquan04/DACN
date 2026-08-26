@@ -1,4 +1,4 @@
-from sqlalchemy import Column, String, Integer, Text, Boolean, Float, ForeignKey
+from sqlalchemy import Column, String, Integer, Text, Boolean, ForeignKey
 from sqlalchemy.orm import relationship
 
 from .base import BaseModel
@@ -28,7 +28,6 @@ class Conversation(BaseModel):
     title = Column(String(255), nullable=True)
     user_id = Column(Integer, ForeignKey('users.id'), nullable=True)
     scenario_id = Column(Integer, ForeignKey('chat_scenarios.id'), nullable=True)
-    language = Column(String(10), default='ja')
 
     messages = relationship('Message', backref='conversation', lazy=True, cascade='all, delete-orphan')
 
@@ -43,8 +42,6 @@ class Message(BaseModel):
     conversation_id = Column(Integer, ForeignKey('conversations.id'), nullable=True)
     role = Column(String(20), nullable=False)  # 'user' or 'assistant'
     content = Column(Text, nullable=False)
-    language = Column(String(10), default='ja')
-    confidence = Column(Float, nullable=True)
     feedback = Column(Text, nullable=True)  # Vietnamese coaching tip shown alongside an assistant reply
     is_off_topic = Column(Boolean, default=False)  # true when the user drifted off the active scenario's topic
 

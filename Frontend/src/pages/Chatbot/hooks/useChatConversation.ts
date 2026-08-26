@@ -2,22 +2,22 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { getErrorInfo } from "../../../utils/errors";
 import { useSpeech } from "../../../hooks/useSpeech";
 import { useVoiceInput } from "../../../hooks/useVoiceInput";
+import { checkHealth } from "../../../services/httpClient";
 import {
-  streamChatMessage,
-  checkHealth,
   fetchScenarios,
   startConversation,
-} from "../../../services/api";
-import type { ChatMessage as ChatMsg, ChatScenario } from "../../../services/api";
+  streamChatMessage,
+} from "../../../services/chatApi";
+import type { ChatMessage as ChatMsg, ChatScenario, ConversationDetail } from "../../../services/chatApi";
 
 const FREE_CHAT_WELCOME: ChatMsg = {
   role: "assistant",
   content:
-    "こんにちは！私はKizunaです。左のリストからシチュエーションを選ぶか、自由に日本語で話しかけてください。",
+    "こんにちは！私はManabiです。左のリストからシチュエーションを選ぶか、自由に日本語で話しかけてください。",
   timestamp: Date.now(),
 };
 
-/** Owns the chatbot's whole conversation state machine: scenario selection, starting/resetting a conversation, and streaming a reply (text + speech + suggestion chips) for a sent message. */
+/** Owns the chatbot's whole conversation state machine: scenario selection, starting/resetting/resuming a conversation, and streaming a reply (text + speech + suggestion chips + per-message grammar note) for a sent message. */
 export function useChatConversation() {
   const [scenarios, setScenarios] = useState<ChatScenario[]>([]);
   const [scenariosLoading, setScenariosLoading] = useState(true);
@@ -120,6 +120,29 @@ export function useChatConversation() {
     [activeScenario, initConversation]
   );
 
+  const loadConversation = useCallback(
+    (detail: ConversationDetail) => {
+      streamAbortRef.current?.abort();
+      stop();
+      stopListening();
+      setSuggestions([]);
+      setConversationId(detail.id);
+      setActiveScenario(
+        detail.scenario_id ? { id: detail.scenario_id, title: detail.scenario_title ?? "", description: null, level: null, icon: null } : null
+      );
+      setMessages(
+        detail.messages.map((m) => ({
+          role: m.role,
+          content: m.content,
+          timestamp: new Date(m.created_at).getTime(),
+          feedback: m.feedback,
+          grammar: m.grammar,
+        }))
+      );
+    },
+    [stop, stopListening]
+  );
+
   const handleSend = useCallback(
     async (text: string) => {
       if (!text.trim() || isLoading || !conversationId) return;
@@ -127,7 +150,7 @@ export function useChatConversation() {
       stop();
       stopListening();
 
-      const userMsg: ChatMsg = { role: "user", content: text, timestamp: Date.now() };
+      const userMsg: ChatMsg = { role: "user", content: text, timestamp: Date.now(), streamId: Date.now() + Math.random() };
       setMessages((prev) => [...prev, userMsg]);
       setSuggestions([]);
       setIsLoading(true);
@@ -176,6 +199,11 @@ export function useChatConversation() {
               );
               setSuggestions(meta.suggestions || []);
               if (replyText) speak(replyText);
+            },
+            onGrammar: (grammar) => {
+              setMessages((prev) =>
+                prev.map((m) => (m.streamId === userMsg.streamId ? { ...m, grammar } : m))
+              );
             },
             onError: (message) => {
               setIsThinking(false);
@@ -226,5 +254,6 @@ export function useChatConversation() {
     handleSelectScenario,
     handleSend,
     handleClearChat,
+    loadConversation,
   };
 }

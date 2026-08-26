@@ -1,5 +1,3 @@
-import unicodedata
-from difflib import ndiff
 from typing import Optional
 
 from fastapi import APIRouter, Depends, HTTPException
@@ -15,12 +13,9 @@ from app.schemas.grammar import (
     GrammarHistoryItem,
     GrammarHistoryPage,
 )
-from app.services.grammar_ai import generate_explanation
-from model import GEC
+from app.services.grammar_service import grade_text
 
 router = APIRouter()
-
-gec_model = GEC(pretrained_weights_path='data/model/model_checkpoint')
 
 HISTORY_PAGE_SIZE = 10
 
@@ -36,22 +31,14 @@ def correct(
         if not text or not text.strip():
             raise HTTPException(status_code=400, detail='Missing text parameter')
 
-        # Normalize and clean text
-        text = unicodedata.normalize('NFKC', text).replace(' ', '')
-
-        # Correct text
-        correct_text = gec_model.correct(text)
-
-        # Get diff
-        diffs = list(ndiff(text, correct_text))
+        graded = grade_text(text)
+        text = graded["original_text"]
+        correct_text = graded["corrected_text"]
+        diffs = graded["diffs"]
+        error_count = graded["error_count"]
+        explanation = graded["explanation"]
 
         print(f'Correction: {text} -> {correct_text}')
-
-        error_count = sum(1 for d in diffs if d.startswith('- ') or d.startswith('+ '))
-
-        # Ask the LLM to explain the (already-known) changes above — best-effort,
-        # never fails the request (see app/services/grammar_ai.py).
-        explanation = generate_explanation(text, correct_text, diffs)
 
         # Save to history — only when a signed-in user made the request.
         history_id = None

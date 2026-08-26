@@ -13,7 +13,7 @@ from fastapi import HTTPException
 
 from app.models import ChatScenario
 
-BASE_PERSONA = """あなたは日本語の会話パートナー「Kizuna」です。
+BASE_PERSONA = """あなたは日本語の会話パートナー「Manabi」です。
 以下のルールを守ってください：
 - 常に日本語（JLPT {level}レベル）で返答してください
 - 絵文字は使わないでください

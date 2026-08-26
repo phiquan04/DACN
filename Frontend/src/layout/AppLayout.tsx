@@ -1,11 +1,18 @@
 import { SidebarProvider, useSidebar } from "../context/SidebarContext";
-import { Outlet } from "react-router";
+import { Outlet, useLocation } from "react-router";
 import AppHeader from "./AppHeader";
 import Backdrop from "./Backdrop";
 import AppSidebar from "./AppSidebar";
 
+// Routes whose content should fill the full dashboard width/height instead of
+// sitting inside the centered max-width column — the page owns its own
+// internal scrolling instead of the document scrolling.
+const FULL_BLEED_ROUTES = ["/chat-bot"];
+
 const LayoutContent: React.FC = () => {
   const { isExpanded, isHovered, isMobileOpen } = useSidebar();
+  const { pathname } = useLocation();
+  const isFullBleed = FULL_BLEED_ROUTES.some((route) => pathname.startsWith(route));
 
   return (
     <div className="min-h-screen xl:flex">
@@ -16,10 +23,16 @@ const LayoutContent: React.FC = () => {
       <div
         className={`flex-1 transition-all duration-300 ease-in-out ${
           isExpanded || isHovered ? "lg:ml-[290px]" : "lg:ml-[90px]"
-        } ${isMobileOpen ? "ml-0" : ""}`}
+        } ${isMobileOpen ? "ml-0" : ""} ${isFullBleed ? "flex h-screen flex-col overflow-hidden" : ""}`}
       >
         <AppHeader />
-        <div className="p-4 mx-auto max-w-(--breakpoint-2xl) md:p-6">
+        <div
+          className={
+            isFullBleed
+              ? "min-h-0 flex-1 overflow-hidden p-4 md:p-6"
+              : "p-4 mx-auto max-w-(--breakpoint-2xl) md:p-6"
+          }
+        >
           <Outlet />
         </div>
       </div>

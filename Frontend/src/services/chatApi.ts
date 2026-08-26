@@ -1,5 +1,14 @@
-import { BASE_URL, jsonHeaders, request } from "./httpClient";
+import { BASE_URL, authHeaders, jsonHeaders, request } from "./httpClient";
 import { getToken } from "./authApi";
+import type { GrammarErrorExplanation } from "./grammarApi";
+
+export interface GrammarNote {
+  corrected_text: string;
+  diffs: string[];
+  error_count: number;
+  has_errors: boolean;
+  explanation: GrammarErrorExplanation[];
+}
 
 export interface ChatMessage {
   role: "user" | "assistant";
@@ -8,6 +17,7 @@ export interface ChatMessage {
   feedback?: string | null;
   isOffTopic?: boolean;
   streamId?: number;
+  grammar?: GrammarNote | null;
 }
 
 export interface ChatStreamMeta {
@@ -16,6 +26,41 @@ export interface ChatStreamMeta {
   suggestions: string[];
   message_id: number;
   conversation_id: number;
+}
+
+export interface MessageDetail {
+  id: number;
+  role: "user" | "assistant";
+  content: string;
+  feedback: string | null;
+  is_off_topic: boolean;
+  grammar: GrammarNote | null;
+  created_at: string;
+}
+
+export interface ConversationHistoryItem {
+  id: number;
+  title: string | null;
+  scenario_title: string | null;
+  scenario_icon: string | null;
+  message_count: number;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface ConversationHistoryPage {
+  items: ConversationHistoryItem[];
+  total: number;
+  page: number;
+  page_size: number;
+}
+
+export interface ConversationDetail {
+  id: number;
+  title: string | null;
+  scenario_id: number | null;
+  scenario_title: string | null;
+  messages: MessageDetail[];
 }
 
 export interface ChatScenario {
@@ -51,12 +96,27 @@ export async function startConversation(
   });
 }
 
+export async function fetchConversationHistory(page: number): Promise<ConversationHistoryPage> {
+  const token = getToken();
+  return request(`/api/conversations?page=${page}`, {
+    headers: authHeaders(token),
+  });
+}
+
+export async function fetchConversationDetail(id: number): Promise<ConversationDetail> {
+  const token = getToken();
+  return request(`/api/conversations/${id}`, {
+    headers: authHeaders(token),
+  });
+}
+
 /**
  * POST /api/chat now responds as a Server-Sent Events stream (a "chunk"
  * event per reply fragment, then one "meta" event with feedback/suggestions,
- * or an "error" event) instead of a single JSON body, so it can't go
- * through the shared request() JSON helper — it reads the response body
- * itself and invokes the matching handler as each event arrives.
+ * then one "grammar" event with the grammar note for the user's message, or
+ * an "error" event) instead of a single JSON body, so it can't go through the
+ * shared request() JSON helper — it reads the response body itself and
+ * invokes the matching handler as each event arrives.
  */
 export async function streamChatMessage(
   conversationId: number,
@@ -64,6 +124,7 @@ export async function streamChatMessage(
   handlers: {
     onChunk: (text: string) => void;
     onMeta: (meta: ChatStreamMeta) => void;
+    onGrammar: (grammar: GrammarNote & { message_id: number }) => void;
     onError: (message: string) => void;
   },
   signal?: AbortSignal
@@ -127,6 +188,9 @@ export async function streamChatMessage(
             break;
           case "meta":
             handlers.onMeta(payload as unknown as ChatStreamMeta);
+            break;
+          case "grammar":
+            handlers.onGrammar(payload as unknown as GrammarNote & { message_id: number });
             break;
           case "error":
             handlers.onError((payload.detail as string) || "Đã xảy ra lỗi khi trò chuyện.");
