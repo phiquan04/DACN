@@ -7,6 +7,7 @@ from app.schemas.grammar import GrammarErrorExplanation
 
 class StartConversationRequest(BaseModel):
     scenario_id: Optional[int] = None
+    situation_context: Optional[str] = None
 
 
 class ChatRequest(BaseModel):
@@ -14,10 +15,15 @@ class ChatRequest(BaseModel):
     message: str
 
 
+class UpdateSituationContextRequest(BaseModel):
+    situation_context: Optional[str] = None
+
+
 class GrammarNote(BaseModel):
     corrected_text: str
     diffs: List[str]
     error_count: int
+    has_errors: bool
     explanation: List[GrammarErrorExplanation] = []
 
 
@@ -53,4 +59,5 @@ class ConversationDetail(BaseModel):
     title: Optional[str] = None
     scenario_id: Optional[int] = None
     scenario_title: Optional[str] = None
+    situation_context: Optional[str] = None
     messages: List[MessageDetail]

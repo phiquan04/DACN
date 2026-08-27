@@ -60,6 +60,7 @@ export interface ConversationDetail {
   title: string | null;
   scenario_id: number | null;
   scenario_title: string | null;
+  situation_context: string | null;
   messages: MessageDetail[];
 }
 
@@ -74,6 +75,7 @@ export interface ChatScenario {
 export interface StartConversationResponse {
   conversation_id: number;
   scenario_id: number | null;
+  situation_context: string | null;
   opening_message: { id: number; role: "assistant"; content: string } | null;
 }
 
@@ -86,13 +88,29 @@ export async function fetchScenarios(): Promise<ChatScenario[]> {
 }
 
 export async function startConversation(
-  scenarioId?: number
+  scenarioId?: number,
+  situationContext?: string
 ): Promise<StartConversationResponse> {
   const token = getToken();
   return request(`/api/conversations`, {
     method: "POST",
     headers: jsonHeaders(token),
-    body: JSON.stringify({ scenario_id: scenarioId ?? null }),
+    body: JSON.stringify({
+      scenario_id: scenarioId ?? null,
+      situation_context: situationContext ?? null,
+    }),
+  });
+}
+
+export async function updateSituationContext(
+  conversationId: number,
+  situationContext: string | null
+): Promise<ConversationDetail> {
+  const token = getToken();
+  return request(`/api/conversations/${conversationId}/situation`, {
+    method: "PATCH",
+    headers: jsonHeaders(token),
+    body: JSON.stringify({ situation_context: situationContext }),
   });
 }
 

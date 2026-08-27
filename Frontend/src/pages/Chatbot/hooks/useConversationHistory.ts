@@ -48,5 +48,25 @@ export function useConversationHistory(active: boolean) {
     }
   }, []);
 
-  return { items, page, pageSize, total, totalPages, loading, error, load, resume, resumingId };
+  /** Optimistically bumps a conversation to the top of the currently loaded
+   * page after a new message was sent in it, instead of refetching — a
+   * no-op if that conversation isn't in the loaded page (e.g. it's brand
+   * new, or the user paged away from it). */
+  const touch = useCallback((id: number) => {
+    setItems((prev) => {
+      const idx = prev.findIndex((it) => it.id === id);
+      if (idx === -1) return prev;
+      const touched: ConversationHistoryItem = {
+        ...prev[idx],
+        updated_at: new Date().toISOString(),
+        message_count: prev[idx].message_count + 2,
+      };
+      const next = prev.slice();
+      next.splice(idx, 1);
+      next.unshift(touched);
+      return next;
+    });
+  }, []);
+
+  return { items, page, pageSize, total, totalPages, loading, error, load, resume, resumingId, touch };
 }

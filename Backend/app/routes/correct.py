@@ -85,7 +85,12 @@ def get_history(
     db: Session = Depends(get_db),
 ):
     page = max(1, page)
-    base_query = db.query(GrammarCorrection).filter(GrammarCorrection.user_id == current_user.id)
+    # Exclude corrections generated from chatbot messages (message_id set) —
+    # those belong to the chatbot's own conversation history, not this page.
+    base_query = db.query(GrammarCorrection).filter(
+        GrammarCorrection.user_id == current_user.id,
+        GrammarCorrection.message_id.is_(None),
+    )
 
     total_all = base_query.count()
     total_changed = base_query.filter(GrammarCorrection.original_text != GrammarCorrection.corrected_text).count()
@@ -134,6 +139,7 @@ def get_history_detail(
     record = db.query(GrammarCorrection).filter(
         GrammarCorrection.id == history_id,
         GrammarCorrection.user_id == current_user.id,
+        GrammarCorrection.message_id.is_(None),
     ).first()
     if not record:
         raise HTTPException(status_code=404, detail='History item not found')
@@ -157,6 +163,7 @@ def delete_history_item(
     record = db.query(GrammarCorrection).filter(
         GrammarCorrection.id == history_id,
         GrammarCorrection.user_id == current_user.id,
+        GrammarCorrection.message_id.is_(None),
     ).first()
     if not record:
         raise HTTPException(status_code=404, detail='History item not found')

@@ -5,8 +5,10 @@ import ScenarioSidebar from "./components/ScenarioSidebar";
 import ConversationHistoryList from "./components/ConversationHistoryList";
 import ChatMessage from "./components/ChatMessage";
 import ChatInput from "./components/ChatInput";
+import SituationModal from "./components/SituationModal";
 import { AlertIcon, RefreshIcon } from "./components/icons";
 import { useChatConversation } from "./hooks/useChatConversation";
+import { useConversationHistory } from "./hooks/useConversationHistory";
 
 type SidebarTab = "scenarios" | "history";
 
@@ -23,12 +25,24 @@ export default function ChatBot() {
   const chatEndRef = useRef<HTMLDivElement>(null);
   const [sidebarTab, setSidebarTab] = useState<SidebarTab>("scenarios");
   const currentUser = getStoredUser();
+  const history = useConversationHistory(sidebarTab === "history" && !!currentUser);
 
   useEffect(() => {
     chatEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [chat.messages]);
 
   const statusLabel = chat.activeScenario ? chat.activeScenario.title : "Tự do";
+
+  const handleSendMessage = async (text: string) => {
+    const conversationId = chat.conversationId;
+    await chat.handleSend(text);
+    if (conversationId) history.touch(conversationId);
+  };
+
+  const handleResumeHistory = async (id: number) => {
+    const detail = await history.resume(id);
+    if (detail) chat.loadConversation(detail);
+  };
 
   return (
     <div className="flex h-full flex-col">
@@ -70,11 +84,15 @@ export default function ChatBot() {
               />
             ) : currentUser ? (
               <ConversationHistoryList
-                active={sidebarTab === "history"}
-                onResume={(detail) => {
-                  chat.loadConversation(detail);
-                  setSidebarTab("scenarios");
-                }}
+                items={history.items}
+                page={history.page}
+                totalPages={history.totalPages}
+                loading={history.loading}
+                error={history.error}
+                load={history.load}
+                resumingId={history.resumingId}
+                activeConversationId={chat.conversationId}
+                onResume={handleResumeHistory}
               />
             ) : (
               <div className="p-6 text-center text-xs text-gray-400 dark:text-gray-500">
@@ -101,6 +119,19 @@ export default function ChatBot() {
                 {chat.isThinking ? "Đang suy nghĩ..." : chat.isSpeaking ? "Đang nói..." : `Đang nghe... (${statusLabel})`}
               </p>
             </div>
+            {chat.activeScenario && (
+              <button
+                onClick={chat.handleOpenSituationEditor}
+                title="Thiết lập bối cảnh"
+                className={`flex items-center gap-1.5 rounded-lg border px-3 py-1.5 text-xs font-medium transition-colors ${
+                  chat.situationContext
+                    ? "border-teal-300 bg-teal-50 text-teal-700 hover:bg-teal-100 dark:border-teal-500/40 dark:bg-teal-500/10 dark:text-teal-400 dark:hover:bg-teal-500/20"
+                    : "border-gray-200 bg-gray-50 text-gray-500 hover:bg-gray-100 hover:text-gray-800 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-400 dark:hover:bg-gray-700"
+                }`}
+              >
+                <span lang="ja">場面</span>
+              </button>
+            )}
             <button
               onClick={chat.handleClearChat}
               title="Bắt đầu lại"
@@ -139,7 +170,7 @@ export default function ChatBot() {
                   key={i}
                   type="button"
                   lang="ja"
-                  onClick={() => chat.handleSend(s)}
+                  onClick={() => handleSendMessage(s)}
                   className="rounded-full border border-gray-200 bg-gray-50 px-3.5 py-1.5 text-xs text-gray-700 transition-colors hover:border-teal-300 hover:bg-teal-50 hover:text-teal-700 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-300 dark:hover:border-teal-500/40 dark:hover:bg-teal-500/10 dark:hover:text-teal-400"
                 >
                   {s}
@@ -149,7 +180,7 @@ export default function ChatBot() {
           )}
 
           <ChatInput
-            onSend={chat.handleSend}
+            onSend={handleSendMessage}
             onVoiceStart={chat.startListening}
             onVoiceStop={chat.stopListening}
             isListening={chat.isListening}
@@ -159,6 +190,17 @@ export default function ChatBot() {
           />
         </main>
       </div>
+
+      <SituationModal
+        isOpen={chat.situationModalOpen}
+        mode={chat.situationModalMode}
+        scenario={chat.situationModalMode === "select" ? chat.pendingScenario : chat.activeScenario}
+        initialValue={chat.situationModalMode === "edit" ? chat.situationContext ?? "" : ""}
+        saving={chat.savingSituation}
+        onClose={chat.handleCloseSituationModal}
+        onConfirm={chat.handleConfirmSituation}
+        onSkip={chat.handleSkipSituation}
+      />
     </div>
   );
 }

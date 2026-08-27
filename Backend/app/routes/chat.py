@@ -1,4 +1,5 @@
 import json
+from datetime import datetime
 from typing import Optional
 
 import httpx
@@ -18,6 +19,7 @@ from app.schemas.chat import (
     GrammarNote,
     MessageDetail,
     StartConversationRequest,
+    UpdateSituationContextRequest,
 )
 from app.services import chat_ai
 from app.services.grammar_service import grade_text
@@ -49,19 +51,32 @@ def start_conversation(
         if not scenario:
             raise HTTPException(status_code=404, detail="Scenario not found")
 
-    conversation = Conversation(user_id=user_id, scenario_id=scenario.id if scenario else None)
+    # The scene/context note ('場面') is meaningless outside a scenario —
+    # free chat has no topic to stay consistent with, so drop it silently
+    # rather than persisting stray data.
+    situation_context = request.situation_context.strip() if scenario and request.situation_context else None
+
+    conversation = Conversation(
+        user_id=user_id,
+        scenario_id=scenario.id if scenario else None,
+        situation_context=situation_context,
+    )
     db.add(conversation)
     db.commit()
     db.refresh(conversation)
 
     opening_message = None
     if scenario:
-        opening_text = scenario.opening_line
+        opening_text = scenario.opening_line if not situation_context else None
         if not opening_text:
             api_key = chat_ai.require_api_key()
             opener_prompt = (
                 f"あなたはロールプレイの相手役です。シチュエーション「{scenario.title}」"
                 f"（{scenario.description or scenario.title}）を始めるための最初の一言を日本語で話してください。"
+            )
+            if situation_context:
+                opener_prompt += f"具体的な場面設定: {situation_context}。この場面設定に沿ってください。"
+            opener_prompt += (
                 "2〜3文程度で、挨拶と自己紹介を含めてください。JSONは不要で、日本語の発話のみを出力してください。"
             )
             opening_text = chat_ai.call_openrouter(
@@ -77,8 +92,33 @@ def start_conversation(
     return {
         "conversation_id": conversation.id,
         "scenario_id": scenario.id if scenario else None,
+        "situation_context": conversation.situation_context,
         "opening_message": opening_message,
     }
+
+
+@router.patch("/conversations/{conversation_id}/situation", response_model=ConversationDetail)
+def update_situation_context(
+    conversation_id: int,
+    request: UpdateSituationContextRequest,
+    current_user: UserResponse = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    conversation = db.query(Conversation).filter(
+        Conversation.id == conversation_id,
+        Conversation.user_id == current_user.id,
+    ).first()
+    if not conversation:
+        raise HTTPException(status_code=404, detail="Conversation not found")
+    if not conversation.scenario_id:
+        raise HTTPException(status_code=400, detail="Free chat has no scenario to set a scene for")
+
+    conversation.situation_context = request.situation_context.strip() if request.situation_context else None
+    db.add(conversation)
+    db.commit()
+    db.refresh(conversation)
+
+    return get_conversation(conversation_id, current_user, db)
 
 
 @router.post("/chat")
@@ -110,7 +150,12 @@ async def chat(
             scenario.title if scenario
             else user_message[:TITLE_PREVIEW_LEN] + ("…" if len(user_message) > TITLE_PREVIEW_LEN else "")
         )
-        db.add(conversation)
+    # Touch explicitly: SQLAlchemy's onupdate only fires when the row is
+    # actually written, and title only changes on the very first message —
+    # without this, a conversation's updated_at (used to sort history) would
+    # freeze at creation time instead of tracking the latest activity.
+    conversation.updated_at = datetime.utcnow()
+    db.add(conversation)
 
     db.commit()
     db.refresh(user_msg)
@@ -124,8 +169,15 @@ async def chat(
     )
     history.reverse()
 
-    messages = [{"role": "system", "content": chat_ai.build_system_prompt(scenario)}]
+    messages = [{"role": "system", "content": chat_ai.build_system_prompt(scenario, conversation.situation_context)}]
     messages += [{"role": m.role, "content": m.content} for m in history]
+    # Re-state the output-format rule right before generation. Once the
+    # conversation has a few turns, the model's own prior replies in history
+    # (plain text, no sentinel/JSON — it was already stripped before saving)
+    # outweigh the instruction way back at the top of the system prompt, and
+    # the model stops emitting the meta block entirely — silently dropping
+    # feedback/suggestions/off-topic detection from turn 2 onward.
+    messages.append({"role": "system", "content": chat_ai.JSON_OUTPUT_RULE})
     conversation_id = conversation.id
     sentinel_len = len(chat_ai.META_SENTINEL)
 
@@ -208,7 +260,7 @@ async def chat(
                     "corrected_text": graded["corrected_text"],
                     "diffs": graded["diffs"],
                     "error_count": graded["error_count"],
-                    "has_errors": graded["original_text"] != graded["corrected_text"],
+                    "has_errors": graded["has_errors"],
                     "explanation": graded["explanation"],
                 })
             except Exception as e:
@@ -299,6 +351,7 @@ def get_conversation(
                 corrected_text=m.correction.corrected_text,
                 diffs=m.correction.errors or [],
                 error_count=m.correction.error_count or 0,
+                has_errors=bool(m.correction.explanation),
                 explanation=m.correction.explanation or [],
             )
         message_details.append(MessageDetail(
@@ -316,5 +369,6 @@ def get_conversation(
         title=conversation.title,
         scenario_id=conversation.scenario_id,
         scenario_title=scenario.title if scenario else None,
+        situation_context=conversation.situation_context,
         messages=message_details,
     )

@@ -28,6 +28,7 @@ class Conversation(BaseModel):
     title = Column(String(255), nullable=True)
     user_id = Column(Integer, ForeignKey('users.id'), nullable=True)
     scenario_id = Column(Integer, ForeignKey('chat_scenarios.id'), nullable=True)
+    situation_context = Column(Text, nullable=True)  # user-entered scene details ('場面'); only set when scenario_id is set
 
     messages = relationship('Message', backref='conversation', lazy=True, cascade='all, delete-orphan')
 

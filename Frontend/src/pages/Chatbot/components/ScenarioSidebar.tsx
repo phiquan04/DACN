@@ -47,8 +47,8 @@ export default function ScenarioSidebar({ scenarios, activeScenarioId, onSelect,
               onClick={() => onSelect(s)}
               className={`flex items-start gap-3 rounded-xl border p-3.5 text-left transition-colors ${
                 isActive
-                  ? "border-brand-500 bg-brand-50 ring-1 ring-brand-500 dark:bg-brand-500/10"
-                  : "border-gray-200 bg-white hover:border-teal-500 hover:shadow-sm dark:border-gray-700 dark:bg-gray-900"
+                  ? "border-2 border-brand-500 bg-brand-50 shadow-sm dark:bg-brand-500/10"
+                  : "border-gray-200 bg-white hover:border-teal-500 hover:bg-teal-50/40 hover:shadow-sm dark:border-gray-700 dark:bg-gray-900 dark:hover:bg-teal-500/5"
               }`}
             >
               <span
@@ -60,7 +60,13 @@ export default function ScenarioSidebar({ scenarios, activeScenarioId, onSelect,
               </span>
               <span className="min-w-0 flex-1">
                 <span className="flex items-center justify-between gap-2">
-                  <span className="truncate text-sm font-semibold text-gray-800 dark:text-white/90">{s.title}</span>
+                  <span
+                    className={`truncate text-sm font-semibold ${
+                      isActive ? "text-brand-700 dark:text-brand-300" : "text-gray-800 dark:text-white/90"
+                    }`}
+                  >
+                    {s.title}
+                  </span>
                   {s.level && (
                     <span className="shrink-0 rounded-full bg-emerald-100 px-2 py-0.5 text-[10px] font-bold text-emerald-700 dark:bg-emerald-500/20 dark:text-emerald-300">
                       {s.level}
@@ -69,6 +75,11 @@ export default function ScenarioSidebar({ scenarios, activeScenarioId, onSelect,
                 </span>
                 {s.description && (
                   <span className="mt-0.5 line-clamp-2 text-xs text-gray-500 dark:text-gray-400">{s.description}</span>
+                )}
+                {isActive && (
+                  <span className="mt-1.5 inline-flex items-center gap-1 text-[10px] font-semibold text-brand-600 dark:text-brand-400">
+                    Đang trò chuyện
+                  </span>
                 )}
               </span>
             </button>

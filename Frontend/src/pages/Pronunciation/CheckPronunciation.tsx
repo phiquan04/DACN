@@ -26,12 +26,6 @@ export default function CheckPronunciation() {
         description="Luyện phát âm từ có sẵn hoặc sử dụng giọng nói để nhận diện và sửa phát âm"
       />
       <div className="container mx-auto px-4 py-6">
-        <div className="mb-6 flex justify-end">
-          <span className="inline-flex items-center gap-2 rounded-full bg-primary px-4 py-1.5 text-xs font-medium text-on-primary">
-            <span className="h-1.5 w-1.5 rounded-full bg-success-400 animate-pulse" />
-            AI đang lắng nghe
-          </span>
-        </div>
 
         <div className="mb-8 grid grid-cols-1 gap-4 sm:grid-cols-2">
           <button

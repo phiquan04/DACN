@@ -1,5 +1,4 @@
-import type { ConversationDetail, ConversationHistoryItem } from "../../../services/chatApi";
-import { useConversationHistory } from "../hooks/useConversationHistory";
+import type { ConversationHistoryItem } from "../../../services/chatApi";
 import { ChatBubbleIcon, ChevronLeftIcon, ChevronRightIcon, ClockIcon } from "./icons";
 
 function formatDateTime(iso: string) {
@@ -9,10 +8,12 @@ function formatDateTime(iso: string) {
 
 function HistoryCard({
   item,
+  isActive,
   onResume,
   resuming,
 }: {
   item: ConversationHistoryItem;
+  isActive: boolean;
   onResume: () => void;
   resuming: boolean;
 }) {
@@ -21,16 +22,26 @@ function HistoryCard({
       type="button"
       onClick={onResume}
       disabled={resuming}
-      className="flex items-center gap-3 rounded-xl border border-gray-200 bg-white p-3.5 text-left transition-colors hover:border-teal-500 hover:shadow-sm disabled:opacity-60 dark:border-gray-700 dark:bg-gray-900 dark:hover:border-teal-400"
+      className={`flex items-center gap-3 rounded-xl border p-3.5 text-left transition-colors disabled:opacity-60 ${
+        isActive
+          ? "border-2 border-brand-500 bg-brand-50 shadow-sm dark:bg-brand-500/10"
+          : "border-gray-200 bg-white hover:border-teal-500 hover:shadow-sm dark:border-gray-700 dark:bg-gray-900 dark:hover:border-teal-400"
+      }`}
     >
-      <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-gray-900 text-base text-white dark:bg-gray-700">
+      <span
+        className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-lg text-base text-white ${
+          isActive ? "bg-brand-600" : "bg-gray-900 dark:bg-gray-700"
+        }`}
+      >
         {item.scenario_icon || <ChatBubbleIcon className="h-4 w-4" />}
       </span>
       <span className="min-w-0 flex-1">
         <span
           lang="ja"
           title={item.title ?? undefined}
-          className="block truncate text-sm font-semibold text-gray-800 dark:text-white/90"
+          className={`block truncate text-sm font-semibold ${
+            isActive ? "text-brand-700 dark:text-brand-300" : "text-gray-800 dark:text-white/90"
+          }`}
         >
           {item.title || "Hội thoại tự do"}
         </span>
@@ -46,18 +57,28 @@ function HistoryCard({
 }
 
 interface Props {
-  active: boolean;
-  onResume: (detail: ConversationDetail) => void;
+  items: ConversationHistoryItem[];
+  page: number;
+  totalPages: number;
+  loading: boolean;
+  error: string | null;
+  load: (page: number) => void;
+  resumingId: number | null;
+  activeConversationId: number | null;
+  onResume: (id: number) => void;
 }
 
-export default function ConversationHistoryList({ active, onResume }: Props) {
-  const { items, page, totalPages, loading, error, load, resume, resumingId } = useConversationHistory(active);
-
-  const handleResume = async (id: number) => {
-    const detail = await resume(id);
-    if (detail) onResume(detail);
-  };
-
+export default function ConversationHistoryList({
+  items,
+  page,
+  totalPages,
+  loading,
+  error,
+  load,
+  resumingId,
+  activeConversationId,
+  onResume,
+}: Props) {
   return (
     <div className="flex h-full flex-col">
       <div className="flex flex-1 flex-col gap-2.5 overflow-y-auto px-4 pb-3 pt-4">
@@ -78,7 +99,8 @@ export default function ConversationHistoryList({ active, onResume }: Props) {
             <HistoryCard
               key={item.id}
               item={item}
-              onResume={() => handleResume(item.id)}
+              isActive={activeConversationId === item.id}
+              onResume={() => onResume(item.id)}
               resuming={resumingId === item.id}
             />
           ))}

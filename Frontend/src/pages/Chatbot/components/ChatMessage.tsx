@@ -7,20 +7,26 @@ interface Props {
 }
 
 function GrammarNoteCard({ grammar }: { grammar: NonNullable<ChatMsg["grammar"]> }) {
-  if (!grammar.has_errors) return null;
-  const firstError = grammar.explanation[0];
+  // has_errors is only true when the LLM could actually explain a real
+  // problem — the GEC model occasionally rewrites a sentence cosmetically
+  // (punctuation, spacing) without a genuine grammar error, and there'd be
+  // nothing meaningful to show for that case.
+  if (!grammar.has_errors || grammar.explanation.length === 0) return null;
 
   return (
-    <div className="max-w-[70%] rounded-xl border border-rose-200 bg-rose-50 px-3.5 py-3 text-right dark:border-rose-500/30 dark:bg-rose-500/10">
-      <p className="mb-1 text-xs font-bold text-rose-700 dark:text-rose-400">
-        {firstError ? firstError.error_type : "Có lỗi ngữ pháp"}
-      </p>
+    <div className="max-w-[80%] space-y-2 rounded-xl border border-rose-200 bg-rose-50 px-3.5 py-3 text-right dark:border-rose-500/30 dark:bg-rose-500/10">
+      <p className="text-xs font-bold text-rose-700 dark:text-rose-400">Câu đúng ngữ pháp</p>
       <p lang="ja" className="text-[12.5px] leading-relaxed text-gray-700 dark:text-gray-300">
         {grammar.corrected_text}
       </p>
-      {firstError && (
-        <p className="mt-1 text-[11px] leading-relaxed text-gray-500 dark:text-gray-400">{firstError.why_wrong}</p>
-      )}
+      <div className="space-y-1.5 border-t border-rose-200 pt-2 dark:border-rose-500/20">
+        {grammar.explanation.map((err, i) => (
+          <div key={i}>
+            <p className="text-[11px] font-semibold text-rose-700 dark:text-rose-400">{err.error_type}</p>
+            <p className="text-[11px] leading-relaxed text-gray-600 dark:text-gray-400">{err.why_wrong}</p>
+          </div>
+        ))}
+      </div>
     </div>
   );
 }
