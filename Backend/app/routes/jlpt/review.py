@@ -1,0 +1,240 @@
+"""Admin review of an imported (draft) JLPT exam: inspect questions grouped
+by mondai, correct OCR/AI mistakes, fill in answers/explanations, then
+publish so the exam becomes visible to users (see structure.py for how the
+mondai grouping is defined, imports.py for how a draft gets created)."""
+from typing import List, Optional
+
+from fastapi import APIRouter, Depends, HTTPException, Query
+from sqlalchemy.exc import IntegrityError
+from sqlalchemy.orm import Session, joinedload, selectinload
+
+from app.dependencies import require_admin, UserResponse
+from app.models.database import get_db
+from app.models.jlpt import (
+    JlptChoice, JlptExam, JlptLevelStructure, JlptMondaiTemplate, JlptPassage, JlptQuestion, JlptSection,
+)
+from app.schemas.jlpt import ExamReviewOut, ExamSummary, JlptLevel, QuestionPatch, QuestionReviewOut
+
+router = APIRouter(prefix="/exams", tags=["jlpt-exams"])
+
+
+def _question_out(q: JlptQuestion) -> dict:
+    return {
+        "id": q.id,
+        "question_no": q.question_no,
+        "question_text": q.question_text,
+        "passage_text": q.passage.passage_text if q.passage else None,
+        "choices": [
+            {"id": c.id, "choice_no": c.choice_no, "choice_text": c.choice_text}
+            for c in sorted(q.choices, key=lambda c: c.choice_no)
+        ],
+        "correct_no": q.correct_no,
+        "explanation": q.explanation,
+        "is_reviewed": q.is_reviewed,
+    }
+
+
+def _exam_summary(exam: JlptExam) -> dict:
+    return {
+        "id": exam.id, "title": exam.title, "level": exam.level,
+        "status": exam.status, "year": exam.year, "month": exam.month,
+        "has_answer_key": exam.has_answer_key,
+        "question_count": len(exam.questions),
+        "reviewed_count": sum(1 for q in exam.questions if q.is_reviewed),
+    }
+
+
+@router.get("", response_model=List[ExamSummary])
+def list_exams(
+    level: Optional[JlptLevel] = None,
+    status_filter: Optional[str] = Query(None, alias="status"),
+    db: Session = Depends(get_db),
+    _admin: UserResponse = Depends(require_admin),
+):
+    query = db.query(JlptExam).options(selectinload(JlptExam.questions))
+    if level:
+        query = query.filter(JlptExam.level == level)
+    if status_filter:
+        query = query.filter(JlptExam.status == status_filter)
+    exams = query.order_by(JlptExam.created_at.desc()).all()
+    return [_exam_summary(e) for e in exams]
+
+
+@router.get("/{exam_id}", response_model=ExamReviewOut)
+def get_exam_for_review(
+    exam_id: int,
+    db: Session = Depends(get_db),
+    _admin: UserResponse = Depends(require_admin),
+):
+    exam = (
+        db.query(JlptExam)
+        .options(
+            selectinload(JlptExam.questions).selectinload(JlptQuestion.choices),
+            selectinload(JlptExam.questions).selectinload(JlptQuestion.passage),
+            joinedload(JlptExam.level_structure)
+            .joinedload(JlptLevelStructure.sections)
+            .joinedload(JlptSection.mondai_templates),
+        )
+        .filter(JlptExam.id == exam_id)
+        .first()
+    )
+    if not exam:
+        raise HTTPException(status_code=404, detail="Không tìm thấy đề thi")
+
+    questions_by_mondai = {}
+    for q in exam.questions:
+        questions_by_mondai.setdefault(q.mondai_template_id, []).append(q)
+
+    sections_out = []
+    for section in sorted(exam.level_structure.sections, key=lambda s: s.order_no):
+        mondai_out = []
+        for m in sorted(section.mondai_templates, key=lambda m: m.mondai_no):
+            qs = sorted(questions_by_mondai.get(m.id, []), key=lambda q: q.question_no)
+            mondai_out.append({
+                "mondai_template_id": m.id, "mondai_no": m.mondai_no,
+                "name": m.name, "description": m.description, "tips": m.tips,
+                "questions": [_question_out(q) for q in qs],
+            })
+        sections_out.append({
+            "section_type": section.section_type, "name": section.name, "mondai": mondai_out,
+        })
+
+    total = len(exam.questions)
+    reviewed = sum(1 for q in exam.questions if q.is_reviewed)
+    ready = total > 0 and all(q.correct_no is not None and q.is_reviewed for q in exam.questions)
+
+    return {
+        "id": exam.id, "title": exam.title, "level": exam.level,
+        "year": exam.year, "month": exam.month, "status": exam.status,
+        "has_answer_key": exam.has_answer_key,
+        "sections": sections_out,
+        "total_questions": total, "reviewed_count": reviewed, "ready_to_publish": ready,
+    }
+
+
+@router.patch("/{exam_id}/questions/{question_id}", response_model=QuestionReviewOut)
+def update_question(
+    exam_id: int,
+    question_id: int,
+    payload: QuestionPatch,
+    db: Session = Depends(get_db),
+    _admin: UserResponse = Depends(require_admin),
+):
+    question = (
+        db.query(JlptQuestion)
+        .filter(JlptQuestion.id == question_id, JlptQuestion.exam_id == exam_id)
+        .first()
+    )
+    if not question:
+        raise HTTPException(status_code=404, detail="Không tìm thấy câu hỏi")
+
+    fields = payload.model_dump(exclude_unset=True)
+
+    if 'mondai_template_id' in fields:
+        mondai = (
+            db.query(JlptMondaiTemplate)
+            .join(JlptSection)
+            .filter(
+                JlptMondaiTemplate.id == fields['mondai_template_id'],
+                JlptSection.level_structure_id == question.exam.level_structure_id,
+            )
+            .first()
+        )
+        if not mondai:
+            raise HTTPException(status_code=400, detail="Mondai không thuộc cấu trúc của level này")
+        question.mondai_template_id = mondai.id
+
+    if 'question_text' in fields:
+        question.question_text = fields['question_text']
+
+    if 'correct_no' in fields:
+        question.correct_no = fields['correct_no']
+
+    if 'explanation' in fields:
+        question.explanation = fields['explanation']
+
+    if 'choices' in fields:
+        for c in list(question.choices):
+            db.delete(c)
+        db.flush()
+        for c in fields['choices']:
+            db.add(JlptChoice(question=question, choice_no=c['choice_no'], choice_text=c['choice_text']))
+
+    if 'passage_text' in fields:
+        text = (fields['passage_text'] or '').strip()
+        if not text:
+            question.passage_id = None
+        elif question.passage:
+            question.passage.passage_text = text
+        else:
+            section_type = question.mondai_template.section.section_type
+            passage = JlptPassage(
+                exam_id=exam_id, section_type=section_type, order_no=0, passage_text=text,
+            )
+            db.add(passage)
+            db.flush()
+            question.passage_id = passage.id
+
+    if 'is_reviewed' in fields:
+        question.is_reviewed = fields['is_reviewed']
+    elif fields:
+        question.is_reviewed = True  # any other edit implies the admin looked at this question
+
+    db.commit()
+    db.refresh(question)
+    return _question_out(question)
+
+
+@router.post("/{exam_id}/publish", response_model=ExamSummary)
+def publish_exam(
+    exam_id: int,
+    db: Session = Depends(get_db),
+    _admin: UserResponse = Depends(require_admin),
+):
+    exam = (
+        db.query(JlptExam)
+        .options(selectinload(JlptExam.questions))
+        .filter(JlptExam.id == exam_id)
+        .first()
+    )
+    if not exam:
+        raise HTTPException(status_code=404, detail="Không tìm thấy đề thi")
+    if exam.status == 'published':
+        raise HTTPException(status_code=400, detail="Đề thi đã được publish rồi")
+    if not exam.questions:
+        raise HTTPException(status_code=409, detail="Đề thi chưa có câu hỏi nào")
+
+    not_ready = sorted(
+        q.question_no for q in exam.questions if q.correct_no is None or not q.is_reviewed
+    )
+    if not_ready:
+        raise HTTPException(
+            status_code=409,
+            detail=(
+                f"Còn {len(not_ready)} câu chưa hoàn tất review "
+                f"(chưa có đáp án đúng hoặc chưa xác nhận): câu {not_ready}"
+            ),
+        )
+
+    exam.status = 'published'
+    db.commit()
+    db.refresh(exam)
+    return _exam_summary(exam)
+
+
+@router.delete("/{exam_id}")
+def delete_exam(
+    exam_id: int,
+    db: Session = Depends(get_db),
+    _admin: UserResponse = Depends(require_admin),
+):
+    exam = db.query(JlptExam).filter(JlptExam.id == exam_id).first()
+    if not exam:
+        raise HTTPException(status_code=404, detail="Không tìm thấy đề thi")
+    try:
+        db.delete(exam)
+        db.commit()
+    except IntegrityError:
+        db.rollback()
+        raise HTTPException(status_code=409, detail="Không thể xóa: đề thi này đã có người làm bài.")
+    return {"success": True}

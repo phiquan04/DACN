@@ -7,6 +7,9 @@ from .database import (
     TranscriptionSession, TranscriptionSegment,
     SearchHistory, DictionaryImage, DictionaryComment, DictionaryCommentVote,
     UserInformation,
+    JlptLevelStructure, JlptSection, JlptMondaiTemplate,
+    JlptExam, JlptPassage, JlptQuestion, JlptChoice,
+    JlptTestAttempt, JlptTestAttemptAnswer,
 )
 __all__ = [
     'init_db',
@@ -25,4 +28,13 @@ __all__ = [
     'DictionaryComment',
     'DictionaryCommentVote',
     'UserInformation',
+    'JlptLevelStructure',
+    'JlptSection',
+    'JlptMondaiTemplate',
+    'JlptExam',
+    'JlptPassage',
+    'JlptQuestion',
+    'JlptChoice',
+    'JlptTestAttempt',
+    'JlptTestAttemptAnswer',
 ]

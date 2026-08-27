@@ -13,6 +13,11 @@ from .grammar import GrammarCorrection
 from .transcription import TranscriptionSession, TranscriptionSegment
 from .dictionary import SearchHistory, DictionaryImage, DictionaryComment, DictionaryCommentVote
 from .profile import UserInformation
+from .jlpt import (
+    JlptLevelStructure, JlptSection, JlptMondaiTemplate,
+    JlptExam, JlptPassage, JlptQuestion, JlptChoice,
+    JlptTestAttempt, JlptTestAttemptAnswer,
+)
 
 __all__ = [
     'DATABASE_URL', 'engine', 'SessionLocal', 'Base', 'BaseModel', 'get_db', 'init_db',
@@ -22,4 +27,7 @@ __all__ = [
     'TranscriptionSession', 'TranscriptionSegment',
     'SearchHistory', 'DictionaryImage', 'DictionaryComment', 'DictionaryCommentVote',
     'UserInformation',
+    'JlptLevelStructure', 'JlptSection', 'JlptMondaiTemplate',
+    'JlptExam', 'JlptPassage', 'JlptQuestion', 'JlptChoice',
+    'JlptTestAttempt', 'JlptTestAttemptAnswer',
 ]
