@@ -144,3 +144,97 @@ class ExamSummary(BaseModel):
     has_answer_key: bool
     question_count: int = 0
     reviewed_count: int = 0
+
+
+# --- User-facing: browsing/taking a published exam (never exposes correct_no/explanation) ---
+
+class TakeChoiceOut(BaseModel):
+    choice_no: int
+    choice_text: str
+
+
+class TakeQuestionOut(BaseModel):
+    id: int
+    question_no: int
+    question_text: str
+    passage_text: Optional[str] = None
+    choices: List[TakeChoiceOut] = []
+
+
+class TakeMondaiOut(BaseModel):
+    mondai_no: int
+    name: Optional[str] = None
+    description: Optional[str] = None
+    tips: Optional[str] = None
+    time_minutes: Optional[int] = None
+    questions: List[TakeQuestionOut] = []
+
+
+class TakeSectionOut(BaseModel):
+    section_type: str
+    name: str
+    time_minutes: Optional[int] = None
+    mondai: List[TakeMondaiOut] = []
+
+
+class TakeExamOut(BaseModel):
+    id: int
+    title: str
+    level: str
+    total_time_minutes: Optional[int] = None
+    sections: List[TakeSectionOut] = []
+
+
+class PublishedExamSummary(BaseModel):
+    id: int
+    title: str
+    level: str
+    year: Optional[int] = None
+    month: Optional[int] = None
+    total_time_minutes: Optional[int] = None
+    question_count: int = 0
+
+
+# --- User-facing: submitting an attempt and viewing history ---
+
+class SubmitAnswerIn(BaseModel):
+    question_id: int
+    selected_choice_no: Optional[int] = None
+
+
+class SubmitAttemptIn(BaseModel):
+    answers: List[SubmitAnswerIn] = []
+
+
+class GradedAnswerOut(BaseModel):
+    question_id: int
+    selected_choice_no: Optional[int] = None
+    correct_no: Optional[int] = None
+    is_correct: bool
+    explanation: Optional[str] = None
+
+
+class SubmitAttemptOut(BaseModel):
+    attempt_id: int
+    exam_id: int
+    score: int
+    total_questions: int
+    percent: float
+    answers: List[GradedAnswerOut] = []
+
+
+class AttemptHistoryItem(BaseModel):
+    attempt_id: int
+    exam_id: int
+    exam_title: str
+    level: str
+    score: int
+    total_questions: int
+    percent: float
+    submitted_at: Optional[str] = None
+
+
+class LevelAverage(BaseModel):
+    level: str
+    attempt_count: int
+    average_percent: float
