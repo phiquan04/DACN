@@ -58,3 +58,13 @@ class LevelStructureSummary(BaseModel):
     total_time_minutes: Optional[int] = None
     section_count: int = 0
     mondai_count: int = 0
+
+
+class ImportExamResponse(BaseModel):
+    exam_id: int
+    title: str
+    level: str
+    status: str
+    question_count: int
+    has_answer_key: bool
+    unmapped_count: int = 0

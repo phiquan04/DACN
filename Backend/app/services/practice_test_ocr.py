@@ -278,3 +278,97 @@ Format JSON:
     raw = response.json()['choices'][0]['message']['content'].strip()
     clean = re.sub(r'```json|```', '', raw).strip()
     return json.loads(clean)
+
+
+def _render_mondai_structure(mondai_templates: list) -> str:
+    lines = []
+    current_section = None
+    for t in mondai_templates:
+        if t['section_type'] != current_section:
+            current_section = t['section_type']
+            lines.append(f"- Phần {current_section}:")
+        name_part = f" - {t['name']}" if t.get('name') else ''
+        desc_part = f": {t['description']}" if t.get('description') else ''
+        qc_part = f" (dự kiến {t['question_count']} câu)" if t.get('question_count') else ''
+        lines.append(f"  + Mondai {t['mondai_no']}{name_part}{desc_part}{qc_part}")
+    return '\n'.join(lines)
+
+
+def parse_exam_with_mondai_structure(exam_text: str, answer_text: str, mondai_templates: list) -> dict:
+    """Parse exam text into questions grouped by the level's pre-configured
+    mondai structure (see app/routes/jlpt/structure.py). Each question comes
+    back tagged with (section_type, mondai_no) matching that structure, plus
+    an optional shared passage_text for reading-comprehension groups. When no
+    answer key was supplied, correct_no is left null for every question so
+    the admin fills it in during review."""
+    api_key = os.environ.get("OPENROUTER_API_KEY", "")
+    structure_text = _render_mondai_structure(mondai_templates)
+    has_answer = bool(answer_text.strip())
+
+    answer_instruction = (
+        "Đáp án đã cho ở phần ===ĐÁP ÁN=== bên dưới, hãy điền đúng correct_no (số 1-4) cho từng câu theo đáp án đó."
+        if has_answer else
+        "KHÔNG có đáp án nào được cung cấp — để correct_no = null cho MỌI câu hỏi, admin sẽ tự nhập sau."
+    )
+
+    prompt = f"""Bạn là chuyên gia phân loại đề thi JLPT.
+
+Dưới đây là CẤU TRÚC MONDAI chuẩn của level này (admin đã cấu hình sẵn). Mỗi câu hỏi trong đề PHẢI được gán đúng vào một mondai trong danh sách này, dựa vào tiêu đề 問題n hoặc nội dung/dạng của câu hỏi:
+
+{structure_text}
+
+{answer_instruction}
+
+Nếu nhiều câu hỏi liên tiếp dùng chung một đoạn văn đọc hiểu, hãy điền đoạn văn đó (giống hệt nhau) vào "passage_text" của các câu đó; nếu câu hỏi không có đoạn văn dùng chung thì để "passage_text": null.
+
+QUAN TRỌNG: Chỉ trả về JSON thuần túy, không markdown, không giải thích thêm.
+
+Format JSON:
+{{
+  "title": "2019年7月 日本語能力試験",
+  "year": 2019,
+  "month": 7,
+  "questions": [
+    {{
+      "question_no": 1,
+      "section_type": "kotoba",
+      "mondai_no": 1,
+      "passage_text": null,
+      "question_text": "nội dung câu hỏi đầy đủ",
+      "choices": [
+        {{"choice_no": 1, "choice_text": "..."}},
+        {{"choice_no": 2, "choice_text": "..."}},
+        {{"choice_no": 3, "choice_text": "..."}},
+        {{"choice_no": 4, "choice_text": "..."}}
+      ],
+      "correct_no": 2,
+      "explanation": ""
+    }}
+  ]
+}}
+
+===ĐỀ THI===
+{exam_text}"""
+
+    if has_answer:
+        prompt += f"\n\n===ĐÁP ÁN===\n{answer_text}"
+
+    response = req.post(
+        "https://openrouter.ai/api/v1/chat/completions",
+        headers={
+            "Authorization": f"Bearer {api_key}",
+            "Content-Type": "application/json",
+        },
+        json={
+            "model": "openai/gpt-4o-mini",
+            "messages": [{"role": "user", "content": prompt}],
+            "temperature": 0.1,
+            "max_tokens": 8000,
+        },
+        timeout=180
+    )
+
+    response.raise_for_status()
+    raw = response.json()['choices'][0]['message']['content'].strip()
+    clean = re.sub(r'```json|```', '', raw).strip()
+    return json.loads(clean)
