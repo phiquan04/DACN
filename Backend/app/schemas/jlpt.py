@@ -68,3 +68,79 @@ class ImportExamResponse(BaseModel):
     question_count: int
     has_answer_key: bool
     unmapped_count: int = 0
+
+
+class ChoiceUpdateIn(BaseModel):
+    choice_no: int
+    choice_text: str
+
+
+class ChoiceOut(BaseModel):
+    id: int
+    choice_no: int
+    choice_text: str
+
+
+class QuestionPatch(BaseModel):
+    """Partial update for one question during admin review — only fields
+    actually present in the request body are applied (see model_dump's
+    exclude_unset usage in the route)."""
+    mondai_template_id: Optional[int] = None
+    question_text: Optional[str] = None
+    passage_text: Optional[str] = None
+    choices: Optional[List[ChoiceUpdateIn]] = None
+    correct_no: Optional[int] = None
+    explanation: Optional[str] = None
+    is_reviewed: Optional[bool] = None
+
+
+class QuestionReviewOut(BaseModel):
+    id: int
+    question_no: int
+    question_text: str
+    passage_text: Optional[str] = None
+    choices: List[ChoiceOut] = []
+    correct_no: Optional[int] = None
+    explanation: Optional[str] = None
+    is_reviewed: bool = False
+
+
+class MondaiReviewGroup(BaseModel):
+    mondai_template_id: int
+    mondai_no: int
+    name: Optional[str] = None
+    description: Optional[str] = None
+    tips: Optional[str] = None
+    questions: List[QuestionReviewOut] = []
+
+
+class SectionReviewGroup(BaseModel):
+    section_type: str
+    name: str
+    mondai: List[MondaiReviewGroup] = []
+
+
+class ExamReviewOut(BaseModel):
+    id: int
+    title: str
+    level: str
+    year: Optional[int] = None
+    month: Optional[int] = None
+    status: str
+    has_answer_key: bool
+    sections: List[SectionReviewGroup] = []
+    total_questions: int = 0
+    reviewed_count: int = 0
+    ready_to_publish: bool = False
+
+
+class ExamSummary(BaseModel):
+    id: int
+    title: str
+    level: str
+    status: str
+    year: Optional[int] = None
+    month: Optional[int] = None
+    has_answer_key: bool
+    question_count: int = 0
+    reviewed_count: int = 0
