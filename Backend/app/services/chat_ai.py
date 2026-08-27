@@ -13,7 +13,7 @@ from fastapi import HTTPException
 
 from app.models import ChatScenario
 
-BASE_PERSONA = """あなたは日本語の会話パートナー「Kizuna」です。
+BASE_PERSONA = """あなたは日本語の会話パートナー「Manabi」です。
 以下のルールを守ってください：
 - 常に日本語（JLPT {level}レベル）で返答してください
 - 絵文字は使わないでください
@@ -27,6 +27,10 @@ SCENARIO_RULE = """- あなたはこのシチュエーションの相手役を�
   説明: {description}
 - ユーザーの発言がこの話題から明らかに外れている場合は is_off_topic を true にし、
   優しく「{title}」の話題に戻るよう促す返答をしてください（叱らず、自然に）"""
+
+SITUATION_CONTEXT_RULE = """- ユーザーが指定した具体的な場面設定: {situation_context}
+  この場面設定に沿って一貫した設定・返答をしてください
+  （例: 話が噛み合わない注文や要望には、この場面設定を理由に自然に断ってください）"""
 
 # The reply body is streamed to the client as plain text as it arrives, so it
 # must come first and stay free of JSON/markdown wrapping. The metadata JSON
@@ -43,7 +47,7 @@ JSON_OUTPUT_RULE = f"""
 {{"feedback": "ユーザーの直前の発言に対するベトナム語での短いアドバイス。特に問題なければnull", "is_off_topic": true または false, "suggestions": ["短い返信候補1", "短い返信候補2", "短い返信候補3"]}}"""
 
 
-def build_system_prompt(scenario: Optional[ChatScenario]) -> str:
+def build_system_prompt(scenario: Optional[ChatScenario], situation_context: Optional[str] = None) -> str:
     level = scenario.level if scenario and scenario.level else "N3"
     prompt = BASE_PERSONA.format(level=level)
     if scenario:
@@ -51,14 +55,19 @@ def build_system_prompt(scenario: Optional[ChatScenario]) -> str:
             title=scenario.title, description=scenario.description or scenario.title
         )
         prompt += "\n" + topic_rule
+        if situation_context:
+            prompt += "\n" + SITUATION_CONTEXT_RULE.format(situation_context=situation_context)
     else:
         prompt += "\n" + FREE_CHAT_RULE
     prompt += "\n" + JSON_OUTPUT_RULE
     return prompt
 
 
-def call_openrouter(messages: list, api_key: str) -> str:
-    """One-shot (non-streamed) completion — used for the scenario opening line."""
+def call_openrouter(messages: list, api_key: str, temperature: float = 0.7) -> str:
+    """One-shot (non-streamed) completion — used for the scenario opening line
+    and (at temperature=0) the grammar-explanation classifier, which needs a
+    stable answer for the same input rather than varied phrasing.
+    """
     response = req.post(
         "https://openrouter.ai/api/v1/chat/completions",
         headers={
@@ -68,7 +77,7 @@ def call_openrouter(messages: list, api_key: str) -> str:
         json={
             "model": "openai/gpt-4o-mini",
             "messages": messages,
-            "temperature": 0.7,
+            "temperature": temperature,
         },
         timeout=30,
     )

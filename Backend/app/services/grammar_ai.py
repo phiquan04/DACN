@@ -78,7 +78,13 @@ def _max_leak_ratio(errors: List[dict]) -> float:
 
 def _call_and_parse(prompt: str) -> List[dict]:
     try:
-        raw = call_openrouter([{"role": "user", "content": prompt}], os.environ["OPENROUTER_API_KEY"])
+        # temperature=0: this call classifies whether a diff is a genuine
+        # grammar error, not free-form writing — the same sentence must get
+        # the same verdict every time, whether graded from the standalone
+        # /correct page or from a chatbot message.
+        raw = call_openrouter(
+            [{"role": "user", "content": prompt}], os.environ["OPENROUTER_API_KEY"], temperature=0
+        )
     except Exception as e:
         print(f"[grammar explanation] OpenRouter call failed: {e}")
         return []

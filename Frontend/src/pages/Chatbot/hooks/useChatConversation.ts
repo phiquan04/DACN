@@ -2,27 +2,33 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { getErrorInfo } from "../../../utils/errors";
 import { useSpeech } from "../../../hooks/useSpeech";
 import { useVoiceInput } from "../../../hooks/useVoiceInput";
+import { checkHealth } from "../../../services/httpClient";
 import {
-  streamChatMessage,
-  checkHealth,
   fetchScenarios,
   startConversation,
-} from "../../../services/api";
-import type { ChatMessage as ChatMsg, ChatScenario } from "../../../services/api";
+  streamChatMessage,
+  updateSituationContext,
+} from "../../../services/chatApi";
+import type { ChatMessage as ChatMsg, ChatScenario, ConversationDetail } from "../../../services/chatApi";
 
 const FREE_CHAT_WELCOME: ChatMsg = {
   role: "assistant",
   content:
-    "こんにちは！私はKizunaです。左のリストからシチュエーションを選ぶか、自由に日本語で話しかけてください。",
+    "こんにちは！私はManabiです。左のリストからシチュエーションを選ぶか、自由に日本語で話しかけてください。",
   timestamp: Date.now(),
 };
 
-/** Owns the chatbot's whole conversation state machine: scenario selection, starting/resetting a conversation, and streaming a reply (text + speech + suggestion chips) for a sent message. */
+/** Owns the chatbot's whole conversation state machine: scenario selection, starting/resetting/resuming a conversation, and streaming a reply (text + speech + suggestion chips + per-message grammar note) for a sent message. */
 export function useChatConversation() {
   const [scenarios, setScenarios] = useState<ChatScenario[]>([]);
   const [scenariosLoading, setScenariosLoading] = useState(true);
   const [activeScenario, setActiveScenario] = useState<ChatScenario | null>(null);
   const [conversationId, setConversationId] = useState<number | null>(null);
+  const [situationContext, setSituationContext] = useState<string | null>(null);
+  const [situationModalOpen, setSituationModalOpen] = useState(false);
+  const [situationModalMode, setSituationModalMode] = useState<"select" | "edit">("select");
+  const [pendingScenario, setPendingScenario] = useState<ChatScenario | null>(null);
+  const [savingSituation, setSavingSituation] = useState(false);
 
   const [messages, setMessages] = useState<ChatMsg[]>([FREE_CHAT_WELCOME]);
   const [suggestions, setSuggestions] = useState<string[]>([]);
@@ -65,16 +71,17 @@ export function useChatConversation() {
   }, []);
 
   const initConversation = useCallback(
-    async (scenario: ChatScenario | null) => {
+    async (scenario: ChatScenario | null, context?: string) => {
       streamAbortRef.current?.abort();
       stop();
       stopListening();
       setIsLoading(true);
       setSuggestions([]);
       try {
-        const res = await startConversation(scenario?.id);
+        const res = await startConversation(scenario?.id, context);
         setConversationId(res.conversation_id);
         setActiveScenario(scenario);
+        setSituationContext(res.situation_context);
 
         if (res.opening_message) {
           const opening: ChatMsg = {
@@ -113,11 +120,76 @@ export function useChatConversation() {
     (scenario: ChatScenario) => {
       if (activeScenario?.id === scenario.id) {
         initConversation(null); // deselect -> back to free chat
-      } else {
-        initConversation(scenario);
+        return;
       }
+      // Ask for the scene ('場面') before creating the conversation, so it
+      // can also steer the AI-generated opening line.
+      setPendingScenario(scenario);
+      setSituationModalMode("select");
+      setSituationModalOpen(true);
     },
     [activeScenario, initConversation]
+  );
+
+  const handleConfirmSituation = useCallback(
+    async (text: string) => {
+      if (situationModalMode === "select") {
+        setSituationModalOpen(false);
+        await initConversation(pendingScenario, text || undefined);
+        setPendingScenario(null);
+        return;
+      }
+      if (!conversationId) return;
+      setSavingSituation(true);
+      try {
+        const detail = await updateSituationContext(conversationId, text || null);
+        setSituationContext(detail.situation_context);
+        setSituationModalOpen(false);
+      } finally {
+        setSavingSituation(false);
+      }
+    },
+    [situationModalMode, pendingScenario, conversationId, initConversation]
+  );
+
+  const handleSkipSituation = useCallback(() => {
+    setSituationModalOpen(false);
+    initConversation(pendingScenario);
+    setPendingScenario(null);
+  }, [pendingScenario, initConversation]);
+
+  const handleCloseSituationModal = useCallback(() => {
+    setSituationModalOpen(false);
+    setPendingScenario(null);
+  }, []);
+
+  const handleOpenSituationEditor = useCallback(() => {
+    setSituationModalMode("edit");
+    setSituationModalOpen(true);
+  }, []);
+
+  const loadConversation = useCallback(
+    (detail: ConversationDetail) => {
+      streamAbortRef.current?.abort();
+      stop();
+      stopListening();
+      setSuggestions([]);
+      setConversationId(detail.id);
+      setSituationContext(detail.situation_context);
+      setActiveScenario(
+        detail.scenario_id ? { id: detail.scenario_id, title: detail.scenario_title ?? "", description: null, level: null, icon: null } : null
+      );
+      setMessages(
+        detail.messages.map((m) => ({
+          role: m.role,
+          content: m.content,
+          timestamp: new Date(m.created_at).getTime(),
+          feedback: m.feedback,
+          grammar: m.grammar,
+        }))
+      );
+    },
+    [stop, stopListening]
   );
 
   const handleSend = useCallback(
@@ -127,7 +199,7 @@ export function useChatConversation() {
       stop();
       stopListening();
 
-      const userMsg: ChatMsg = { role: "user", content: text, timestamp: Date.now() };
+      const userMsg: ChatMsg = { role: "user", content: text, timestamp: Date.now(), streamId: Date.now() + Math.random() };
       setMessages((prev) => [...prev, userMsg]);
       setSuggestions([]);
       setIsLoading(true);
@@ -177,6 +249,11 @@ export function useChatConversation() {
               setSuggestions(meta.suggestions || []);
               if (replyText) speak(replyText);
             },
+            onGrammar: (grammar) => {
+              setMessages((prev) =>
+                prev.map((m) => (m.streamId === userMsg.streamId ? { ...m, grammar } : m))
+              );
+            },
             onError: (message) => {
               setIsThinking(false);
               const errMsg: ChatMsg = {
@@ -204,13 +281,19 @@ export function useChatConversation() {
   }, [handleSend]);
 
   const handleClearChat = useCallback(() => {
-    initConversation(activeScenario);
-  }, [initConversation, activeScenario]);
+    initConversation(activeScenario, situationContext ?? undefined);
+  }, [initConversation, activeScenario, situationContext]);
 
   return {
     scenarios,
     scenariosLoading,
     activeScenario,
+    conversationId,
+    situationContext,
+    situationModalOpen,
+    situationModalMode,
+    pendingScenario,
+    savingSituation,
     messages,
     suggestions,
     isLoading,
@@ -226,5 +309,10 @@ export function useChatConversation() {
     handleSelectScenario,
     handleSend,
     handleClearChat,
+    loadConversation,
+    handleConfirmSituation,
+    handleSkipSituation,
+    handleCloseSituationModal,
+    handleOpenSituationEditor,
   };
 }
