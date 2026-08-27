@@ -78,6 +78,13 @@ def get_current_user(authorization: Optional[str] = Header(None), db: Session = 
     return to_user_response(user)
 
 
+def require_admin(current_user: UserResponse = Depends(get_current_user)) -> UserResponse:
+    """Required-auth + role dependency: 403s unless the current user's role is 'admin'."""
+    if current_user.role != "admin":
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Yêu cầu quyền quản trị viên")
+    return current_user
+
+
 def get_optional_user_id(authorization: Optional[str] = Header(None)) -> Optional[int]:
     """Optional-auth dependency: the user_id for a valid Bearer token, or None — never raises."""
     token = _parse_bearer_token(authorization)
