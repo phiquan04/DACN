@@ -6,7 +6,7 @@ export default function JLPTPracticePage() {
   return (
     <>
       <PageMeta
-        title="Luyện Đề JLPT | TailAdmin - React.js Admin Dashboard Template"
+        title="Luyện Đề JLPT | Manabi AI"
         description="Luyện thi JLPT N1~N5 với đầy đủ 4 phần: Từ vựng, Ngữ pháp, Đọc hiểu, Nghe hiểu"
       />
       <div className="space-y-6">

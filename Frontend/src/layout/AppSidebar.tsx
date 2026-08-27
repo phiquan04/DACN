@@ -29,22 +29,22 @@ type NavItem = {
 const navItems: NavItem[] = [
   {
     icon: <PageIcon />,
-    name: "Dictionary",
+    name: "Từ điển",
     path: "/dictionary",
   },
   {
     icon: <CheckLineIcon />,
-    name: "Check Grammar",
+    name: "Kiểm tra ngữ pháp",
     path: "/fixgrammar",
   },
   {
     icon: <AudioIcon />,
-    name: "Check Pronunciation",
+    name: "Kiểm tra phát âm",
     path: "/check-pronunciation",
   },
   {
     icon: <GroupIcon />,
-    name: "Meeting",
+    name: "Cuộc họp",
     path: "/meeting",
   },
   {
@@ -53,23 +53,23 @@ const navItems: NavItem[] = [
     path: "/chat-bot",
   },
   {
-    name: "Youtube Learning",
+    name: "Học qua Youtube",
     icon: <VideoIcon />,
     path: "/line-chart",
   },
   {
-    name: "JLPT Tests",
+    name: "Luyện đề JLPT",
     icon: <TaskIcon />,
     path: "/jlpt-practice",
   },
   {
     icon: <CalenderIcon />,
-    name: "Calendar",
+    name: "Lịch",
     path: "/calendar",
   },
   {
     icon: <UserCircleIcon />,
-    name: "User Profile",
+    name: "Hồ sơ cá nhân",
     path: "/profile",
   },
 ];
@@ -313,7 +313,7 @@ const AppSidebar: React.FC = () => {
                 }`}
               >
                 {isExpanded || isHovered || isMobileOpen ? (
-                  "Menu"
+                  "Menu chính"
                 ) : (
                   <HorizontaLDots className="size-6" />
                 )}

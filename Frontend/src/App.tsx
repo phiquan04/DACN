@@ -1,5 +1,5 @@
 import { lazy, Suspense } from "react";
-import { Route, BrowserRouter as Router, Routes } from "react-router";
+import { Navigate, Route, BrowserRouter as Router, Routes } from "react-router";
 import { ScrollToTop } from "./components/common/ScrollToTop";
 import PageLoader from "./components/common/PageLoader";
 import AppLayout from "./layout/AppLayout";
@@ -7,7 +7,9 @@ import AdminLayout from "./layout/AdminLayout";
 
 const AdminHome = lazy(() => import("./pages/Admin/AdminHome"));
 const AdminUserManagement = lazy(() => import("./pages/Admin/UserManagement"));
-const AdminJLPTContentBank = lazy(() => import("./pages/Admin/JLPTContentBank"));
+const AdminJLPTStructure = lazy(() => import("./pages/Admin/JLPTContentBank/StructurePage"));
+const AdminJLPTImport = lazy(() => import("./pages/Admin/JLPTContentBank/ImportPage"));
+const AdminJLPTReview = lazy(() => import("./pages/Admin/JLPTContentBank/ReviewPage"));
 const AdminChatScenarios = lazy(() => import("./pages/Admin/ChatScenarios"));
 const AdminVideoTranscripts = lazy(() => import("./pages/Admin/VideoTranscripts"));
 const AdminSettings = lazy(() => import("./pages/Admin/Settings"));
@@ -53,7 +55,12 @@ export default function App() {
             <Route path="/admin" element={<AdminLayout />}>
               <Route index element={<AdminHome />} />
               <Route path="users" element={<AdminUserManagement />} />
-              <Route path="jlpt-content" element={<AdminJLPTContentBank />} />
+              <Route path="jlpt-content">
+                <Route index element={<Navigate to="structure" replace />} />
+                <Route path="structure" element={<AdminJLPTStructure />} />
+                <Route path="import" element={<AdminJLPTImport />} />
+                <Route path="review" element={<AdminJLPTReview />} />
+              </Route>
               <Route path="chat-scenarios" element={<AdminChatScenarios />} />
               <Route path="video-transcripts" element={<AdminVideoTranscripts />} />
               <Route path="settings" element={<AdminSettings />} />

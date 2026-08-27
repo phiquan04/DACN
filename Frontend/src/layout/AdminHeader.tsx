@@ -21,7 +21,7 @@ const AdminHeader: React.FC = () => {
         <button
           className="flex h-10 w-10 items-center justify-center rounded-lg text-gray-500 hover:bg-gray-100"
           onClick={handleToggle}
-          aria-label="Toggle Sidebar"
+          aria-label="Ẩn/hiện thanh điều hướng"
         >
           {isMobileOpen ? (
             <svg width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">

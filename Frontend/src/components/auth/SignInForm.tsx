@@ -37,7 +37,7 @@ export default function SignInForm() {
 
       navigate(response.user.role === "admin" ? "/admin" : "/dictionary");
     } catch (err) {
-      const errorMessage = err instanceof Error ? err.message : "Sign in failed";
+      const errorMessage = err instanceof Error ? err.message : "Đăng nhập thất bại";
       setError(errorMessage);
     } finally {
       setLoading(false);
@@ -51,7 +51,7 @@ export default function SignInForm() {
           Chào mừng bạn quay lại với Manabi AI
         </h2>
         <p className="mt-2 text-sm text-on-surface-variant dark:text-gray-400">
-          Log in to continue your learning journey.
+          Đăng nhập để tiếp tục hành trình học tập của bạn.
         </p>
       </div>
 
@@ -63,7 +63,7 @@ export default function SignInForm() {
 
       <form onSubmit={handleSubmit} className="space-y-5">
         <div>
-          <Label htmlFor="email">Email Address</Label>
+          <Label htmlFor="email">Địa chỉ email</Label>
           <div className="relative">
             <span className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-on-surface-variant dark:text-gray-400">
               <EnvelopeIcon className="size-5" />
@@ -84,13 +84,13 @@ export default function SignInForm() {
         <div>
           <div className="mb-1.5 flex items-center justify-between">
             <Label htmlFor="password" className="mb-0">
-              Password
+              Mật khẩu
             </Label>
             <button
               type="button"
               className="text-xs font-medium text-secondary hover:text-primary transition-colors dark:text-secondary-fixed-dim"
             >
-              Forgot Password?
+              Quên mật khẩu?
             </button>
           </div>
           <div className="relative">
@@ -126,7 +126,7 @@ export default function SignInForm() {
           disabled={loading}
           className="flex w-full items-center justify-center gap-2 rounded-full bg-primary px-4 py-3 text-sm font-semibold text-on-primary shadow-theme-xs transition hover:bg-brand-600 disabled:cursor-not-allowed disabled:opacity-50"
         >
-          {loading ? "Đang đăng nhập..." : "Login to Manabi AI"}
+          {loading ? "Đang đăng nhập..." : "Đăng nhập vào Manabi AI"}
           {!loading && (
             <svg width="18" height="18" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
               <path
@@ -147,7 +147,7 @@ export default function SignInForm() {
         </div>
         <div className="relative flex justify-center">
           <span className="bg-surface-container-lowest px-3 text-xs text-on-surface-variant dark:bg-gray-dark dark:text-gray-400">
-            Or continue with
+            Hoặc tiếp tục với
           </span>
         </div>
       </div>
@@ -193,9 +193,9 @@ export default function SignInForm() {
       </div>
 
       <p className="mt-6 text-center text-sm text-on-surface-variant dark:text-gray-400">
-        Don&apos;t have an account?{" "}
+        Chưa có tài khoản?{" "}
         <Link to="/signup" className="font-medium text-secondary hover:text-primary dark:text-secondary-fixed-dim">
-          Sign up
+          Đăng ký
         </Link>
       </p>
     </div>

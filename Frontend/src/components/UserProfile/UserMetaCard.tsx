@@ -215,7 +215,7 @@ export default function UserMetaCard({ profile, onSave }: UserMetaCardProps) {
           onClick={openModal}
           className="flex w-full items-center justify-center gap-2 mt-5 rounded-full border border-gray-300 bg-white px-4 py-3 text-sm font-medium text-gray-700 shadow-theme-xs hover:bg-gray-50 hover:text-gray-800 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-400 dark:hover:bg-white/[0.03] dark:hover:text-gray-200"
         >
-          Edit
+          Chỉnh sửa
         </button>
       </div>
 
@@ -223,7 +223,7 @@ export default function UserMetaCard({ profile, onSave }: UserMetaCardProps) {
         <div className="no-scrollbar relative w-full max-w-[700px] overflow-y-auto rounded-3xl bg-white p-4 dark:bg-gray-900 lg:p-11">
           <div className="px-2 pr-14">
             <h4 className="mb-2 text-2xl font-semibold text-gray-800 dark:text-white/90">
-              Edit Social Links
+              Chỉnh sửa liên kết mạng xã hội
             </h4>
             <p className="mb-6 text-sm text-gray-500 dark:text-gray-400 lg:mb-7">
               Cập nhật liên kết mạng xã hội của bạn.
@@ -234,7 +234,7 @@ export default function UserMetaCard({ profile, onSave }: UserMetaCardProps) {
             <div className="custom-scrollbar h-[350px] overflow-y-auto px-2 pb-3">
               <div>
                 <h5 className="mb-5 text-lg font-medium text-gray-800 dark:text-white/90 lg:mb-6">
-                  Social Links
+                  Liên kết mạng xã hội
                 </h5>
 
                 <div className="grid grid-cols-1 gap-x-6 gap-y-5 lg:grid-cols-2">
@@ -263,10 +263,10 @@ export default function UserMetaCard({ profile, onSave }: UserMetaCardProps) {
 
             <div className="flex items-center gap-3 px-2 mt-6 lg:justify-end">
               <Button size="sm" variant="outline" onClick={closeModal}>
-                Close
+                Đóng
               </Button>
               <Button size="sm" onClick={handleSave}>
-                Save Changes
+                Lưu thay đổi
               </Button>
             </div>
           </form>

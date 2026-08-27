@@ -119,7 +119,7 @@ def ocr_page_with_vision(pil_img: Image.Image, api_key: str, page_type: str = 'e
             "Content-Type": "application/json",
         },
         json={
-            "model": "google/gemini-2.0-flash-exp:free",   # dùng 4o thay vì 4o-mini để tránh bị từ chối
+            "model": "minimax/minimax-m3:free",   # free tier — chậm hơn (~35s/trang) nhưng OCR chính xác
             "messages": [
                 {
                     "role": "system",
@@ -266,7 +266,7 @@ Format JSON:
             "Content-Type": "application/json",
         },
         json={
-            "model": "google/gemini-2.0-flash-exp:free",
+            "model": "minimax/minimax-m3:free",
             "messages": [{"role": "user", "content": prompt}],
             "temperature": 0.1,
             "max_tokens": 8000,

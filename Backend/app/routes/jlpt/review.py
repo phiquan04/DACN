@@ -13,9 +13,29 @@ from app.models.database import get_db
 from app.models.jlpt import (
     JlptChoice, JlptExam, JlptLevelStructure, JlptMondaiTemplate, JlptPassage, JlptQuestion, JlptSection,
 )
-from app.schemas.jlpt import ExamReviewOut, ExamSummary, JlptLevel, QuestionPatch, QuestionReviewOut
+from app.schemas.jlpt import (
+    ExamReviewOut, ExamSummary, JlptLevel, QuestionCreate, QuestionPatch, QuestionReviewOut,
+)
 
 router = APIRouter(prefix="/exams", tags=["jlpt-exams"])
+
+
+def _renumber_exam(db: Session, exam_id: int) -> None:
+    """Reassigns question_no sequentially (1..N) across the whole exam, in
+    section -> mondai -> existing-order order — matching how a real JLPT
+    paper numbers questions continuously across mondai/sections rather than
+    restarting at 1 per mondai. Called after any add/delete/move so numbering
+    never has gaps or duplicates."""
+    questions = (
+        db.query(JlptQuestion)
+        .join(JlptMondaiTemplate, JlptQuestion.mondai_template_id == JlptMondaiTemplate.id)
+        .join(JlptSection, JlptMondaiTemplate.section_id == JlptSection.id)
+        .filter(JlptQuestion.exam_id == exam_id)
+        .order_by(JlptSection.order_no, JlptMondaiTemplate.mondai_no, JlptQuestion.question_no, JlptQuestion.id)
+        .all()
+    )
+    for i, q in enumerate(questions, start=1):
+        q.question_no = i
 
 
 def _question_out(q: JlptQuestion) -> dict:
@@ -129,6 +149,7 @@ def update_question(
         raise HTTPException(status_code=404, detail="Không tìm thấy câu hỏi")
 
     fields = payload.model_dump(exclude_unset=True)
+    moved = False
 
     if 'mondai_template_id' in fields:
         mondai = (
@@ -142,6 +163,8 @@ def update_question(
         )
         if not mondai:
             raise HTTPException(status_code=400, detail="Mondai không thuộc cấu trúc của level này")
+        if mondai.id != question.mondai_template_id:
+            moved = True
         question.mondai_template_id = mondai.id
 
     if 'question_text' in fields:
@@ -180,9 +203,97 @@ def update_question(
     elif fields:
         question.is_reviewed = True  # any other edit implies the admin looked at this question
 
+    if moved:
+        db.flush()
+        _renumber_exam(db, exam_id)
+
     db.commit()
     db.refresh(question)
     return _question_out(question)
+
+
+@router.post("/{exam_id}/questions", response_model=QuestionReviewOut)
+def create_question(
+    exam_id: int,
+    payload: QuestionCreate,
+    db: Session = Depends(get_db),
+    _admin: UserResponse = Depends(require_admin),
+):
+    exam = db.query(JlptExam).filter(JlptExam.id == exam_id).first()
+    if not exam:
+        raise HTTPException(status_code=404, detail="Không tìm thấy đề thi")
+
+    mondai = (
+        db.query(JlptMondaiTemplate)
+        .join(JlptSection)
+        .filter(
+            JlptMondaiTemplate.id == payload.mondai_template_id,
+            JlptSection.level_structure_id == exam.level_structure_id,
+        )
+        .first()
+    )
+    if not mondai:
+        raise HTTPException(status_code=400, detail="Mondai không thuộc cấu trúc của level này")
+
+    passage_id = None
+    passage_text = (payload.passage_text or '').strip()
+    if passage_text:
+        passage = JlptPassage(
+            exam_id=exam_id, section_type=mondai.section.section_type, order_no=0, passage_text=passage_text,
+        )
+        db.add(passage)
+        db.flush()
+        passage_id = passage.id
+
+    question = JlptQuestion(
+        exam_id=exam_id,
+        mondai_template_id=mondai.id,
+        passage_id=passage_id,
+        question_no=0,  # placeholder — _renumber_exam fixes it below
+        question_text=payload.question_text,
+        correct_no=payload.correct_no,
+        explanation=payload.explanation,
+        is_reviewed=False,
+    )
+    db.add(question)
+    db.flush()
+    for c in payload.choices:
+        db.add(JlptChoice(question=question, choice_no=c.choice_no, choice_text=c.choice_text))
+
+    db.flush()
+    _renumber_exam(db, exam_id)
+    db.commit()
+    db.refresh(question)
+    return _question_out(question)
+
+
+@router.delete("/{exam_id}/questions/{question_id}")
+def delete_question(
+    exam_id: int,
+    question_id: int,
+    db: Session = Depends(get_db),
+    _admin: UserResponse = Depends(require_admin),
+):
+    question = (
+        db.query(JlptQuestion)
+        .filter(JlptQuestion.id == question_id, JlptQuestion.exam_id == exam_id)
+        .first()
+    )
+    if not question:
+        raise HTTPException(status_code=404, detail="Không tìm thấy câu hỏi")
+
+    try:
+        db.delete(question)
+        db.flush()
+        _renumber_exam(db, exam_id)
+        db.commit()
+    except IntegrityError:
+        db.rollback()
+        raise HTTPException(
+            status_code=409,
+            detail="Không thể xóa: câu hỏi này đã có người làm bài (thuộc đề đã publish).",
+        )
+    return {"success": True}
 
 
 @router.post("/{exam_id}/publish", response_model=ExamSummary)

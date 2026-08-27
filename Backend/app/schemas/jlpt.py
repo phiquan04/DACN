@@ -81,6 +81,17 @@ class ChoiceOut(BaseModel):
     choice_text: str
 
 
+class QuestionCreate(BaseModel):
+    """A question the admin adds by hand during review — for a mondai the AI
+    missed entirely when parsing the import."""
+    mondai_template_id: int
+    question_text: str
+    passage_text: Optional[str] = None
+    choices: List[ChoiceUpdateIn] = []
+    correct_no: Optional[int] = None
+    explanation: Optional[str] = None
+
+
 class QuestionPatch(BaseModel):
     """Partial update for one question during admin review — only fields
     actually present in the request body are applied (see model_dump's

@@ -1,0 +1,92 @@
+import { SubmitAttemptResult, TakeExam } from "../../services/jlptApi";
+import FormattedText from "./FormattedText";
+
+export default function ExamResultView({
+  exam,
+  result,
+  onBack,
+}: {
+  exam: TakeExam;
+  result: SubmitAttemptResult;
+  onBack: () => void;
+}) {
+  const questionById = new Map(
+    exam.sections.flatMap((s) => s.mondai.flatMap((m) => m.questions.map((q) => [q.id, q] as const)))
+  );
+  const isPass = result.percent >= 60;
+
+  return (
+    <div className="space-y-5">
+      <div
+        className={`rounded-xl border p-5 text-center shadow-sm ${
+          isPass
+            ? "border-emerald-200 bg-emerald-50 dark:border-emerald-500/30 dark:bg-emerald-500/10"
+            : "border-rose-200 bg-rose-50 dark:border-rose-500/30 dark:bg-rose-500/10"
+        }`}
+      >
+        <p className="text-xs font-medium text-gray-500 dark:text-gray-400">Kết quả</p>
+        <p
+          className={`mt-1 text-3xl font-bold ${
+            isPass ? "text-emerald-600 dark:text-emerald-400" : "text-rose-600 dark:text-rose-400"
+          }`}
+        >
+          {result.score}/{result.total_questions} ({result.percent}%)
+        </p>
+        <button
+          type="button"
+          onClick={onBack}
+          className="mt-4 rounded-lg bg-brand-500 px-5 py-2 text-sm font-medium text-white hover:bg-brand-600"
+        >
+          Làm đề khác
+        </button>
+      </div>
+
+      <div className="flex flex-col gap-2.5">
+        {result.answers.map((a) => {
+          const q = questionById.get(a.question_id);
+          if (!q) return null;
+          const selectedChoice = q.choices.find((c) => c.choice_no === a.selected_choice_no);
+          const correctChoice = q.choices.find((c) => c.choice_no === a.correct_no);
+          return (
+            <div
+              key={a.question_id}
+              className={`rounded-xl border p-4 shadow-sm ${
+                a.is_correct
+                  ? "border-emerald-200 bg-white dark:border-emerald-500/30 dark:bg-gray-900"
+                  : "border-rose-200 bg-white dark:border-rose-500/30 dark:bg-gray-900"
+              }`}
+            >
+              <div className="mb-2 flex items-center justify-between gap-2">
+                <p className="text-sm font-medium text-gray-800 dark:text-white/90">
+                  {q.question_no}. <FormattedText text={q.question_text} />
+                </p>
+                <span
+                  className={`shrink-0 rounded-full px-2.5 py-0.5 text-[10px] font-semibold ${
+                    a.is_correct
+                      ? "bg-emerald-100 text-emerald-700 dark:bg-emerald-500/20 dark:text-emerald-300"
+                      : "bg-rose-100 text-rose-700 dark:bg-rose-500/20 dark:text-rose-300"
+                  }`}
+                >
+                  {a.is_correct ? "Đúng" : "Sai"}
+                </span>
+              </div>
+              <p className="text-xs text-gray-600 dark:text-gray-400">
+                Bạn chọn: <span lang="ja">{selectedChoice?.choice_text ?? "(bỏ trống)"}</span>
+              </p>
+              {!a.is_correct && (
+                <p className="text-xs text-emerald-700 dark:text-emerald-400">
+                  Đáp án đúng: <span lang="ja">{correctChoice?.choice_text}</span>
+                </p>
+              )}
+              {a.explanation && (
+                <p className="mt-1.5 rounded-lg bg-gray-50 px-2.5 py-1.5 text-xs text-gray-600 dark:bg-gray-800 dark:text-gray-300">
+                  {a.explanation}
+                </p>
+              )}
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}

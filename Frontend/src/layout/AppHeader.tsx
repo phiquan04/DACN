@@ -50,7 +50,7 @@ const AppHeader: React.FC = () => {
           <button
             className="items-center justify-center w-10 h-10 text-on-surface-variant border-outline-variant/60 rounded-lg z-99999 hover:bg-surface-container hover:text-on-surface dark:border-gray-800 lg:flex dark:text-gray-400 lg:h-11 lg:w-11 lg:border transition-colors"
             onClick={handleToggle}
-            aria-label="Toggle Sidebar"
+            aria-label="Ẩn/hiện thanh điều hướng"
           >
             {isMobileOpen ? (
               <svg

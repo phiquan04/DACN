@@ -27,7 +27,7 @@ export default function AuthLayout({
             </h1>
           </Link>
           <p className="mt-3 text-base text-on-surface-variant dark:text-gray-400">
-            Personal Study Assistant
+            Trợ lý học tập cá nhân
           </p>
         </div>
 

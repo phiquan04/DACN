@@ -31,11 +31,11 @@ export default function SignUpForm() {
     setError("");
 
     if (formData.password.length < 8) {
-      setError("Password must be at least 8 characters");
+      setError("Mật khẩu phải có ít nhất 8 ký tự");
       return;
     }
     if (formData.password !== formData.confirmPassword) {
-      setError("Passwords do not match");
+      setError("Mật khẩu xác nhận không khớp");
       return;
     }
 
@@ -50,7 +50,7 @@ export default function SignUpForm() {
 
       navigate("/signin");
     } catch (err) {
-      const errorMessage = err instanceof Error ? err.message : "Sign up failed";
+      const errorMessage = err instanceof Error ? err.message : "Đăng ký thất bại";
       setError(errorMessage);
     } finally {
       setLoading(false);
@@ -76,7 +76,7 @@ export default function SignUpForm() {
 
       <form onSubmit={handleSubmit} className="space-y-4">
         <div>
-          <Label htmlFor="username">Username</Label>
+          <Label htmlFor="username">Tên đăng nhập</Label>
           <div className="relative">
             <span className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-on-surface-variant dark:text-gray-400">
               <UserIcon className="size-5" />
@@ -87,7 +87,7 @@ export default function SignUpForm() {
               name="username"
               value={formData.username}
               onChange={handleInputChange}
-              placeholder="Username"
+              placeholder="Tên đăng nhập"
               required
               minLength={3}
               className="!rounded-full !pl-11"
@@ -96,7 +96,7 @@ export default function SignUpForm() {
         </div>
 
         <div>
-          <Label htmlFor="email">Email address</Label>
+          <Label htmlFor="email">Địa chỉ email</Label>
           <div className="relative">
             <span className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-on-surface-variant dark:text-gray-400">
               <EnvelopeIcon className="size-5" />
@@ -115,7 +115,7 @@ export default function SignUpForm() {
         </div>
 
         <div>
-          <Label htmlFor="password">Password</Label>
+          <Label htmlFor="password">Mật khẩu</Label>
           <div className="relative">
             <span className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-on-surface-variant dark:text-gray-400">
               <LockIcon className="size-5" />
@@ -126,7 +126,7 @@ export default function SignUpForm() {
               name="password"
               value={formData.password}
               onChange={handleInputChange}
-              placeholder="Password (min 8 characters)"
+              placeholder="Mật khẩu (tối thiểu 8 ký tự)"
               required
               minLength={8}
               className="!rounded-full !pl-11 !pr-11"
@@ -145,7 +145,7 @@ export default function SignUpForm() {
         </div>
 
         <div>
-          <Label htmlFor="confirmPassword">Confirm Password</Label>
+          <Label htmlFor="confirmPassword">Xác nhận mật khẩu</Label>
           <div className="relative">
             <span className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-on-surface-variant dark:text-gray-400">
               <LockIcon className="size-5" />
@@ -156,7 +156,7 @@ export default function SignUpForm() {
               name="confirmPassword"
               value={formData.confirmPassword}
               onChange={handleInputChange}
-              placeholder="Confirm Password"
+              placeholder="Xác nhận mật khẩu"
               required
               minLength={8}
               className="!rounded-full !pl-11"
@@ -169,7 +169,7 @@ export default function SignUpForm() {
           disabled={loading}
           className="mt-2 flex w-full items-center justify-center gap-2 rounded-full bg-primary px-4 py-3 text-sm font-semibold text-on-primary shadow-theme-xs transition hover:bg-brand-600 disabled:cursor-not-allowed disabled:opacity-50"
         >
-          {loading ? "Đang đăng ký..." : "Sign Up"}
+          {loading ? "Đang đăng ký..." : "Đăng ký"}
           {!loading && (
             <svg width="18" height="18" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
               <path
@@ -185,9 +185,9 @@ export default function SignUpForm() {
       </form>
 
       <p className="mt-6 border-t border-outline-variant/60 pt-5 text-center text-sm text-on-surface-variant dark:border-gray-800 dark:text-gray-400">
-        Already have an account?{" "}
+        Đã có tài khoản?{" "}
         <Link to="/signin" className="font-medium text-primary hover:text-secondary dark:text-secondary-fixed-dim">
-          Login
+          Đăng nhập
         </Link>
       </p>
     </div>

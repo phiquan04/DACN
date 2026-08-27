@@ -1,22 +1,33 @@
+import { useEffect, useState } from "react";
 import { Link, useLocation, useNavigate } from "react-router";
 
 import { useSidebar } from "../context/SidebarContext";
 import { logout } from "../services/api";
-import { GridIcon, GroupIcon, DocsIcon, ChatIcon, VideoIcon } from "../icons";
+import { GridIcon, GroupIcon, DocsIcon, ChatIcon, VideoIcon, ChevronDownIcon } from "../icons";
 import Logo from "../components/common/Logo";
 
 type NavItem = {
   name: string;
   icon: React.ReactNode;
   path: string;
+  subItems?: { name: string; path: string }[];
 };
 
 const navItems: NavItem[] = [
-  { icon: <GridIcon />, name: "Dashboard", path: "/admin" },
-  { icon: <GroupIcon />, name: "User Management", path: "/admin/users" },
-  { icon: <DocsIcon />, name: "JLPT Content Bank", path: "/admin/jlpt-content" },
-  { icon: <ChatIcon />, name: "Chat Scenarios", path: "/admin/chat-scenarios" },
-  { icon: <VideoIcon />, name: "Video Transcripts", path: "/admin/video-transcripts" },
+  { icon: <GridIcon />, name: "Tổng quan", path: "/admin" },
+  { icon: <GroupIcon />, name: "Quản lý người dùng", path: "/admin/users" },
+  {
+    icon: <DocsIcon />,
+    name: "Ngân hàng đề JLPT",
+    path: "/admin/jlpt-content",
+    subItems: [
+      { name: "Cấu trúc đề", path: "/admin/jlpt-content/structure" },
+      { name: "Import đề", path: "/admin/jlpt-content/import" },
+      { name: "Duyệt đề", path: "/admin/jlpt-content/review" },
+    ],
+  },
+  { icon: <ChatIcon />, name: "Kịch bản chat", path: "/admin/chat-scenarios" },
+  { icon: <VideoIcon />, name: "Bản dịch video", path: "/admin/video-transcripts" },
 ];
 
 const SettingsIcon = () => (
@@ -49,6 +60,18 @@ const AdminSidebar: React.FC = () => {
   const navigate = useNavigate();
 
   const isActive = (path: string) => location.pathname === path;
+  const isParentActive = (nav: NavItem) =>
+    nav.subItems ? nav.subItems.some((s) => isActive(s.path)) : isActive(nav.path);
+
+  const [openDropdown, setOpenDropdown] = useState<string | null>(
+    () => navItems.find((nav) => nav.subItems && isParentActive(nav))?.name ?? null
+  );
+
+  useEffect(() => {
+    const activeParent = navItems.find((nav) => nav.subItems && isParentActive(nav));
+    setOpenDropdown(activeParent ? activeParent.name : null);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [location.pathname]);
 
   const showLabel = isExpanded || isHovered || isMobileOpen;
 
@@ -76,7 +99,7 @@ const AdminSidebar: React.FC = () => {
           {showLabel && (
             <span className="flex flex-col leading-tight">
               <span className="text-base font-bold">Manabi AI</span>
-              <span className="text-xs text-on-primary/60">Admin Portal</span>
+              <span className="text-xs text-on-primary/60">Trang quản trị</span>
             </span>
           )}
         </Link>
@@ -84,23 +107,71 @@ const AdminSidebar: React.FC = () => {
 
       <nav className="flex-1 overflow-y-auto px-3 py-6 no-scrollbar">
         <ul className="flex flex-col gap-1.5">
-          {navItems.map((nav) => (
-            <li key={nav.name}>
-              <Link
-                to={nav.path}
-                className={`flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors ${
-                  showLabel ? "" : "lg:justify-center"
-                } ${
-                  isActive(nav.path)
-                    ? "bg-secondary text-on-secondary"
-                    : "text-on-primary/70 hover:bg-white/5 hover:text-on-primary"
-                }`}
-              >
-                <span className="shrink-0 [&>svg]:size-5">{nav.icon}</span>
-                {showLabel && <span className="truncate">{nav.name}</span>}
-              </Link>
-            </li>
-          ))}
+          {navItems.map((nav) =>
+            nav.subItems ? (
+              <li key={nav.name}>
+                <button
+                  type="button"
+                  onClick={() => setOpenDropdown((prev) => (prev === nav.name ? null : nav.name))}
+                  className={`flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors ${
+                    showLabel ? "" : "lg:justify-center"
+                  } ${
+                    isParentActive(nav)
+                      ? "bg-secondary text-on-secondary"
+                      : "text-on-primary/70 hover:bg-white/5 hover:text-on-primary"
+                  }`}
+                >
+                  <span className="shrink-0 [&>svg]:size-5">{nav.icon}</span>
+                  {showLabel && <span className="flex-1 truncate text-left">{nav.name}</span>}
+                  {showLabel && (
+                    <ChevronDownIcon
+                      className={`h-4 w-4 shrink-0 transition-transform duration-200 ${
+                        openDropdown === nav.name ? "rotate-180" : ""
+                      }`}
+                    />
+                  )}
+                </button>
+                {showLabel && (
+                  <ul
+                    className={`ml-9 mt-1 flex flex-col gap-1 overflow-hidden transition-all duration-200 ${
+                      openDropdown === nav.name ? "max-h-40 opacity-100" : "max-h-0 opacity-0"
+                    }`}
+                  >
+                    {nav.subItems.map((sub) => (
+                      <li key={sub.path}>
+                        <Link
+                          to={sub.path}
+                          className={`block rounded-lg px-3 py-2 text-sm transition-colors ${
+                            isActive(sub.path)
+                              ? "bg-secondary text-on-secondary font-medium"
+                              : "text-on-primary/60 hover:bg-white/5 hover:text-on-primary"
+                          }`}
+                        >
+                          {sub.name}
+                        </Link>
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </li>
+            ) : (
+              <li key={nav.name}>
+                <Link
+                  to={nav.path}
+                  className={`flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors ${
+                    showLabel ? "" : "lg:justify-center"
+                  } ${
+                    isActive(nav.path)
+                      ? "bg-secondary text-on-secondary"
+                      : "text-on-primary/70 hover:bg-white/5 hover:text-on-primary"
+                  }`}
+                >
+                  <span className="shrink-0 [&>svg]:size-5">{nav.icon}</span>
+                  {showLabel && <span className="truncate">{nav.name}</span>}
+                </Link>
+              </li>
+            )
+          )}
           <li>
             <Link
               to="/admin/settings"
@@ -115,7 +186,7 @@ const AdminSidebar: React.FC = () => {
               <span className="shrink-0 [&>svg]:size-5">
                 <SettingsIcon />
               </span>
-              {showLabel && <span className="truncate">Settings</span>}
+              {showLabel && <span className="truncate">Cài đặt</span>}
             </Link>
           </li>
         </ul>
@@ -131,7 +202,7 @@ const AdminSidebar: React.FC = () => {
           <span className="shrink-0 [&>svg]:size-5">
             <LogoutIcon />
           </span>
-          {showLabel && <span>Logout</span>}
+          {showLabel && <span>Đăng xuất</span>}
         </button>
       </div>
     </aside>
