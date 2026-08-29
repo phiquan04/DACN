@@ -3,14 +3,24 @@ import { Link, useLocation, useNavigate } from "react-router";
 
 import { useSidebar } from "../context/SidebarContext";
 import { logout } from "../services/api";
-import { GridIcon, GroupIcon, DocsIcon, ChatIcon, VideoIcon, ChevronDownIcon } from "../icons";
+import {
+  GridIcon,
+  GroupIcon,
+  DocsIcon,
+  ChatIcon,
+  VideoIcon,
+  ChevronDownIcon,
+  ListIcon,
+  ArrowUpIcon,
+  CheckLineIcon,
+} from "../icons";
 import Logo from "../components/common/Logo";
 
 type NavItem = {
   name: string;
   icon: React.ReactNode;
   path: string;
-  subItems?: { name: string; path: string }[];
+  subItems?: { name: string; path: string; icon: React.ReactNode }[];
 };
 
 const navItems: NavItem[] = [
@@ -21,9 +31,9 @@ const navItems: NavItem[] = [
     name: "Ngân hàng đề JLPT",
     path: "/admin/jlpt-content",
     subItems: [
-      { name: "Cấu trúc đề", path: "/admin/jlpt-content/structure" },
-      { name: "Import đề", path: "/admin/jlpt-content/import" },
-      { name: "Duyệt đề", path: "/admin/jlpt-content/review" },
+      { name: "Cấu trúc đề", path: "/admin/jlpt-content/structure", icon: <ListIcon /> },
+      { name: "Import đề", path: "/admin/jlpt-content/import", icon: <ArrowUpIcon /> },
+      { name: "Duyệt đề", path: "/admin/jlpt-content/review", icon: <CheckLineIcon /> },
     ],
   },
   { icon: <ChatIcon />, name: "Kịch bản chat", path: "/admin/chat-scenarios" },
@@ -141,13 +151,14 @@ const AdminSidebar: React.FC = () => {
                       <li key={sub.path}>
                         <Link
                           to={sub.path}
-                          className={`block rounded-lg px-3 py-2 text-sm transition-colors ${
+                          className={`flex items-center gap-2 rounded-lg px-3 py-2 text-sm transition-colors ${
                             isActive(sub.path)
                               ? "bg-secondary text-on-secondary font-medium"
                               : "text-on-primary/60 hover:bg-white/5 hover:text-on-primary"
                           }`}
                         >
-                          {sub.name}
+                          <span className="shrink-0 [&>svg]:size-4">{sub.icon}</span>
+                          <span className="truncate">{sub.name}</span>
                         </Link>
                       </li>
                     ))}
