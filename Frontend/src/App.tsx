@@ -10,6 +10,9 @@ const AdminUserManagement = lazy(() => import("./pages/Admin/UserManagement"));
 const AdminJLPTStructure = lazy(() => import("./pages/Admin/JLPTContentBank/StructurePage"));
 const AdminJLPTImport = lazy(() => import("./pages/Admin/JLPTContentBank/ImportPage"));
 const AdminJLPTReview = lazy(() => import("./pages/Admin/JLPTContentBank/ReviewPage"));
+const AdminVocabularyLookups = lazy(() => import("./pages/Admin/VocabularyContentBank/LookupsPage"));
+const AdminVocabularyImport = lazy(() => import("./pages/Admin/VocabularyContentBank/ImportPage"));
+const AdminVocabularyReview = lazy(() => import("./pages/Admin/VocabularyContentBank/ReviewPage"));
 const AdminChatScenarios = lazy(() => import("./pages/Admin/ChatScenarios"));
 const AdminVideoTranscripts = lazy(() => import("./pages/Admin/VideoTranscripts"));
 const AdminSettings = lazy(() => import("./pages/Admin/Settings"));
@@ -60,6 +63,12 @@ export default function App() {
                 <Route path="structure" element={<AdminJLPTStructure />} />
                 <Route path="import" element={<AdminJLPTImport />} />
                 <Route path="review" element={<AdminJLPTReview />} />
+              </Route>
+              <Route path="vocabulary-content">
+                <Route index element={<Navigate to="lookups" replace />} />
+                <Route path="lookups" element={<AdminVocabularyLookups />} />
+                <Route path="import" element={<AdminVocabularyImport />} />
+                <Route path="review" element={<AdminVocabularyReview />} />
               </Route>
               <Route path="chat-scenarios" element={<AdminChatScenarios />} />
               <Route path="video-transcripts" element={<AdminVideoTranscripts />} />

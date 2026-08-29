@@ -10,6 +10,7 @@ from .database import (
     JlptLevelStructure, JlptSection, JlptMondaiTemplate,
     JlptExam, JlptPassage, JlptQuestion, JlptChoice,
     JlptTestAttempt, JlptTestAttemptAnswer,
+    VocabularyCurriculum, VocabularyCategory, VocabularySet, VocabularyItem,
 )
 __all__ = [
     'init_db',
@@ -37,4 +38,8 @@ __all__ = [
     'JlptChoice',
     'JlptTestAttempt',
     'JlptTestAttemptAnswer',
+    'VocabularyCurriculum',
+    'VocabularyCategory',
+    'VocabularySet',
+    'VocabularyItem',
 ]

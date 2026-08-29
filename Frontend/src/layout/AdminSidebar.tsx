@@ -3,7 +3,7 @@ import { Link, useLocation, useNavigate } from "react-router";
 
 import { useSidebar } from "../context/SidebarContext";
 import { logout } from "../services/api";
-import { GridIcon, GroupIcon, DocsIcon, ChatIcon, VideoIcon, ChevronDownIcon } from "../icons";
+import { GridIcon, GroupIcon, DocsIcon, ListIcon, ChatIcon, VideoIcon, ChevronDownIcon } from "../icons";
 import Logo from "../components/common/Logo";
 
 type NavItem = {
@@ -24,6 +24,16 @@ const navItems: NavItem[] = [
       { name: "Cấu trúc đề", path: "/admin/jlpt-content/structure" },
       { name: "Import đề", path: "/admin/jlpt-content/import" },
       { name: "Duyệt đề", path: "/admin/jlpt-content/review" },
+    ],
+  },
+  {
+    icon: <ListIcon />,
+    name: "Kho từ vựng",
+    path: "/admin/vocabulary-content",
+    subItems: [
+      { name: "Giáo trình & Danh mục", path: "/admin/vocabulary-content/lookups" },
+      { name: "Import bộ từ vựng", path: "/admin/vocabulary-content/import" },
+      { name: "Duyệt bộ từ vựng", path: "/admin/vocabulary-content/review" },
     ],
   },
   { icon: <ChatIcon />, name: "Kịch bản chat", path: "/admin/chat-scenarios" },

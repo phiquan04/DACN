@@ -103,6 +103,15 @@ def ocr_page_with_vision(pil_img: Image.Image, api_key: str, page_type: str = 'e
             "Do NOT include Chinese text, explanations, or any other content. "
             "Output plain text only, no markdown."
         )
+    elif page_type == 'vocab':
+        instruction = (
+            "This is a page from a Japanese vocabulary study book (word lists, often laid "
+            "out as a table of kanji/word, hiragana reading, and a Vietnamese or English "
+            "meaning, sometimes with example sentences). Extract ALL text exactly as written, "
+            "preserving which word each reading/meaning belongs to as best you can. "
+            "Ignore any Chinese watermarks, advertisements, or colored overlay text. "
+            "Output plain text only, no markdown, no explanations."
+        )
     else:
         instruction = (
             "This is a JLPT Japanese language test question page. "
