@@ -98,7 +98,7 @@ Dưới đây là nội dung trích xuất từ MỘT PHẦN của file PDF từ
 Với mỗi từ, trả về:
 - word: kanji hoặc chữ gốc
 - reading: cách đọc hiragana
-- han_viet: âm Hán Việt của từng chữ kanji trong từ, phân tách bằng dấu phẩy (VD: "NHÂN, SINH" cho 人生), viết hoa toàn bộ giống nguồn; null nếu nguồn không có hoặc từ viết bằng hiragana/katakana thuần không có kanji
+- han_viet: âm Hán Việt của từng chữ kanji trong từ, phân tách bằng dấu phẩy (VD: "NHÂN, SINH" cho 人生), viết hoa toàn bộ. Nếu nguồn có sẵn thì lấy từ nguồn; nếu nguồn KHÔNG có cột âm Hán Việt thì bạn tự suy ra âm Hán Việt chuẩn của từng chữ kanji dựa trên kiến thức của bạn. Chỉ để null nếu từ viết bằng hiragana/katakana thuần, hoàn toàn không có kanji
 - meaning_vi: nghĩa tiếng Việt
 - word_type: loại từ nếu suy luận được (danh từ/động từ/tính từ/phó từ...), null nếu không chắc
 - example_sentence_ja: một câu ví dụ tiếng Nhật dùng từ này, phù hợp trình độ {level}
