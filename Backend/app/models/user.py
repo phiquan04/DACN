@@ -25,6 +25,7 @@ class User(BaseModel):
     password_hash = Column(String(255), nullable=False)
     is_active = Column(Boolean, default=True)
     role_id = Column(Integer, ForeignKey('roles.id'), nullable=True)
+    daily_vocab_goal = Column(Integer, nullable=True)  # words/day target for the vocabulary library; None = use the default
 
     conversations = relationship('Conversation', backref='user', lazy=True, cascade='all, delete-orphan')
 

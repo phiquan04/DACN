@@ -15,6 +15,7 @@ import {
   AudioIcon,
   GroupIcon,
   TaskIcon,
+  DocsIcon,
 } from "../icons";
 import SidebarWidget from "./SidebarWidget";
 import Logo from "../components/common/Logo";
@@ -31,6 +32,11 @@ const navItems: NavItem[] = [
     icon: <PageIcon />,
     name: "Từ điển",
     path: "/dictionary",
+  },
+  {
+    icon: <DocsIcon />,
+    name: "Kho từ vựng",
+    path: "/vocabulary",
   },
   {
     icon: <CheckLineIcon />,

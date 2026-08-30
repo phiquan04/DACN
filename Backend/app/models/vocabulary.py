@@ -1,4 +1,6 @@
-from sqlalchemy import Column, String, Integer, Text, Boolean, DateTime, ForeignKey
+from datetime import datetime
+
+from sqlalchemy import Column, String, Integer, Float, Text, Boolean, DateTime, ForeignKey, UniqueConstraint
 from sqlalchemy.orm import relationship
 
 from .base import BaseModel
@@ -83,3 +85,45 @@ class VocabularyItem(BaseModel):
 
     def __repr__(self):
         return f'<VocabularyItem {self.word}>'
+
+
+class VocabularyItemProgress(BaseModel):
+    """One user's learning state for one word: status drives the
+    new/reviewing/learned badges shown in the UI, while ease_factor/
+    interval_days/due_at are the spaced-repetition (SM-2-lite) schedule
+    updated after every graded review (see learning.py's _apply_rating)."""
+    __tablename__ = 'vocabulary_item_progress'
+
+    user_id = Column(Integer, ForeignKey('users.id'), nullable=False)
+    item_id = Column(Integer, ForeignKey('vocabulary_items.id'), nullable=False)
+    status = Column(String(20), nullable=False, default='new')  # 'new' | 'reviewing' | 'learned'
+    is_bookmarked = Column(Boolean, nullable=False, default=False)
+    ease_factor = Column(Float, nullable=False, default=2.5)
+    interval_days = Column(Integer, nullable=False, default=0)
+    review_count = Column(Integer, nullable=False, default=0)
+    due_at = Column(DateTime, nullable=True)
+    last_reviewed_at = Column(DateTime, nullable=True)
+
+    item = relationship('VocabularyItem')
+
+    __table_args__ = (
+        UniqueConstraint('user_id', 'item_id', name='uq_vocab_progress_user_item'),
+    )
+
+    def __repr__(self):
+        return f'<VocabularyItemProgress user={self.user_id} item={self.item_id} {self.status}>'
+
+
+class VocabularyReviewLog(BaseModel):
+    """Append-only record of every graded review. VocabularyItemProgress only
+    keeps the latest state per word, which can't answer 'was anything studied
+    on day X' — this log is what streaks and the daily-goal counter query."""
+    __tablename__ = 'vocabulary_review_logs'
+
+    user_id = Column(Integer, ForeignKey('users.id'), nullable=False)
+    item_id = Column(Integer, ForeignKey('vocabulary_items.id'), nullable=False)
+    rating = Column(String(10), nullable=False)  # 'again' | 'hard' | 'good' | 'easy'
+    reviewed_at = Column(DateTime, nullable=False, default=datetime.utcnow)
+
+    def __repr__(self):
+        return f'<VocabularyReviewLog user={self.user_id} item={self.item_id} {self.rating}>'

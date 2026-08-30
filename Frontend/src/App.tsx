@@ -29,6 +29,7 @@ const JLPTPracticePage = lazy(() => import("./pages/PracticeTest/TestPage"));
 const CheckPronunciation = lazy(() => import("./pages/Pronunciation/CheckPronunciation"));
 const UserProfiles = lazy(() => import("./pages/UserProfiles"));
 const JapaneseWatch = lazy(() => import("./pages/VideoLearn/JapaneseWatch"));
+const VocabularyLearningPage = lazy(() => import("./pages/VocabularyLearning/VocabularyLearningPage"));
 
 export default function App() {
   return (
@@ -41,6 +42,7 @@ export default function App() {
             <Route element={<AppLayout />}>
               <Route path="/dictionary" element={<Vocabulary />} />
               <Route index path="/" element={<Vocabulary />} />
+              <Route path="/vocabulary" element={<VocabularyLearningPage />} />
 
               {/* Others Page */}
               <Route path="/fixgrammar" element={<FixGrammar />} />

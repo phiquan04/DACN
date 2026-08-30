@@ -1,9 +1,11 @@
 from datetime import datetime
-from typing import List, Optional
+from typing import List, Literal, Optional
 
 from pydantic import BaseModel
 
 from app.schemas.jlpt import JlptLevel
+
+ReviewRating = Literal['again', 'hard', 'good', 'easy']
 
 # --- Lookup tables: curriculum (bộ giáo trình) & category (danh mục nội dung) ---
 
@@ -135,3 +137,88 @@ class VocabularySetSummary(BaseModel):
 class VocabularySetReviewOut(VocabularySetSummary):
     items: List[VocabularyItemOut] = []
     ready_to_publish: bool = False
+
+
+# --- User-facing learning: library, flashcard sessions, SRS review, streaks ---
+
+
+class VocabularyLearningItemOut(BaseModel):
+    id: int
+    order_no: int
+    word: str
+    reading: Optional[str] = None
+    han_viet: Optional[str] = None
+    meaning_vi: str
+    word_type: Optional[str] = None
+    example_sentence_ja: Optional[str] = None
+    example_sentence_vi: Optional[str] = None
+    status: str = 'new'  # 'new' | 'reviewing' | 'learned'
+    is_bookmarked: bool = False
+    due_at: Optional[datetime] = None
+
+
+class VocabularySetProgressOut(BaseModel):
+    id: int
+    level: JlptLevel
+    set_name: str
+    description: Optional[str] = None
+    curriculum_id: Optional[int] = None
+    curriculum_name: Optional[str] = None
+    category_id: Optional[int] = None
+    category_name: Optional[str] = None
+    item_count: int = 0
+    learned_count: int = 0
+    reviewing_count: int = 0
+    new_count: int = 0
+
+
+class VocabularySetLearningDetailOut(VocabularySetProgressOut):
+    items: List[VocabularyLearningItemOut] = []
+
+
+class StudyBatchRequest(BaseModel):
+    """source='sequential' pulls the next untouched words in order_no order
+    (so 'study the next 10' naturally continues where the user left off,
+    with no offset to track); source='review' pulls words currently due,
+    soonest-due first."""
+    source: Literal['sequential', 'review']
+    count: int = 10
+
+
+class CrossSetBatchRequest(BaseModel):
+    count: int = 10
+
+
+class ReviewSubmitRequest(BaseModel):
+    rating: ReviewRating
+
+
+class ReviewSubmitResponse(BaseModel):
+    item_id: int
+    status: str
+    due_at: Optional[datetime] = None
+
+
+class BookmarkToggleResponse(BaseModel):
+    item_id: int
+    is_bookmarked: bool
+
+
+class StudyOverviewOut(BaseModel):
+    streak_days: int = 0
+    due_today_count: int = 0
+    studied_today_count: int = 0
+    daily_goal: int = 20
+
+
+class UpdateDailyGoalRequest(BaseModel):
+    daily_goal: int
+
+
+class MiniStoryRequest(BaseModel):
+    item_ids: List[int]
+
+
+class MiniStoryResponse(BaseModel):
+    story_ja: str
+    story_vi: str
