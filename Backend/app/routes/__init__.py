@@ -16,6 +16,7 @@ from .dictionary import router as dictionary_router
 from .user import router as user_router
 from .scenarios import router as scenarios_router
 from .meeting import router as meeting_router
+from .notifications import router as notifications_router
 
 # Register all routers
 def register_routers(app):
@@ -35,3 +36,4 @@ def register_routers(app):
     app.include_router(user_router, prefix="/api")
     app.include_router(scenarios_router, prefix="/api")
     app.include_router(meeting_router, prefix="/api")
+    app.include_router(notifications_router, prefix="/api")

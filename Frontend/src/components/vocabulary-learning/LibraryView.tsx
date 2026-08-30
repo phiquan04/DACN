@@ -10,12 +10,14 @@ import {
   toggleBookmark,
   updateDailyGoal,
 } from "../../services/vocabularyLearningApi";
-import { BoltIcon, PencilIcon } from "../../icons";
+import { BoltIcon, CalenderIcon, PencilIcon, ShootingStarIcon } from "../../icons";
+import AchievementsPanel from "./AchievementsPanel";
 import ProgressBar from "./ProgressBar";
+import StreakHeatmap from "./StreakHeatmap";
 import StudyConfigPanel from "./StudyConfigPanel";
 import { StudyMode } from "./types";
 
-type Tab = "sets" | "mine";
+type Tab = "sets" | "mine" | "achievements";
 
 interface CurriculumGroup {
   curriculumId: number | null;
@@ -119,9 +121,27 @@ export default function LibraryView({
 
   const goalPct = overview ? Math.min(100, (overview.studied_today_count / overview.daily_goal) * 100) : 0;
   const groups = useMemo(() => groupByCurriculum(sets), [sets]);
+  const remainingToday = overview ? Math.max(0, overview.daily_goal - overview.studied_today_count) : 0;
 
   return (
     <div className="space-y-5">
+      {overview && remainingToday > 0 && (
+        <div
+          className={`flex items-center gap-3 rounded-xl border p-3.5 text-sm ${
+            overview.streak_days > 0
+              ? "border-rose-200 bg-rose-50 text-rose-700 dark:border-rose-500/30 dark:bg-rose-500/10 dark:text-rose-300"
+              : "border-teal-200 bg-teal-50 text-teal-700 dark:border-teal-500/30 dark:bg-teal-500/10 dark:text-teal-300"
+          }`}
+        >
+          <BoltIcon className="h-4 w-4 shrink-0" />
+          <span>
+            {overview.streak_days > 0
+              ? `Streak ${overview.streak_days} ngày đang chờ! Học thêm ${remainingToday} từ nữa hôm nay để giữ chuỗi.`
+              : `Học ${remainingToday} từ hôm nay để bắt đầu một streak mới!`}
+          </span>
+        </div>
+      )}
+
       <div className="rounded-xl border border-gray-200 bg-white p-5 shadow-sm dark:border-gray-700 dark:bg-gray-900">
         <div className="flex flex-wrap items-center justify-between gap-4">
           <div className="flex items-center gap-6">
@@ -131,6 +151,16 @@ export default function LibraryView({
               </div>
               <p className="mt-1 text-lg font-bold text-gray-800 dark:text-white/90">{overview?.streak_days ?? 0} ngày</p>
               <p className="text-xs text-gray-400 dark:text-gray-500">Streak</p>
+            </div>
+            <div className="text-center">
+              <div className="mx-auto flex h-11 w-11 items-center justify-center rounded-full bg-brand-100 text-brand-600 dark:bg-brand-500/20 dark:text-brand-300">
+                <ShootingStarIcon />
+              </div>
+              <p className="mt-1 text-lg font-bold text-gray-800 dark:text-white/90">Lv.{overview?.level ?? 1}</p>
+              <p className="text-xs text-gray-400 dark:text-gray-500">
+                {overview ? overview.xp - overview.level_xp_floor : 0}/
+                {overview ? overview.level_xp_ceil - overview.level_xp_floor : 100} XP
+              </p>
             </div>
             <div className="text-center">
               <p className="text-lg font-bold text-rose-500">{overview?.due_today_count ?? 0} từ</p>
@@ -191,11 +221,22 @@ export default function LibraryView({
         </div>
       </div>
 
+      {overview && overview.heatmap.length > 0 && (
+        <div className="rounded-xl border border-gray-200 bg-white p-5 shadow-sm dark:border-gray-700 dark:bg-gray-900">
+          <div className="mb-3 flex items-center gap-2">
+            <CalenderIcon className="h-4 w-4 text-gray-400 dark:text-gray-500" />
+            <h3 className="text-sm font-semibold text-gray-800 dark:text-white/90">Lịch học 12 tuần gần đây</h3>
+          </div>
+          <StreakHeatmap days={overview.heatmap} />
+        </div>
+      )}
+
       <div className="flex gap-1 border-b border-gray-200 dark:border-gray-700">
         {(
           [
             { id: "sets" as Tab, label: "Các bộ từ vựng" },
             { id: "mine" as Tab, label: "Của tôi" },
+            { id: "achievements" as Tab, label: "Thành tích" },
           ]
         ).map((t) => (
           <button
@@ -347,6 +388,8 @@ export default function LibraryView({
           )}
         </div>
       )}
+
+      {tab === "achievements" && <AchievementsPanel />}
     </div>
   );
 }

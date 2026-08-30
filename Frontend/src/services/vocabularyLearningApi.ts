@@ -40,17 +40,39 @@ export interface VocabularySetLearningDetail extends VocabularySetProgress {
   items: VocabularyLearningItem[];
 }
 
+export interface HeatmapDay {
+  date: string;
+  count: number;
+}
+
 export interface StudyOverview {
   streak_days: number;
   due_today_count: number;
   studied_today_count: number;
   daily_goal: number;
+  heatmap: HeatmapDay[];
+  xp: number;
+  level: number;
+  level_xp_floor: number;
+  level_xp_ceil: number;
 }
 
 export interface ReviewSubmitResult {
   item_id: number;
   status: LearningStatus;
   due_at?: string | null;
+  xp_gained: number;
+  leveled_up: boolean;
+  new_level: number;
+}
+
+export interface Achievement {
+  code: string;
+  name: string;
+  description: string;
+  earned: boolean;
+  progress_current: number;
+  progress_target: number;
 }
 
 export interface MiniStoryResult {
@@ -126,6 +148,10 @@ export async function toggleBookmark(itemId: number): Promise<{ item_id: number;
     method: "POST",
     headers: authHeaders(getToken()),
   });
+}
+
+export async function fetchAchievements(): Promise<Achievement[]> {
+  return request(`${BASE}/achievements`, { headers: authHeaders(getToken()) });
 }
 
 export async function generateMiniStory(itemIds: number[]): Promise<MiniStoryResult> {

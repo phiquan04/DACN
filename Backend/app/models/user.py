@@ -26,6 +26,7 @@ class User(BaseModel):
     is_active = Column(Boolean, default=True)
     role_id = Column(Integer, ForeignKey('roles.id'), nullable=True)
     daily_vocab_goal = Column(Integer, nullable=True)  # words/day target for the vocabulary library; None = use the default
+    vocab_xp = Column(Integer, nullable=False, default=0)  # cumulative XP earned from vocabulary reviews; drives the level shown in the library
 
     conversations = relationship('Conversation', backref='user', lazy=True, cascade='all, delete-orphan')
 

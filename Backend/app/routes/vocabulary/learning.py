@@ -6,6 +6,7 @@ batch of words. Separate from review.py (admin curation of draft sets).
 """
 import json
 import re
+from collections import defaultdict
 from datetime import datetime, timedelta
 from typing import List, Optional
 
@@ -15,11 +16,12 @@ from sqlalchemy.orm import Session, selectinload
 
 from app.dependencies import UserResponse, get_current_user
 from app.models.database import get_db
+from app.models.notification import Notification
 from app.models.user import User
 from app.models.vocabulary import VocabularyItem, VocabularyItemProgress, VocabularyReviewLog, VocabularySet
 from app.schemas.jlpt import JlptLevel
 from app.schemas.vocabulary import (
-    BookmarkToggleResponse, CrossSetBatchRequest, MiniStoryRequest, MiniStoryResponse,
+    AchievementOut, BookmarkToggleResponse, CrossSetBatchRequest, HeatmapDayOut, MiniStoryRequest, MiniStoryResponse,
     ReviewSubmitRequest, ReviewSubmitResponse, StudyBatchRequest, StudyOverviewOut,
     UpdateDailyGoalRequest, VocabularyLearningItemOut, VocabularySetLearningDetailOut, VocabularySetProgressOut,
 )
@@ -33,6 +35,102 @@ MAX_DAILY_GOAL = 500
 # A word graded 'good'/'easy' with a resulting gap this long or more counts as
 # genuinely learned rather than still being actively drilled.
 LEARNED_INTERVAL_THRESHOLD_DAYS = 21
+# Rendered as a GitHub-style grid: 12 columns (weeks) x 7 rows (days).
+HEATMAP_DAYS = 84
+# How many distinct study-days back to look for the streak. Bounded (rather
+# than a full table scan) but generous enough that no realistic streak badge
+# threshold (see ACHIEVEMENT_DEFS) can ever be under-counted.
+STREAK_LOOKBACK_DAYS = 400
+
+RATING_XP = {'again': 1, 'hard': 5, 'good': 10, 'easy': 15}
+LEARNED_BONUS_XP = 20  # awarded once, the review that first pushes a word into 'learned'
+
+# (code, name, description, metric, target) — metric keys into the dict built
+# in get_achievements from streak/learned-word-count/level.
+ACHIEVEMENT_DEFS = [
+    ('streak_7', 'Kiên trì 7 ngày', 'Duy trì streak học liên tục 7 ngày', 'streak', 7),
+    ('streak_30', 'Bền bỉ 30 ngày', 'Duy trì streak học liên tục 30 ngày', 'streak', 30),
+    ('streak_100', 'Huyền thoại 100 ngày', 'Duy trì streak học liên tục 100 ngày', 'streak', 100),
+    ('words_50', '50 từ đã thuộc', 'Học thuộc 50 từ vựng', 'learned', 50),
+    ('words_200', '200 từ đã thuộc', 'Học thuộc 200 từ vựng', 'learned', 200),
+    ('words_500', '500 từ đã thuộc', 'Học thuộc 500 từ vựng', 'learned', 500),
+    ('level_5', 'Đạt cấp 5', 'Tích lũy kinh nghiệm lên cấp độ 5', 'level', 5),
+    ('level_10', 'Đạt cấp 10', 'Tích lũy kinh nghiệm lên cấp độ 10', 'level', 10),
+]
+
+
+def _heatmap_start(today):
+    """Earliest date of the heatmap window, pulled back to the most recent
+    Sunday on/before (today - HEATMAP_DAYS + 1) so the grid always renders in
+    full weeks instead of a ragged partial first column."""
+    start = today - timedelta(days=HEATMAP_DAYS - 1)
+    return start - timedelta(days=(start.weekday() + 1) % 7)
+
+
+def _current_streak(db: Session, user_id: int, today) -> int:
+    rows = (
+        db.query(func.date(VocabularyReviewLog.reviewed_at).label('day'))
+        .filter(
+            VocabularyReviewLog.user_id == user_id,
+            VocabularyReviewLog.reviewed_at >= datetime.combine(today - timedelta(days=STREAK_LOOKBACK_DAYS), datetime.min.time()),
+        )
+        .distinct()
+        .all()
+    )
+    study_dates = {row.day for row in rows}
+
+    streak = 0
+    if today in study_dates:
+        cursor = today
+    elif (today - timedelta(days=1)) in study_dates:
+        cursor = today - timedelta(days=1)
+    else:
+        return 0
+    while cursor in study_dates:
+        streak += 1
+        cursor -= timedelta(days=1)
+    return streak
+
+
+def _xp_threshold(level: int) -> int:
+    """Total XP required to reach `level` — a triangular curve, so each
+    level costs 100 XP more than the last (level 2 at 100, level 3 at 300,
+    level 4 at 600, ...)."""
+    n = level - 1
+    return 100 * n * (n + 1) // 2
+
+
+def _level_info(xp: int):
+    level = 1
+    while _xp_threshold(level + 1) <= xp:
+        level += 1
+    return level, _xp_threshold(level), _xp_threshold(level + 1)
+
+
+def _check_and_notify_achievements(db: Session, user_id: int, level: int) -> None:
+    """Creates a Notification for any achievement that just became earned.
+    `related_code` is the idempotency key — an achievement already notified
+    once is never notified again, so this is safe to call as often as
+    needed (see its two call sites in submit_review)."""
+    today = datetime.utcnow().date()
+    streak = _current_streak(db, user_id, today)
+    learned_count = db.query(func.count(VocabularyItemProgress.id)).filter(
+        VocabularyItemProgress.user_id == user_id, VocabularyItemProgress.status == 'learned',
+    ).scalar() or 0
+    metrics = {'streak': streak, 'learned': learned_count, 'level': level}
+
+    for code, name, description, metric, target in ACHIEVEMENT_DEFS:
+        if metrics[metric] < target:
+            continue
+        already_notified = db.query(Notification.id).filter(
+            Notification.user_id == user_id, Notification.type == 'achievement', Notification.related_code == code,
+        ).first()
+        if already_notified:
+            continue
+        db.add(Notification(
+            user_id=user_id, type='achievement', title=f'Đạt huy hiệu: {name}',
+            message=description, link='/vocabulary', related_code=code,
+        ))
 
 
 def _published_set_query(db: Session):
@@ -136,28 +234,32 @@ def get_study_overview(db: Session = Depends(get_db), current_user: UserResponse
         VocabularyItemProgress.due_at <= now,
     ).scalar() or 0
 
-    since = now - timedelta(days=60)
+    today = now.date()
+    heatmap_start = _heatmap_start(today)
     logs = db.query(VocabularyReviewLog.item_id, VocabularyReviewLog.reviewed_at).filter(
-        VocabularyReviewLog.user_id == current_user.id, VocabularyReviewLog.reviewed_at >= since,
+        VocabularyReviewLog.user_id == current_user.id,
+        VocabularyReviewLog.reviewed_at >= datetime.combine(heatmap_start, datetime.min.time()),
     ).all()
 
-    today = now.date()
-    study_dates = {row.reviewed_at.date() for row in logs}
-    studied_today_count = len({row.item_id for row in logs if row.reviewed_at.date() == today})
+    items_by_date = defaultdict(set)
+    for row in logs:
+        items_by_date[row.reviewed_at.date()].add(row.item_id)
+    studied_today_count = len(items_by_date.get(today, set()))
 
-    streak_days = 0
-    cursor = None
-    if today in study_dates:
-        cursor = today
-    elif (today - timedelta(days=1)) in study_dates:
-        cursor = today - timedelta(days=1)
-    while cursor is not None and cursor in study_dates:
-        streak_days += 1
-        cursor -= timedelta(days=1)
+    streak_days = _current_streak(db, current_user.id, today)
+
+    heatmap = []
+    cursor = heatmap_start
+    while cursor <= today:
+        heatmap.append(HeatmapDayOut(date=cursor.isoformat(), count=len(items_by_date.get(cursor, set()))))
+        cursor += timedelta(days=1)
+
+    level, level_floor, level_ceil = _level_info(user.vocab_xp if user else 0)
 
     return StudyOverviewOut(
         streak_days=streak_days, due_today_count=due_today_count,
-        studied_today_count=studied_today_count, daily_goal=daily_goal,
+        studied_today_count=studied_today_count, daily_goal=daily_goal, heatmap=heatmap,
+        xp=user.vocab_xp if user else 0, level=level, level_xp_floor=level_floor, level_xp_ceil=level_ceil,
     )
 
 
@@ -175,6 +277,26 @@ def update_daily_goal(
     db.commit()
 
     return get_study_overview(db=db, current_user=current_user)
+
+
+@router.get("/achievements", response_model=List[AchievementOut])
+def get_achievements(db: Session = Depends(get_db), current_user: UserResponse = Depends(get_current_user)):
+    user = db.query(User).filter(User.id == current_user.id).first()
+    today = datetime.utcnow().date()
+    streak = _current_streak(db, current_user.id, today)
+    learned_count = db.query(func.count(VocabularyItemProgress.id)).filter(
+        VocabularyItemProgress.user_id == current_user.id, VocabularyItemProgress.status == 'learned',
+    ).scalar() or 0
+    level, _, _ = _level_info(user.vocab_xp if user else 0)
+
+    metrics = {'streak': streak, 'learned': learned_count, 'level': level}
+    return [
+        AchievementOut(
+            code=code, name=name, description=description,
+            earned=metrics[metric] >= target, progress_current=min(metrics[metric], target), progress_target=target,
+        )
+        for code, name, description, metric, target in ACHIEVEMENT_DEFS
+    ]
 
 
 @router.get("/sets", response_model=List[VocabularySetProgressOut])
@@ -324,14 +446,44 @@ def submit_review(
     if not item:
         raise HTTPException(status_code=404, detail="Không tìm thấy từ vựng")
 
+    user = db.query(User).filter(User.id == current_user.id).first()
+    if not user:
+        raise HTTPException(status_code=404, detail="Không tìm thấy người dùng")
+
     progress = _get_or_create_progress(db, current_user.id, item_id)
+    was_learned = progress.status == 'learned'
+    old_level, _, _ = _level_info(user.vocab_xp)
+
     _apply_rating(progress, payload.rating)
     db.add(VocabularyReviewLog(
         user_id=current_user.id, item_id=item_id, rating=payload.rating, reviewed_at=datetime.utcnow(),
     ))
+
+    just_learned = progress.status == 'learned' and not was_learned
+    xp_gained = RATING_XP[payload.rating]
+    if just_learned:
+        xp_gained += LEARNED_BONUS_XP
+    user.vocab_xp += xp_gained
+    new_level, _, _ = _level_info(user.vocab_xp)
+    leveled_up = new_level > old_level
+
+    if leveled_up:
+        db.add(Notification(
+            user_id=current_user.id, type='level_up', title=f'Bạn đã lên cấp {new_level}!',
+            message='Tiếp tục học từ vựng mỗi ngày để lên cấp cao hơn.', link='/vocabulary',
+        ))
+    # Only worth the extra streak/learned-count queries when something that
+    # feeds an achievement could plausibly have just crossed a threshold —
+    # most reviews (a plain 'again'/'hard' grade) never do.
+    if just_learned or leveled_up:
+        _check_and_notify_achievements(db, current_user.id, new_level)
+
     db.commit()
     db.refresh(progress)
-    return ReviewSubmitResponse(item_id=item_id, status=progress.status, due_at=progress.due_at)
+    return ReviewSubmitResponse(
+        item_id=item_id, status=progress.status, due_at=progress.due_at,
+        xp_gained=xp_gained, leveled_up=leveled_up, new_level=new_level,
+    )
 
 
 @router.post("/items/{item_id}/bookmark", response_model=BookmarkToggleResponse)

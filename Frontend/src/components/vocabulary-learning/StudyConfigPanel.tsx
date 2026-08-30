@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { STUDY_MODES, StudyMode } from "./types";
 
 export interface SourceOption {
@@ -9,6 +9,21 @@ export interface SourceOption {
 }
 
 const COUNT_PRESETS = [10, 20, 40];
+const CONFIG_STORAGE_KEY = "vocab_study_config";
+
+function loadSavedConfig(): { mode: StudyMode; count: number } {
+  const fallback: { mode: StudyMode; count: number } = { mode: "flashcard", count: 10 };
+  try {
+    const raw = localStorage.getItem(CONFIG_STORAGE_KEY);
+    if (!raw) return fallback;
+    const parsed = JSON.parse(raw);
+    const mode = STUDY_MODES.some((m) => m.id === parsed.mode) ? (parsed.mode as StudyMode) : fallback.mode;
+    const count = Number.isFinite(parsed.count) && parsed.count > 0 ? parsed.count : fallback.count;
+    return { mode, count };
+  } catch {
+    return fallback;
+  }
+}
 
 export default function StudyConfigPanel({
   sourceOptions,
@@ -23,10 +38,21 @@ export default function StudyConfigPanel({
   onStart: (mode: StudyMode, count: number) => void;
   starting?: boolean;
 }) {
-  const [mode, setMode] = useState<StudyMode>("flashcard");
-  const [count, setCount] = useState(10);
-  const [customCount, setCustomCount] = useState("");
+  const [mode, setMode] = useState<StudyMode>(() => loadSavedConfig().mode);
+  const [count, setCount] = useState(() => loadSavedConfig().count);
+  const [customCount, setCustomCount] = useState(() => {
+    const saved = loadSavedConfig().count;
+    return COUNT_PRESETS.includes(saved) ? "" : String(saved);
+  });
   const isCustom = !COUNT_PRESETS.includes(count);
+
+  useEffect(() => {
+    try {
+      localStorage.setItem(CONFIG_STORAGE_KEY, JSON.stringify({ mode, count }));
+    } catch {
+      // private browsing / storage disabled — remembering the choice is a nicety, not essential
+    }
+  }, [mode, count]);
 
   return (
     <div className="space-y-5">

@@ -197,6 +197,9 @@ class ReviewSubmitResponse(BaseModel):
     item_id: int
     status: str
     due_at: Optional[datetime] = None
+    xp_gained: int = 0
+    leveled_up: bool = False
+    new_level: int = 1
 
 
 class BookmarkToggleResponse(BaseModel):
@@ -204,15 +207,34 @@ class BookmarkToggleResponse(BaseModel):
     is_bookmarked: bool
 
 
+class HeatmapDayOut(BaseModel):
+    date: str  # ISO date (YYYY-MM-DD)
+    count: int
+
+
 class StudyOverviewOut(BaseModel):
     streak_days: int = 0
     due_today_count: int = 0
     studied_today_count: int = 0
     daily_goal: int = 20
+    heatmap: List[HeatmapDayOut] = []
+    xp: int = 0
+    level: int = 1
+    level_xp_floor: int = 0  # total XP at which the current level started
+    level_xp_ceil: int = 100  # total XP needed to reach the next level
 
 
 class UpdateDailyGoalRequest(BaseModel):
     daily_goal: int
+
+
+class AchievementOut(BaseModel):
+    code: str
+    name: str
+    description: str
+    earned: bool
+    progress_current: int
+    progress_target: int
 
 
 class MiniStoryRequest(BaseModel):

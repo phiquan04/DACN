@@ -1,11 +1,12 @@
-import { useRef, useState } from "react";
-import { AngleLeftIcon, AngleRightIcon, CloseIcon } from "../../icons";
+import { useEffect, useRef, useState } from "react";
+import { AngleLeftIcon, AngleRightIcon, CloseIcon, ShootingStarIcon } from "../../icons";
 import {
   ReviewRating,
   VocabularyLearningItem,
   submitReview,
   toggleBookmark,
 } from "../../services/vocabularyLearningApi";
+import Confetti from "./Confetti";
 import FillBlankCard from "./modes/FillBlankCard";
 import FlashcardSrsCard from "./modes/FlashcardSrsCard";
 import HanVietHintCard from "./modes/HanVietHintCard";
@@ -13,6 +14,7 @@ import ListenGuessCard from "./modes/ListenGuessCard";
 import MatchPairsGame from "./modes/MatchPairsGame";
 import MiniStoryPanel from "./modes/MiniStoryPanel";
 import PronounceCard from "./modes/PronounceCard";
+import QuizCard from "./modes/QuizCard";
 import TypeMeaningCard from "./modes/TypeMeaningCard";
 import { SessionResult, StudyMode } from "./types";
 
@@ -29,6 +31,8 @@ export default function SessionView({
 }) {
   const [batch, setBatch] = useState(initialBatch);
   const [index, setIndex] = useState(0);
+  const [xpFlash, setXpFlash] = useState<{ amount: number; key: number } | null>(null);
+  const [levelUp, setLevelUp] = useState<number | null>(null);
   const startTimeRef = useRef(Date.now());
   const tallyRef = useRef<SessionResult>({
     total: initialBatch.length,
@@ -37,6 +41,12 @@ export default function SessionView({
     againCount: 0,
     elapsedSeconds: 0,
   });
+
+  useEffect(() => {
+    if (levelUp === null) return;
+    const timer = setTimeout(() => setLevelUp(null), 2500);
+    return () => clearTimeout(timer);
+  }, [levelUp]);
 
   const finish = () => {
     onComplete({
@@ -51,6 +61,8 @@ export default function SessionView({
       const res = await submitReview(itemId, rating);
       if (res.status === "learned") tallyRef.current.learnedCount += 1;
       else tallyRef.current.reviewingCount += 1;
+      setXpFlash({ amount: res.xp_gained, key: Date.now() });
+      if (res.leveled_up) setLevelUp(res.new_level);
     } catch {
       tallyRef.current.reviewingCount += 1;
     }
@@ -143,6 +155,16 @@ export default function SessionView({
             onToggleBookmark={() => handleToggleBookmark(current.id)}
           />
         );
+      case "quiz":
+        return (
+          <QuizCard
+            key={current.id}
+            item={current}
+            pool={batch}
+            onGrade={handleCardGrade}
+            onToggleBookmark={() => handleToggleBookmark(current.id)}
+          />
+        );
       default:
         return null;
     }
@@ -150,7 +172,9 @@ export default function SessionView({
 
   return (
     <div className="space-y-5">
-      <div className="flex items-center gap-3">
+      {levelUp !== null && <Confetti />}
+
+      <div className="relative flex items-center gap-3">
         <div className="h-2 flex-1 overflow-hidden rounded-full bg-gray-100 dark:bg-gray-800">
           <div
             className="h-full bg-gray-900 transition-all dark:bg-white"
@@ -160,6 +184,14 @@ export default function SessionView({
         <span className="shrink-0 text-xs text-gray-400 dark:text-gray-500">
           {isWholeBatch ? `${batch.length} từ` : `${index + 1}/${batch.length}`}
         </span>
+        {xpFlash && (
+          <span
+            key={xpFlash.key}
+            className="vocab-xp-flash pointer-events-none absolute right-8 top-full text-xs font-bold text-teal-600 dark:text-teal-400"
+          >
+            +{xpFlash.amount} XP
+          </span>
+        )}
         <button
           type="button"
           onClick={onExit}
@@ -169,6 +201,13 @@ export default function SessionView({
           <CloseIcon className="h-5 w-5" />
         </button>
       </div>
+
+      {levelUp !== null && (
+        <p className="flex items-center justify-center gap-1.5 text-sm font-semibold text-teal-600 dark:text-teal-400">
+          <ShootingStarIcon className="h-4 w-4" />
+          Lên cấp {levelUp}!
+        </p>
+      )}
 
       {isWholeBatch ? (
         <div className="mx-auto max-w-2xl">
@@ -186,7 +225,9 @@ export default function SessionView({
           >
             <AngleLeftIcon className="h-5 w-5" />
           </button>
-          <div className="min-w-0 flex-1">{renderCard()}</div>
+          <div key={current.id} className="min-w-0 flex-1 vocab-card-enter">
+            {renderCard()}
+          </div>
           <button
             type="button"
             onClick={goNext}

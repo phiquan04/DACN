@@ -5,6 +5,7 @@ export type StudyMode =
   | "pronounce"
   | "type-meaning"
   | "fill-blank"
+  | "quiz"
   | "match"
   | "story";
 
@@ -46,6 +47,11 @@ export const STUDY_MODES: StudyModeDef[] = [
     id: "fill-blank",
     name: "Điền từ vào câu",
     description: "Ẩn từ trong câu ví dụ có sẵn, bạn điền lại đúng từ.",
+  },
+  {
+    id: "quiz",
+    name: "Trắc nghiệm 4 đáp án",
+    description: "Chọn nghĩa đúng trong 4 lựa chọn — dễ nhất, hợp để khởi động hoặc học nhanh trên điện thoại.",
   },
   {
     id: "match",
