@@ -71,13 +71,17 @@ def start_conversation(
         if not opening_text:
             api_key = chat_ai.require_api_key()
             opener_prompt = (
-                f"あなたはロールプレイの相手役です。シチュエーション「{scenario.title}」"
-                f"（{scenario.description or scenario.title}）を始めるための最初の一言を日本語で話してください。"
+                f"あなたはロールプレイの「相手役」です。シチュエーション「{scenario.title}」"
+                f"（{scenario.description or scenario.title}）において、ユーザー側の行動の相手となる人物"
+                f"（例: 面接なら面接官・採用担当者、飲食店の予約なら店員、買い物なら店員）を演じてください。"
+                f"ユーザー自身の役（応募者・客側など）は絶対に演じないでください。"
+                f"この相手役として、会話を始めるための最初の一言を日本語で話してください。"
             )
             if situation_context:
                 opener_prompt += f"具体的な場面設定: {situation_context}。この場面設定に沿ってください。"
             opener_prompt += (
-                "2〜3文程度で、挨拶と自己紹介を含めてください。JSONは不要で、日本語の発話のみを出力してください。"
+                "2〜3文程度で、挨拶と、相手役としての自己紹介（自分の名前や会社・店の名前など）を含めてください。"
+                "JSONは不要で、日本語の発話のみを出力してください。"
             )
             opening_text = chat_ai.call_openrouter(
                 [{"role": "system", "content": opener_prompt}], api_key
