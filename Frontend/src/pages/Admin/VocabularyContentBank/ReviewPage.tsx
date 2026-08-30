@@ -2,7 +2,6 @@ import { useEffect } from "react";
 import { useSearchParams } from "react-router";
 import PageMeta from "../../../components/common/PageMeta";
 import { usePageHeader } from "../../../context/PageHeaderContext";
-import VocabularyTabs from "../../../components/admin-vocabulary/VocabularyTabs";
 import ReviewVocabularySets from "../../../components/admin-vocabulary/ReviewVocabularySets";
 
 export default function ReviewPage() {
@@ -22,7 +21,6 @@ export default function ReviewPage() {
     <>
       <PageMeta title="Duyệt bộ từ vựng | Manabi AI" description="Duyệt và publish bộ từ vựng." />
       <div className="space-y-5">
-        <VocabularyTabs current="Duyệt bộ từ vựng" />
         <ReviewVocabularySets focusSetId={focusSetId} />
       </div>
     </>

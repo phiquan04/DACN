@@ -17,7 +17,7 @@ export async function fetchCurriculums(): Promise<Curriculum[]> {
   return request(`/api/vocabulary/curriculums`, { headers: authHeaders(getToken()) });
 }
 
-export async function createCurriculum(payload: { name: string; description?: string }): Promise<Curriculum> {
+export async function createCurriculum(payload: { name: string; description?: string | null }): Promise<Curriculum> {
   return request(`/api/vocabulary/curriculums`, {
     method: "POST",
     headers: jsonHeaders(getToken()),
@@ -27,7 +27,7 @@ export async function createCurriculum(payload: { name: string; description?: st
 
 export async function updateCurriculum(
   id: number,
-  payload: { name?: string; description?: string }
+  payload: { name?: string; description?: string | null }
 ): Promise<Curriculum> {
   return request(`/api/vocabulary/curriculums/${id}`, {
     method: "PATCH",
@@ -121,6 +121,7 @@ export interface VocabularySetSummary {
   set_name: string;
   description?: string | null;
   status: "draft" | "processing" | "failed" | "published";
+  is_locked: boolean;
   curriculum_id?: number | null;
   curriculum_name?: string | null;
   category_id?: number | null;
@@ -129,6 +130,8 @@ export interface VocabularySetSummary {
   error_message?: string | null;
   item_count: number;
   reviewed_count: number;
+  created_at: string;
+  updated_at: string;
 }
 
 export interface VocabularyItem {
@@ -150,6 +153,22 @@ export interface VocabularyItem {
 export interface VocabularySetReview extends VocabularySetSummary {
   items: VocabularyItem[];
   ready_to_publish: boolean;
+}
+
+export interface VocabularySetPatch {
+  set_name?: string;
+  description?: string | null;
+  curriculum_id?: number | null;
+  category_id?: number | null;
+  is_locked?: boolean;
+}
+
+export async function updateVocabularySet(setId: number, patch: VocabularySetPatch): Promise<VocabularySetSummary> {
+  return request(`/api/vocabulary/sets/${setId}`, {
+    method: "PATCH",
+    headers: jsonHeaders(getToken()),
+    body: JSON.stringify(patch),
+  });
 }
 
 export async function fetchVocabularySets(params?: {

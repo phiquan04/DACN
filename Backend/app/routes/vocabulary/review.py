@@ -37,7 +37,7 @@ def _item_out(item: VocabularyItem) -> VocabularyItemOut:
 def _set_summary(vocab_set: VocabularySet) -> VocabularySetSummary:
     return VocabularySetSummary(
         id=vocab_set.id, level=vocab_set.level, set_name=vocab_set.set_name,
-        description=vocab_set.description, status=vocab_set.status,
+        description=vocab_set.description, status=vocab_set.status, is_locked=vocab_set.is_locked,
         curriculum_id=vocab_set.curriculum_id,
         curriculum_name=vocab_set.curriculum.name if vocab_set.curriculum else None,
         category_id=vocab_set.category_id,
@@ -45,6 +45,7 @@ def _set_summary(vocab_set: VocabularySet) -> VocabularySetSummary:
         source_filename=vocab_set.source_filename, error_message=vocab_set.error_message,
         item_count=vocab_set.item_count,
         reviewed_count=sum(1 for i in vocab_set.items if i.is_reviewed),
+        created_at=vocab_set.created_at, updated_at=vocab_set.updated_at,
     )
 
 
@@ -112,7 +113,7 @@ def update_set_metadata(
         if not db.query(VocabularyCategory).filter(VocabularyCategory.id == fields['category_id']).first():
             raise HTTPException(status_code=400, detail="Danh mục không tồn tại")
 
-    for key in ('set_name', 'description', 'curriculum_id', 'category_id'):
+    for key in ('set_name', 'description', 'curriculum_id', 'category_id', 'is_locked'):
         if key in fields:
             setattr(vocab_set, key, fields[key])
 

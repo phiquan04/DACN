@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { ReactNode, useEffect, useMemo, useState } from "react";
 import { useToast } from "../../context/ToastContext";
 import { PencilIcon, PlusIcon, TrashIcon } from "../admin-jlpt/icons";
 
@@ -12,22 +12,28 @@ export interface LookupItem {
 interface Props {
   title: string;
   hint: string;
+  icon: ReactNode;
   /** Category has no free-text description (only name + auto slug); curriculum does. */
   hasDescription?: boolean;
-  fetchItems: () => Promise<LookupItem[]>;
-  onCreate: (payload: { name: string; description?: string }) => Promise<LookupItem>;
-  onUpdate: (id: number, payload: { name?: string; description?: string }) => Promise<LookupItem>;
+  items: LookupItem[];
+  loading: boolean;
+  onCreate: (payload: { name: string; description?: string | null }) => Promise<void>;
+  onUpdate: (id: number, payload: { name?: string; description?: string | null }) => Promise<void>;
   onDelete: (id: number) => Promise<void>;
 }
+
+const PAGE_SIZE = 10;
 
 /** Shared list+CRUD UI for the two vocabulary lookup tables (curriculum,
  * category) — both are simple name(+description) lists reused across many
  * vocabulary sets, so admins manage them here instead of free-typing on
- * every import. */
-export default function LookupManager({ title, hint, hasDescription, fetchItems, onCreate, onUpdate, onDelete }: Props) {
+ * every import. Data fetching/mutation lives in the parent page (so it can
+ * show aggregate counts); this component only owns UI state (search,
+ * pagination, inline add/edit forms). */
+export default function LookupManager({ title, hint, icon, hasDescription, items, loading, onCreate, onUpdate, onDelete }: Props) {
   const { showToast } = useToast();
-  const [items, setItems] = useState<LookupItem[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [search, setSearch] = useState("");
+  const [page, setPage] = useState(1);
   const [creating, setCreating] = useState(false);
   const [newName, setNewName] = useState("");
   const [newDescription, setNewDescription] = useState("");
@@ -36,19 +42,17 @@ export default function LookupManager({ title, hint, hasDescription, fetchItems,
   const [editName, setEditName] = useState("");
   const [editDescription, setEditDescription] = useState("");
 
-  const load = async () => {
-    setLoading(true);
-    try {
-      setItems(await fetchItems());
-    } finally {
-      setLoading(false);
-    }
-  };
+  const filtered = useMemo(
+    () => items.filter((i) => i.name.toLowerCase().includes(search.trim().toLowerCase())),
+    [items, search]
+  );
+  const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
+  const currentPage = Math.min(page, totalPages);
+  const pageItems = filtered.slice((currentPage - 1) * PAGE_SIZE, currentPage * PAGE_SIZE);
 
   useEffect(() => {
-    load();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+    setPage(1);
+  }, [search]);
 
   const resetCreateForm = () => {
     setCreating(false);
@@ -60,10 +64,9 @@ export default function LookupManager({ title, hint, hasDescription, fetchItems,
     if (!newName.trim()) return;
     setSaving(true);
     try {
-      await onCreate({ name: newName.trim(), description: newDescription || undefined });
+      await onCreate({ name: newName.trim(), description: newDescription.trim() || null });
       showToast("Đã thêm mới", "success");
       resetCreateForm();
-      await load();
     } catch {
       // reported globally
     } finally {
@@ -81,10 +84,12 @@ export default function LookupManager({ title, hint, hasDescription, fetchItems,
     if (!editName.trim()) return;
     setSaving(true);
     try {
-      await onUpdate(id, { name: editName.trim(), description: editDescription || undefined });
+      // description sent explicitly (even when empty -> null) so clearing it
+      // actually persists — the backend PATCH only applies keys present in
+      // the request body, so omitting it here would silently keep the old value.
+      await onUpdate(id, { name: editName.trim(), description: editDescription.trim() || null });
       showToast("Đã lưu", "success");
       setEditingId(null);
-      await load();
     } catch {
       // reported globally
     } finally {
@@ -101,7 +106,6 @@ export default function LookupManager({ title, hint, hasDescription, fetchItems,
     try {
       await onDelete(item.id);
       showToast("Đã xóa", "success");
-      await load();
     } catch {
       // reported globally
     }
@@ -110,9 +114,14 @@ export default function LookupManager({ title, hint, hasDescription, fetchItems,
   return (
     <div className="rounded-xl border border-gray-200 bg-white shadow-sm dark:border-gray-700 dark:bg-gray-900">
       <div className="flex flex-wrap items-center justify-between gap-2 border-b border-gray-200 p-4 dark:border-gray-700">
-        <div>
-          <h3 className="text-sm font-semibold text-gray-800 dark:text-white/90">{title}</h3>
-          <p className="mt-0.5 text-xs text-gray-500 dark:text-gray-400">{hint}</p>
+        <div className="flex items-center gap-2.5">
+          <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-teal-100 text-teal-600 dark:bg-teal-500/15 dark:text-teal-400 [&>svg]:h-4 [&>svg]:w-4">
+            {icon}
+          </span>
+          <div>
+            <h3 className="text-sm font-semibold text-gray-800 dark:text-white/90">{title}</h3>
+            <p className="mt-0.5 text-xs text-gray-500 dark:text-gray-400">{hint}</p>
+          </div>
         </div>
         <button
           type="button"
@@ -162,12 +171,24 @@ export default function LookupManager({ title, hint, hasDescription, fetchItems,
         </div>
       )}
 
+      <div className="border-b border-gray-200 p-4 dark:border-gray-700">
+        <input
+          type="search"
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+          placeholder="Tìm theo tên..."
+          className="w-full rounded-lg border border-gray-200 bg-gray-50 px-3 py-2 text-sm text-gray-800 outline-none focus:border-brand-500 focus:ring-1 focus:ring-brand-500 dark:border-gray-700 dark:bg-gray-800 dark:text-white/90"
+        />
+      </div>
+
       <div className="flex flex-col gap-2.5 p-4">
         {loading && <p className="text-sm text-gray-500 dark:text-gray-400">Đang tải...</p>}
-        {!loading && items.length === 0 && (
-          <p className="text-sm text-gray-500 dark:text-gray-400">Chưa có dữ liệu.</p>
+        {!loading && filtered.length === 0 && (
+          <p className="text-sm text-gray-500 dark:text-gray-400">
+            {search ? "Không tìm thấy kết quả phù hợp." : "Chưa có dữ liệu."}
+          </p>
         )}
-        {items.map((item) =>
+        {pageItems.map((item) =>
           editingId === item.id ? (
             <div
               key={item.id}
@@ -240,6 +261,30 @@ export default function LookupManager({ title, hint, hasDescription, fetchItems,
               </div>
             </div>
           )
+        )}
+
+        {filtered.length > PAGE_SIZE && (
+          <div className="mt-1 flex items-center justify-between border-t border-gray-100 pt-3 dark:border-gray-800">
+            <button
+              type="button"
+              onClick={() => setPage((p) => Math.max(1, p - 1))}
+              disabled={currentPage <= 1}
+              className="rounded-lg border border-gray-200 px-3 py-1.5 text-xs font-medium text-gray-600 hover:bg-gray-50 disabled:opacity-40 dark:border-gray-700 dark:text-gray-300 dark:hover:bg-gray-800"
+            >
+              Trước
+            </button>
+            <span className="text-xs text-gray-500 dark:text-gray-400">
+              Trang {currentPage}/{totalPages} · {filtered.length} mục
+            </span>
+            <button
+              type="button"
+              onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+              disabled={currentPage >= totalPages}
+              className="rounded-lg border border-gray-200 px-3 py-1.5 text-xs font-medium text-gray-600 hover:bg-gray-50 disabled:opacity-40 dark:border-gray-700 dark:text-gray-300 dark:hover:bg-gray-800"
+            >
+              Sau
+            </button>
+          </div>
         )}
       </div>
     </div>

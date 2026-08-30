@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { VocabularyItem, VocabularyItemPatch } from "../../services/vocabularyApi";
 import { CheckIcon, TrashIcon } from "../admin-jlpt/icons";
+import { ChevronDownIcon } from "../../icons";
 
 interface Props {
   item: VocabularyItem;
@@ -16,7 +17,13 @@ function AiBadge() {
   );
 }
 
+/** Renders as a compact preview tile (3-per-row grid, see ReviewVocabularySets)
+ * so a set with hundreds/thousands of words doesn't turn the page into an
+ * endless scroll of full edit forms — expands into the full form in-place
+ * (spanning the whole grid row) only when the admin clicks it to fix
+ * something. Most words the AI already got right just need a glance. */
 export default function VocabularyItemCard({ item, onSave, onDelete }: Props) {
+  const [expanded, setExpanded] = useState(false);
   const [word, setWord] = useState(item.word);
   const [reading, setReading] = useState(item.reading ?? "");
   const [hanViet, setHanViet] = useState(item.han_viet ?? "");
@@ -38,6 +45,18 @@ export default function VocabularyItemCard({ item, onSave, onDelete }: Props) {
     exampleVi !== (item.example_sentence_vi ?? "") ||
     adminNotes !== (item.admin_notes ?? "");
 
+  const discardAndCollapse = () => {
+    setWord(item.word);
+    setReading(item.reading ?? "");
+    setHanViet(item.han_viet ?? "");
+    setMeaning(item.meaning_vi);
+    setWordType(item.word_type ?? "");
+    setExampleJa(item.example_sentence_ja ?? "");
+    setExampleVi(item.example_sentence_vi ?? "");
+    setAdminNotes(item.admin_notes ?? "");
+    setExpanded(false);
+  };
+
   const handleSave = async () => {
     setSaving(true);
     try {
@@ -51,12 +70,14 @@ export default function VocabularyItemCard({ item, onSave, onDelete }: Props) {
         example_sentence_vi: exampleVi || null,
         admin_notes: adminNotes || null,
       });
+      setExpanded(false);
     } finally {
       setSaving(false);
     }
   };
 
-  const handleDelete = async () => {
+  const handleDelete = async (e?: React.MouseEvent) => {
+    e?.stopPropagation();
     if (!window.confirm(`Xóa từ "${item.word}"? Không thể hoàn tác.`)) return;
     setDeleting(true);
     try {
@@ -66,16 +87,71 @@ export default function VocabularyItemCard({ item, onSave, onDelete }: Props) {
     }
   };
 
+  if (!expanded) {
+    return (
+      <div
+        onClick={() => setExpanded(true)}
+        role="button"
+        tabIndex={0}
+        onKeyDown={(e) => e.key === "Enter" && setExpanded(true)}
+        className={`cursor-pointer rounded-lg border p-3 transition-colors hover:border-teal-500 hover:shadow-sm ${
+          item.is_reviewed
+            ? "border-emerald-200 bg-emerald-50/40 dark:border-emerald-500/25 dark:bg-emerald-500/5"
+            : "border-gray-200 dark:border-gray-700"
+        }`}
+      >
+        <div className="mb-1.5 flex items-start justify-between gap-2">
+          <span className="text-[11px] font-semibold text-gray-400 dark:text-gray-500">#{item.order_no + 1}</span>
+          <div className="flex shrink-0 items-center gap-1.5">
+            {item.is_reviewed && (
+              <span className="flex items-center gap-0.5 rounded-full bg-emerald-100 px-1.5 py-0.5 text-[9px] font-semibold text-emerald-700 dark:bg-emerald-500/20 dark:text-emerald-300">
+                <CheckIcon className="h-2.5 w-2.5" /> Đã duyệt
+              </span>
+            )}
+            {(item.is_meaning_ai_generated || item.is_example_ai_generated) && <AiBadge />}
+            <button
+              type="button"
+              onClick={handleDelete}
+              disabled={deleting}
+              title="Xóa từ này"
+              className="text-gray-400 hover:text-rose-500 disabled:opacity-60"
+            >
+              <TrashIcon className="h-3.5 w-3.5" />
+            </button>
+          </div>
+        </div>
+        <p lang="ja" className="truncate text-lg font-semibold text-gray-800 dark:text-white/90" title={item.word}>
+          {item.word}
+        </p>
+        <p lang="ja" className="truncate text-xs text-gray-500 dark:text-gray-400">
+          {item.reading || "—"}
+        </p>
+        {item.han_viet && (
+          <p className="truncate text-xs text-gray-400 dark:text-gray-500">{item.han_viet}</p>
+        )}
+        <p className="mt-1.5 truncate text-sm text-gray-700 dark:text-gray-300" title={item.meaning_vi}>
+          {item.meaning_vi}
+        </p>
+      </div>
+    );
+  }
+
   return (
     <div
-      className={`rounded-lg border p-3.5 transition-colors ${
+      className={`col-span-full rounded-lg border p-3.5 transition-colors ${
         item.is_reviewed
           ? "border-emerald-200 bg-emerald-50/40 dark:border-emerald-500/25 dark:bg-emerald-500/5"
-          : "border-gray-200 dark:border-gray-700"
+          : "border-teal-300 dark:border-teal-500/50"
       }`}
     >
       <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
-        <span className="text-xs font-semibold text-gray-500 dark:text-gray-400">#{item.order_no + 1}</span>
+        <button
+          type="button"
+          onClick={discardAndCollapse}
+          className="flex items-center gap-1 text-xs font-semibold text-gray-500 hover:text-gray-800 dark:text-gray-400 dark:hover:text-white"
+        >
+          <ChevronDownIcon className="h-3.5 w-3.5 rotate-180" /> #{item.order_no + 1} · Thu gọn
+        </button>
         <div className="flex items-center gap-2">
           {item.is_reviewed && (
             <span className="flex items-center gap-1 rounded-full bg-emerald-100 px-2 py-0.5 text-[10px] font-semibold text-emerald-700 dark:bg-emerald-500/20 dark:text-emerald-300">
@@ -185,7 +261,14 @@ export default function VocabularyItemCard({ item, onSave, onDelete }: Props) {
         />
       </div>
 
-      <div className="mt-2 flex justify-end">
+      <div className="mt-2 flex justify-end gap-2">
+        <button
+          type="button"
+          onClick={discardAndCollapse}
+          className="rounded-lg border border-gray-200 px-4 py-1.5 text-xs font-medium text-gray-600 hover:bg-gray-50 dark:border-gray-700 dark:text-gray-300 dark:hover:bg-gray-800"
+        >
+          Hủy
+        </button>
         <button
           type="button"
           onClick={handleSave}

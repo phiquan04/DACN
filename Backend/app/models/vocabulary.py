@@ -44,6 +44,7 @@ class VocabularySet(BaseModel):
     set_name = Column(String(255), nullable=False)
     description = Column(Text, nullable=True)
     status = Column(String(20), nullable=False, default='draft')  # 'draft' | 'processing' | 'failed' | 'published'
+    is_locked = Column(Boolean, nullable=False, default=False)  # locked = hidden from users even if published
     source_filename = Column(String(255), nullable=True)
     error_message = Column(Text, nullable=True)
     item_count = Column(Integer, nullable=False, default=0)  # denormalized count of `items`

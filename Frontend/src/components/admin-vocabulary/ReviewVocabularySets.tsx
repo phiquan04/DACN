@@ -1,54 +1,49 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useToast } from "../../context/ToastContext";
 import {
+  Curriculum,
+  VocabCategory,
   VocabularyItemCreate,
   VocabularyItemPatch,
+  VocabularySetPatch,
   VocabularySetReview,
   VocabularySetSummary,
   createVocabularyItem,
   deleteVocabularyItem,
   deleteVocabularySet,
+  fetchCategories,
+  fetchCurriculums,
   fetchVocabularySetReview,
   fetchVocabularySets,
   markAllVocabularyItemsReviewed,
   publishVocabularySet,
   updateVocabularyItem,
+  updateVocabularySet,
 } from "../../services/vocabularyApi";
 import NewVocabularyItemForm from "./NewVocabularyItemForm";
 import VocabularyItemCard from "./VocabularyItemCard";
-import { TrashIcon } from "../admin-jlpt/icons";
-import { ChevronLeftIcon } from "../../icons";
+import VocabularySetRow, { StatusBadge } from "./VocabularySetRow";
+import VocabularySetFilters, { EMPTY_FILTERS, VocabularySetFilterValues } from "./VocabularySetFilters";
+import StatCard from "./StatCard";
+import { LockIcon, UnlockIcon } from "../admin-jlpt/icons";
+import { BoxCubeIcon, ChevronLeftIcon } from "../../icons";
 
-const STATUS_LABELS: Record<string, string> = {
-  draft: "Nháp",
-  processing: "Đang xử lý",
-  failed: "Lỗi",
-  published: "Đã publish",
-};
-
-function StatusBadge({ status }: { status: string }) {
-  const styles: Record<string, string> = {
-    published: "bg-emerald-100 text-emerald-700 dark:bg-emerald-500/20 dark:text-emerald-300",
-    failed: "bg-rose-100 text-rose-700 dark:bg-rose-500/20 dark:text-rose-300",
-    processing: "bg-amber-100 text-amber-700 dark:bg-amber-500/20 dark:text-amber-300",
-    draft: "bg-gray-200 text-gray-600 dark:bg-gray-700 dark:text-gray-300",
-  };
-  return (
-    <span className={`rounded-full px-2.5 py-0.5 text-[10px] font-semibold uppercase ${styles[status] ?? styles.draft}`}>
-      {STATUS_LABELS[status] ?? status}
-    </span>
-  );
-}
+const ITEMS_PAGE_SIZE = 30;
 
 export default function ReviewVocabularySets({ focusSetId }: { focusSetId?: number | null }) {
   const { showToast } = useToast();
   const [sets, setSets] = useState<VocabularySetSummary[]>([]);
   const [loadingList, setLoadingList] = useState(true);
+  const [curriculums, setCurriculums] = useState<Curriculum[]>([]);
+  const [categories, setCategories] = useState<VocabCategory[]>([]);
+  const [search, setSearch] = useState("");
+  const [filters, setFilters] = useState<VocabularySetFilterValues>(EMPTY_FILTERS);
   const [selectedId, setSelectedId] = useState<number | null>(focusSetId ?? null);
   const [detail, setDetail] = useState<VocabularySetReview | null>(null);
   const [loadingDetail, setLoadingDetail] = useState(false);
   const [publishing, setPublishing] = useState(false);
   const [markingAll, setMarkingAll] = useState(false);
+  const [itemsPage, setItemsPage] = useState(1);
 
   const loadList = async () => {
     setLoadingList(true);
@@ -61,11 +56,17 @@ export default function ReviewVocabularySets({ focusSetId }: { focusSetId?: numb
 
   useEffect(() => {
     loadList();
+    fetchCurriculums().then(setCurriculums).catch(() => {});
+    fetchCategories().then(setCategories).catch(() => {});
   }, []);
 
   useEffect(() => {
     if (focusSetId) setSelectedId(focusSetId);
   }, [focusSetId]);
+
+  useEffect(() => {
+    setItemsPage(1);
+  }, [selectedId]);
 
   useEffect(() => {
     if (!selectedId) {
@@ -166,8 +167,49 @@ export default function ReviewVocabularySets({ focusSetId }: { focusSetId?: numb
     }
   };
 
+  const handleUpdateSet = async (setId: number, patch: VocabularySetPatch) => {
+    try {
+      await updateVocabularySet(setId, patch);
+      showToast("Đã lưu bộ từ vựng", "success");
+      await loadList();
+    } catch {
+      // reported globally — mirrors handleSaveItem: the row still exits edit
+      // mode even on failure, same tradeoff already accepted for word cards.
+    }
+  };
+
+  const handleToggleLock = async (set: VocabularySetSummary) => {
+    try {
+      await updateVocabularySet(set.id, { is_locked: !set.is_locked });
+      showToast(set.is_locked ? "Đã mở khóa — học viên xem lại được" : "Đã khóa — ẩn khỏi học viên", "success");
+      await loadList();
+    } catch {
+      // reported globally
+    }
+  };
+
+  const filteredSets = useMemo(() => {
+    return sets.filter((s) => {
+      if (search.trim() && !s.set_name.toLowerCase().includes(search.trim().toLowerCase())) return false;
+      if (filters.curriculumId !== "" && s.curriculum_id !== filters.curriculumId) return false;
+      if (filters.categoryId !== "" && s.category_id !== filters.categoryId) return false;
+      if (filters.lock === "locked" && !s.is_locked) return false;
+      if (filters.lock === "unlocked" && s.is_locked) return false;
+      if (filters.status && s.status !== filters.status) return false;
+      return true;
+    });
+  }, [sets, search, filters]);
+
+  const lockedCount = sets.filter((s) => s.is_locked).length;
+
   if (selectedId && detail) {
     const sortedItems = [...detail.items].sort((a, b) => a.order_no - b.order_no);
+    const totalItemPages = Math.max(1, Math.ceil(sortedItems.length / ITEMS_PAGE_SIZE));
+    const currentItemsPage = Math.min(itemsPage, totalItemPages);
+    const pageItems = sortedItems.slice(
+      (currentItemsPage - 1) * ITEMS_PAGE_SIZE,
+      currentItemsPage * ITEMS_PAGE_SIZE
+    );
 
     return (
       <div className="space-y-4">
@@ -217,8 +259,8 @@ export default function ReviewVocabularySets({ focusSetId }: { focusSetId?: numb
         </div>
 
         <div className="rounded-xl border border-gray-200 bg-white p-4 shadow-sm dark:border-gray-700 dark:bg-gray-900">
-          <div className="flex flex-col gap-2.5">
-            {sortedItems.map((item) => (
+          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+            {pageItems.map((item) => (
               <VocabularyItemCard
                 key={item.id}
                 item={item}
@@ -226,8 +268,34 @@ export default function ReviewVocabularySets({ focusSetId }: { focusSetId?: numb
                 onDelete={() => handleDeleteItem(item.id)}
               />
             ))}
-            <NewVocabularyItemForm onCreate={handleCreateItem} />
+            <div className="col-span-full">
+              <NewVocabularyItemForm onCreate={handleCreateItem} />
+            </div>
           </div>
+
+          {sortedItems.length > ITEMS_PAGE_SIZE && (
+            <div className="mt-4 flex items-center justify-between border-t border-gray-100 pt-3 dark:border-gray-800">
+              <button
+                type="button"
+                onClick={() => setItemsPage((p) => Math.max(1, p - 1))}
+                disabled={currentItemsPage <= 1}
+                className="rounded-lg border border-gray-200 px-3 py-1.5 text-xs font-medium text-gray-600 hover:bg-gray-50 disabled:opacity-40 dark:border-gray-700 dark:text-gray-300 dark:hover:bg-gray-800"
+              >
+                Trước
+              </button>
+              <span className="text-xs text-gray-500 dark:text-gray-400">
+                Trang {currentItemsPage}/{totalItemPages} · {sortedItems.length} từ
+              </span>
+              <button
+                type="button"
+                onClick={() => setItemsPage((p) => Math.min(totalItemPages, p + 1))}
+                disabled={currentItemsPage >= totalItemPages}
+                className="rounded-lg border border-gray-200 px-3 py-1.5 text-xs font-medium text-gray-600 hover:bg-gray-50 disabled:opacity-40 dark:border-gray-700 dark:text-gray-300 dark:hover:bg-gray-800"
+              >
+                Sau
+              </button>
+            </div>
+          )}
         </div>
       </div>
     );
@@ -238,46 +306,45 @@ export default function ReviewVocabularySets({ focusSetId }: { focusSetId?: numb
   }
 
   return (
-    <div className="flex flex-col gap-2.5">
-      {loadingList && <p className="text-sm text-gray-500 dark:text-gray-400">Đang tải...</p>}
-      {!loadingList && sets.length === 0 && (
-        <p className="text-sm text-gray-500 dark:text-gray-400">Chưa có bộ từ vựng nào được import.</p>
-      )}
-      {sets.map((set) => (
-        <div
-          key={set.id}
-          className="flex items-center justify-between gap-3 rounded-xl border border-gray-200 bg-white p-4 shadow-sm transition hover:border-teal-500 hover:shadow-sm dark:border-gray-700 dark:bg-gray-900"
-        >
-          <button
-            type="button"
-            className="min-w-0 flex-1 text-left"
-            onClick={() => (set.status !== "processing" ? setSelectedId(set.id) : undefined)}
-          >
-            <div className="flex items-center gap-2">
-              <span className="truncate text-sm font-semibold text-gray-800 dark:text-white/90">{set.set_name}</span>
-              <StatusBadge status={set.status} />
-            </div>
-            <p className="mt-0.5 text-xs text-gray-500 dark:text-gray-400">
-              {set.level}
-              {set.curriculum_name && ` · ${set.curriculum_name}`}
-              {set.category_name && ` · ${set.category_name}`} · {set.reviewed_count}/{set.item_count} từ đã duyệt
-            </p>
-            {set.status === "failed" && set.error_message && (
-              <p className="mt-1 truncate text-xs text-rose-600 dark:text-rose-400" title={set.error_message}>
-                {set.error_message}
-              </p>
-            )}
-          </button>
-          <button
-            type="button"
-            onClick={() => handleDelete(set.id)}
-            className="shrink-0 text-gray-400 hover:text-rose-500"
-            title="Xóa bộ từ vựng"
-          >
-            <TrashIcon className="h-4 w-4" />
-          </button>
-        </div>
-      ))}
+    <div className="space-y-5">
+      <div className="grid gap-4 sm:grid-cols-3">
+        <StatCard label="Tổng số bộ từ vựng" value={sets.length} icon={<BoxCubeIcon />} />
+        <StatCard label="Đang mở" value={sets.length - lockedCount} icon={<UnlockIcon />} />
+        <StatCard label="Đang khóa" value={lockedCount} icon={<LockIcon />} />
+      </div>
+
+      <div className="flex flex-wrap items-center gap-3">
+        <input
+          type="search"
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+          placeholder="Tìm theo tên bộ từ vựng..."
+          className="min-w-[240px] flex-1 rounded-lg border border-gray-200 bg-white px-3.5 py-2 text-sm text-gray-800 outline-none focus:border-brand-500 focus:ring-1 focus:ring-brand-500 dark:border-gray-700 dark:bg-gray-900 dark:text-white/90"
+        />
+        <VocabularySetFilters curriculums={curriculums} categories={categories} value={filters} onApply={setFilters} />
+      </div>
+
+      <div className="flex flex-col gap-2.5">
+        {loadingList && <p className="text-sm text-gray-500 dark:text-gray-400">Đang tải...</p>}
+        {!loadingList && sets.length === 0 && (
+          <p className="text-sm text-gray-500 dark:text-gray-400">Chưa có bộ từ vựng nào được import.</p>
+        )}
+        {!loadingList && sets.length > 0 && filteredSets.length === 0 && (
+          <p className="text-sm text-gray-500 dark:text-gray-400">Không tìm thấy bộ từ vựng phù hợp.</p>
+        )}
+        {filteredSets.map((set) => (
+          <VocabularySetRow
+            key={set.id}
+            set={set}
+            curriculums={curriculums}
+            categories={categories}
+            onOpen={() => setSelectedId(set.id)}
+            onUpdate={(patch) => handleUpdateSet(set.id, patch)}
+            onToggleLock={() => handleToggleLock(set)}
+            onDelete={() => handleDelete(set.id)}
+          />
+        ))}
+      </div>
     </div>
   );
 }

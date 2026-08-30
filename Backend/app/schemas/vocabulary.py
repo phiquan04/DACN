@@ -1,3 +1,4 @@
+from datetime import datetime
 from typing import List, Optional
 
 from pydantic import BaseModel
@@ -104,11 +105,12 @@ class VocabularyItemOut(BaseModel):
 
 class VocabularySetPatch(BaseModel):
     """Partial update for the set's own metadata (rename, re-describe,
-    re-categorize) — separate from editing its words."""
+    re-categorize, lock/unlock) — separate from editing its words."""
     set_name: Optional[str] = None
     description: Optional[str] = None
     curriculum_id: Optional[int] = None
     category_id: Optional[int] = None
+    is_locked: Optional[bool] = None
 
 
 class VocabularySetSummary(BaseModel):
@@ -117,6 +119,7 @@ class VocabularySetSummary(BaseModel):
     set_name: str
     description: Optional[str] = None
     status: str
+    is_locked: bool = False
     curriculum_id: Optional[int] = None
     curriculum_name: Optional[str] = None
     category_id: Optional[int] = None
@@ -125,6 +128,8 @@ class VocabularySetSummary(BaseModel):
     error_message: Optional[str] = None
     item_count: int = 0
     reviewed_count: int = 0
+    created_at: datetime
+    updated_at: datetime
 
 
 class VocabularySetReviewOut(VocabularySetSummary):

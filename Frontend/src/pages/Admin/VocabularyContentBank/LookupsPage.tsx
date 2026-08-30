@@ -1,9 +1,12 @@
-import { useEffect } from "react";
+import { useCallback, useEffect, useState } from "react";
 import PageMeta from "../../../components/common/PageMeta";
 import { usePageHeader } from "../../../context/PageHeaderContext";
-import VocabularyTabs from "../../../components/admin-vocabulary/VocabularyTabs";
 import LookupManager from "../../../components/admin-vocabulary/LookupManager";
+import StatCard from "../../../components/admin-vocabulary/StatCard";
+import { FolderIcon, ListIcon } from "../../../icons";
 import {
+  Curriculum,
+  VocabCategory,
   createCategory,
   createCurriculum,
   deleteCategory,
@@ -16,6 +19,28 @@ import {
 
 export default function LookupsPage() {
   const { setPageHeader } = usePageHeader();
+  const [curriculums, setCurriculums] = useState<Curriculum[]>([]);
+  const [loadingCurriculums, setLoadingCurriculums] = useState(true);
+  const [categories, setCategories] = useState<VocabCategory[]>([]);
+  const [loadingCategories, setLoadingCategories] = useState(true);
+
+  const loadCurriculums = useCallback(async () => {
+    setLoadingCurriculums(true);
+    try {
+      setCurriculums(await fetchCurriculums());
+    } finally {
+      setLoadingCurriculums(false);
+    }
+  }, []);
+
+  const loadCategories = useCallback(async () => {
+    setLoadingCategories(true);
+    try {
+      setCategories(await fetchCategories());
+    } finally {
+      setLoadingCategories(false);
+    }
+  }, []);
 
   useEffect(() => {
     setPageHeader(
@@ -24,28 +49,58 @@ export default function LookupsPage() {
     );
   }, [setPageHeader]);
 
+  useEffect(() => {
+    loadCurriculums();
+    loadCategories();
+  }, [loadCurriculums, loadCategories]);
+
   return (
     <>
       <PageMeta title="Giáo trình & Danh mục | Manabi AI" description="Quản lý bộ giáo trình và danh mục từ vựng." />
       <div className="space-y-5">
-        <VocabularyTabs current="Giáo trình & Danh mục" />
+        <div className="grid gap-4 sm:grid-cols-2">
+          <StatCard label="Tổng bộ giáo trình" value={curriculums.length} icon={<FolderIcon />} />
+          <StatCard label="Tổng danh mục nội dung" value={categories.length} icon={<ListIcon />} />
+        </div>
         <div className="grid gap-5 lg:grid-cols-2">
           <LookupManager
             title="Bộ giáo trình"
             hint="Ví dụ: Mimikara Oboeru N2, Shinkanzen Master N3..."
+            icon={<FolderIcon />}
             hasDescription
-            fetchItems={fetchCurriculums}
-            onCreate={createCurriculum}
-            onUpdate={updateCurriculum}
-            onDelete={deleteCurriculum}
+            items={curriculums}
+            loading={loadingCurriculums}
+            onCreate={async (payload) => {
+              await createCurriculum(payload);
+              await loadCurriculums();
+            }}
+            onUpdate={async (id, payload) => {
+              await updateCurriculum(id, payload);
+              await loadCurriculums();
+            }}
+            onDelete={async (id) => {
+              await deleteCurriculum(id);
+              await loadCurriculums();
+            }}
           />
           <LookupManager
             title="Danh mục nội dung"
             hint="Ví dụ: Đời sống, Môi trường, Kinh doanh..."
-            fetchItems={fetchCategories}
-            onCreate={createCategory}
-            onUpdate={updateCategory}
-            onDelete={deleteCategory}
+            icon={<ListIcon />}
+            items={categories}
+            loading={loadingCategories}
+            onCreate={async (payload) => {
+              await createCategory({ name: payload.name });
+              await loadCategories();
+            }}
+            onUpdate={async (id, payload) => {
+              await updateCategory(id, { name: payload.name });
+              await loadCategories();
+            }}
+            onDelete={async (id) => {
+              await deleteCategory(id);
+              await loadCategories();
+            }}
           />
         </div>
       </div>

@@ -3,14 +3,17 @@ import { Link, useLocation, useNavigate } from "react-router";
 
 import { useSidebar } from "../context/SidebarContext";
 import { logout } from "../services/api";
-import { GridIcon, GroupIcon, DocsIcon, ListIcon, ChatIcon, VideoIcon, ChevronDownIcon } from "../icons";
+import { GridIcon, GroupIcon, DocsIcon, ListIcon, ChatIcon, VideoIcon, ChevronDownIcon, TableIcon, FolderIcon, CheckLineIcon } from "../icons";
+import { UploadIcon } from "../components/admin-jlpt/icons";
 import Logo from "../components/common/Logo";
+
+type SubItem = { name: string; path: string; icon: React.ReactNode };
 
 type NavItem = {
   name: string;
   icon: React.ReactNode;
   path: string;
-  subItems?: { name: string; path: string }[];
+  subItems?: SubItem[];
 };
 
 const navItems: NavItem[] = [
@@ -21,9 +24,9 @@ const navItems: NavItem[] = [
     name: "Ngân hàng đề JLPT",
     path: "/admin/jlpt-content",
     subItems: [
-      { name: "Cấu trúc đề", path: "/admin/jlpt-content/structure" },
-      { name: "Import đề", path: "/admin/jlpt-content/import" },
-      { name: "Duyệt đề", path: "/admin/jlpt-content/review" },
+      { name: "Cấu trúc đề", path: "/admin/jlpt-content/structure", icon: <TableIcon /> },
+      { name: "Import đề", path: "/admin/jlpt-content/import", icon: <UploadIcon /> },
+      { name: "Duyệt đề", path: "/admin/jlpt-content/review", icon: <CheckLineIcon /> },
     ],
   },
   {
@@ -31,9 +34,9 @@ const navItems: NavItem[] = [
     name: "Kho từ vựng",
     path: "/admin/vocabulary-content",
     subItems: [
-      { name: "Giáo trình & Danh mục", path: "/admin/vocabulary-content/lookups" },
-      { name: "Import bộ từ vựng", path: "/admin/vocabulary-content/import" },
-      { name: "Duyệt bộ từ vựng", path: "/admin/vocabulary-content/review" },
+      { name: "Giáo trình & Danh mục", path: "/admin/vocabulary-content/lookups", icon: <FolderIcon /> },
+      { name: "Import bộ từ vựng", path: "/admin/vocabulary-content/import", icon: <UploadIcon /> },
+      { name: "Duyệt bộ từ vựng", path: "/admin/vocabulary-content/review", icon: <CheckLineIcon /> },
     ],
   },
   { icon: <ChatIcon />, name: "Kịch bản chat", path: "/admin/chat-scenarios" },
@@ -151,12 +154,13 @@ const AdminSidebar: React.FC = () => {
                       <li key={sub.path}>
                         <Link
                           to={sub.path}
-                          className={`block rounded-lg px-3 py-2 text-sm transition-colors ${
+                          className={`flex items-center gap-2 rounded-lg px-3 py-2 text-sm transition-colors ${
                             isActive(sub.path)
                               ? "bg-secondary text-on-secondary font-medium"
                               : "text-on-primary/60 hover:bg-white/5 hover:text-on-primary"
                           }`}
                         >
+                          <span className="shrink-0 [&>svg]:size-4">{sub.icon}</span>
                           {sub.name}
                         </Link>
                       </li>
