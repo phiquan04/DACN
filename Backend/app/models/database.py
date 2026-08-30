@@ -18,6 +18,7 @@ from .jlpt import (
     JlptExam, JlptPassage, JlptQuestion, JlptChoice,
     JlptTestAttempt, JlptTestAttemptAnswer,
 )
+from .vocabulary import VocabularyCurriculum, VocabularyCategory, VocabularySet, VocabularyItem
 
 __all__ = [
     'DATABASE_URL', 'engine', 'SessionLocal', 'Base', 'BaseModel', 'get_db', 'init_db',
@@ -30,4 +31,5 @@ __all__ = [
     'JlptLevelStructure', 'JlptSection', 'JlptMondaiTemplate',
     'JlptExam', 'JlptPassage', 'JlptQuestion', 'JlptChoice',
     'JlptTestAttempt', 'JlptTestAttemptAnswer',
+    'VocabularyCurriculum', 'VocabularyCategory', 'VocabularySet', 'VocabularyItem',
 ]
