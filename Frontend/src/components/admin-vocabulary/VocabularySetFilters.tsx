@@ -5,14 +5,12 @@ import { FilterIcon } from "../admin-jlpt/icons";
 export interface VocabularySetFilterValues {
   curriculumId: number | "";
   categoryId: number | "";
-  lock: "" | "locked" | "unlocked";
   status: "" | "draft" | "processing" | "failed" | "published";
 }
 
 export const EMPTY_FILTERS: VocabularySetFilterValues = {
   curriculumId: "",
   categoryId: "",
-  lock: "",
   status: "",
 };
 
@@ -22,12 +20,6 @@ const STATUS_OPTIONS: { value: VocabularySetFilterValues["status"]; label: strin
   { value: "processing", label: "Đang xử lý" },
   { value: "failed", label: "Lỗi" },
   { value: "published", label: "Đã publish" },
-];
-
-const LOCK_OPTIONS: { value: VocabularySetFilterValues["lock"]; label: string }[] = [
-  { value: "", label: "Tất cả" },
-  { value: "unlocked", label: "Đang mở" },
-  { value: "locked", label: "Đang khóa" },
 ];
 
 function countActive(v: VocabularySetFilterValues): number {
@@ -131,23 +123,6 @@ export default function VocabularySetFilters({ curriculums, categories, value, o
                 {categories.map((c) => (
                   <option key={c.id} value={c.id}>
                     {c.name}
-                  </option>
-                ))}
-              </select>
-            </div>
-
-            <div>
-              <label className="mb-1 block text-xs font-medium text-gray-500 dark:text-gray-400">
-                Trạng thái khóa
-              </label>
-              <select
-                value={staged.lock}
-                onChange={(e) => setStaged((s) => ({ ...s, lock: e.target.value as VocabularySetFilterValues["lock"] }))}
-                className="w-full rounded-lg border border-gray-200 bg-gray-50 px-3 py-1.5 text-sm text-gray-800 outline-none focus:border-brand-500 dark:border-gray-700 dark:bg-gray-800 dark:text-white/90"
-              >
-                {LOCK_OPTIONS.map((o) => (
-                  <option key={o.value} value={o.value}>
-                    {o.label}
                   </option>
                 ))}
               </select>

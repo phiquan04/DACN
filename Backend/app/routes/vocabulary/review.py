@@ -253,6 +253,16 @@ def delete_set(
         db.delete(vocab_set)
         db.commit()
     except IntegrityError:
+        # Học viên đã có tiến trình học (VocabularyItemProgress/VocabularyReviewLog)
+        # trỏ tới các từ trong set này, nên xóa cứng sẽ vi phạm khóa ngoại — thay vì
+        # chỉ báo lỗi, tự động khóa set lại để admin xử lý tiếp trong mục "Đã khóa"
+        # thay vì mất trắng thao tác xóa.
         db.rollback()
-        raise HTTPException(status_code=409, detail="Không thể xóa bộ từ vựng này")
+        vocab_set = db.query(VocabularySet).filter(VocabularySet.id == set_id).first()
+        vocab_set.is_locked = True
+        db.commit()
+        raise HTTPException(
+            status_code=409,
+            detail="Đã có học viên học bộ từ vựng này nên không thể xóa. Bộ từ vựng đã được tự động khóa và chuyển vào mục \"Đã khóa\".",
+        )
     return {"success": True}

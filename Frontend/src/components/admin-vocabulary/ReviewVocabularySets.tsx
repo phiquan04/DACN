@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { useToast } from "../../context/ToastContext";
+import { ApiError } from "../../services/httpClient";
 import {
   Curriculum,
   VocabCategory,
@@ -38,6 +39,7 @@ export default function ReviewVocabularySets({ focusSetId }: { focusSetId?: numb
   const [categories, setCategories] = useState<VocabCategory[]>([]);
   const [search, setSearch] = useState("");
   const [filters, setFilters] = useState<VocabularySetFilterValues>(EMPTY_FILTERS);
+  const [activeTab, setActiveTab] = useState<"active" | "locked">("active");
   const [selectedId, setSelectedId] = useState<number | null>(focusSetId ?? null);
   const [detail, setDetail] = useState<VocabularySetReview | null>(null);
   const [loadingDetail, setLoadingDetail] = useState(false);
@@ -162,8 +164,15 @@ export default function ReviewVocabularySets({ focusSetId }: { focusSetId?: numb
       showToast("Đã xóa bộ từ vựng", "success");
       if (selectedId === setId) setSelectedId(null);
       await loadList();
-    } catch {
-      // reported globally
+    } catch (err) {
+      // 409 = đã có học viên học, backend tự động khóa set thay vì xóa — đưa
+      // admin sang tab "Đã khóa" để họ thấy ngay kết quả (thông báo lỗi đã
+      // được errorReporter toàn cục hiển thị rồi, message giải thích lý do).
+      if (err instanceof ApiError && err.status === 409) {
+        if (selectedId === setId) setSelectedId(null);
+        await loadList();
+        setActiveTab("locked");
+      }
     }
   };
 
@@ -190,15 +199,14 @@ export default function ReviewVocabularySets({ focusSetId }: { focusSetId?: numb
 
   const filteredSets = useMemo(() => {
     return sets.filter((s) => {
+      if (activeTab === "locked" ? !s.is_locked : s.is_locked) return false;
       if (search.trim() && !s.set_name.toLowerCase().includes(search.trim().toLowerCase())) return false;
       if (filters.curriculumId !== "" && s.curriculum_id !== filters.curriculumId) return false;
       if (filters.categoryId !== "" && s.category_id !== filters.categoryId) return false;
-      if (filters.lock === "locked" && !s.is_locked) return false;
-      if (filters.lock === "unlocked" && s.is_locked) return false;
       if (filters.status && s.status !== filters.status) return false;
       return true;
     });
-  }, [sets, search, filters]);
+  }, [sets, search, filters, activeTab]);
 
   const lockedCount = sets.filter((s) => s.is_locked).length;
 
@@ -313,6 +321,43 @@ export default function ReviewVocabularySets({ focusSetId }: { focusSetId?: numb
         <StatCard label="Đang khóa" value={lockedCount} icon={<LockIcon />} />
       </div>
 
+      <div className="flex items-center gap-1 border-b border-gray-200 dark:border-gray-700">
+        <button
+          type="button"
+          onClick={() => setActiveTab("active")}
+          className={`border-b-2 px-3 pb-2.5 text-sm font-medium transition ${
+            activeTab === "active"
+              ? "border-brand-500 text-brand-600 dark:text-brand-400"
+              : "border-transparent text-gray-500 hover:text-gray-800 dark:text-gray-400 dark:hover:text-white"
+          }`}
+        >
+          Danh sách
+        </button>
+        <button
+          type="button"
+          onClick={() => setActiveTab("locked")}
+          className={`flex items-center gap-1.5 border-b-2 px-3 pb-2.5 text-sm font-medium transition ${
+            activeTab === "locked"
+              ? "border-brand-500 text-brand-600 dark:text-brand-400"
+              : "border-transparent text-gray-500 hover:text-gray-800 dark:text-gray-400 dark:hover:text-white"
+          }`}
+        >
+          <LockIcon className="h-3.5 w-3.5" /> Đã khóa
+          {lockedCount > 0 && (
+            <span className="rounded-full bg-gray-200 px-1.5 py-0.5 text-[10px] font-semibold text-gray-700 dark:bg-gray-700 dark:text-gray-300">
+              {lockedCount}
+            </span>
+          )}
+        </button>
+      </div>
+
+      {activeTab === "locked" && (
+        <p className="text-xs text-gray-500 dark:text-gray-400">
+          Các bộ từ vựng ở đây đang bị ẩn khỏi học viên — hoặc do admin khóa tay, hoặc do hệ thống tự khóa vì có
+          học viên đã học nên không thể xóa. Mở khóa tại đây để hiện lại trong mục "Danh sách".
+        </p>
+      )}
+
       <div className="flex flex-wrap items-center gap-3">
         <input
           type="search"
@@ -330,7 +375,9 @@ export default function ReviewVocabularySets({ focusSetId }: { focusSetId?: numb
           <p className="text-sm text-gray-500 dark:text-gray-400">Chưa có bộ từ vựng nào được import.</p>
         )}
         {!loadingList && sets.length > 0 && filteredSets.length === 0 && (
-          <p className="text-sm text-gray-500 dark:text-gray-400">Không tìm thấy bộ từ vựng phù hợp.</p>
+          <p className="text-sm text-gray-500 dark:text-gray-400">
+            {activeTab === "locked" ? "Không có bộ từ vựng nào đang bị khóa." : "Không tìm thấy bộ từ vựng phù hợp."}
+          </p>
         )}
         {filteredSets.map((set) => (
           <VocabularySetRow
