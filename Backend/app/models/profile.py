@@ -1,6 +1,6 @@
 from datetime import datetime
 
-from sqlalchemy import Column, Integer, String, DateTime, ForeignKey
+from sqlalchemy import Column, Integer, String, Date, DateTime, ForeignKey
 from sqlalchemy.orm import backref, relationship
 
 from .base import Base
@@ -14,11 +14,16 @@ class UserInformation(Base):
     first_name = Column(String(100), nullable=True)
     last_name = Column(String(100), nullable=True)
     phone = Column(String(20), nullable=True)
-    facebook_link = Column(String(255), nullable=True)
-    instagram_link = Column(String(255), nullable=True)
     country = Column(String(100), nullable=True)
     city = Column(String(100), nullable=True)
     avatar_url = Column(String(512), nullable=True)
+    date_of_birth = Column(Date, nullable=True)
+    gender = Column(String(10), nullable=True)
+    current_jlpt_level = Column(String(10), nullable=True)  # 'N1'..'N5'
+    target_jlpt_level = Column(String(10), nullable=True)  # 'N1'..'N5'
+    streak_days = Column(Integer, nullable=False, default=0)
+    last_activity_at = Column(DateTime, nullable=True)
+    total_study_minutes = Column(Integer, nullable=False, default=0)
     created_at = Column(DateTime, default=datetime.utcnow)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 

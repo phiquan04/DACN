@@ -17,6 +17,7 @@ from sqlalchemy.orm import Session, selectinload
 from app.dependencies import UserResponse, get_current_user
 from app.models.database import get_db
 from app.models.notification import Notification
+from app.models.profile import UserInformation
 from app.models.user import User
 from app.models.vocabulary import VocabularyItem, VocabularyItemProgress, VocabularyReviewLog, VocabularySet
 from app.schemas.jlpt import JlptLevel
@@ -26,6 +27,7 @@ from app.schemas.vocabulary import (
     UpdateDailyGoalRequest, VocabularyLearningItemOut, VocabularySetLearningDetailOut, VocabularySetProgressOut,
 )
 from app.services.chat_ai import call_openrouter, require_api_key
+from app.services.xp_leveling import level_info as _level_info, xp_threshold as _xp_threshold
 
 router = APIRouter(prefix="/learn", tags=["vocabulary-learning"])
 
@@ -92,21 +94,6 @@ def _current_streak(db: Session, user_id: int, today) -> int:
     return streak
 
 
-def _xp_threshold(level: int) -> int:
-    """Total XP required to reach `level` — a triangular curve, so each
-    level costs 100 XP more than the last (level 2 at 100, level 3 at 300,
-    level 4 at 600, ...)."""
-    n = level - 1
-    return 100 * n * (n + 1) // 2
-
-
-def _level_info(xp: int):
-    level = 1
-    while _xp_threshold(level + 1) <= xp:
-        level += 1
-    return level, _xp_threshold(level), _xp_threshold(level + 1)
-
-
 def _check_and_notify_achievements(db: Session, user_id: int, level: int) -> None:
     """Creates a Notification for any achievement that just became earned.
     `related_code` is the idempotency key — an achievement already notified
@@ -157,6 +144,20 @@ def _progress_map(db: Session, user_id: int, item_ids: List[int]) -> dict:
         VocabularyItemProgress.user_id == user_id, VocabularyItemProgress.item_id.in_(item_ids),
     )
     return {p.item_id: p for p in rows}
+
+
+def _touch_activity(db: Session, user_id: int, now: datetime) -> None:
+    """Updates the profile's last_activity_at + streak_days snapshot after a
+    review — called with the just-logged review already added to the session
+    so _current_streak sees today's activity. Kept separate from vocab_xp
+    (still the source of truth for level) since these fields exist for the
+    admin user-management page, not the learning flow itself."""
+    info = db.query(UserInformation).filter(UserInformation.user_id == user_id).first()
+    if not info:
+        info = UserInformation(user_id=user_id)
+        db.add(info)
+    info.last_activity_at = now
+    info.streak_days = _current_streak(db, user_id, now.date())
 
 
 def _get_or_create_progress(db: Session, user_id: int, item_id: int) -> VocabularyItemProgress:
@@ -228,9 +229,12 @@ def get_study_overview(db: Session = Depends(get_db), current_user: UserResponse
     user = db.query(User).filter(User.id == current_user.id).first()
     daily_goal = user.daily_vocab_goal if user and user.daily_vocab_goal else DAILY_GOAL_WORDS
     now = datetime.utcnow()
+    # 'learned' words aren't excluded forever — once their long SM-2 interval
+    # (due_at) actually elapses they count as due too, so mastery gets
+    # periodically re-confirmed instead of never being checked again.
     due_today_count = db.query(func.count(VocabularyItemProgress.id)).filter(
         VocabularyItemProgress.user_id == current_user.id,
-        VocabularyItemProgress.status == 'reviewing',
+        VocabularyItemProgress.status.in_(('reviewing', 'learned')),
         VocabularyItemProgress.due_at <= now,
     ).scalar() or 0
 
@@ -379,13 +383,16 @@ def get_due_batch(
     payload: CrossSetBatchRequest, db: Session = Depends(get_db), current_user: UserResponse = Depends(get_current_user),
 ):
     now = datetime.utcnow()
+    # Same relaxation as due_today_count above: a 'learned' word whose due_at
+    # has passed is due for a retention check, not permanently retired from
+    # review just because it once crossed the 'learned' threshold.
     rows = (
         db.query(VocabularyItemProgress, VocabularyItem)
         .join(VocabularyItem, VocabularyItem.id == VocabularyItemProgress.item_id)
         .join(VocabularySet, VocabularySet.id == VocabularyItem.set_id)
         .filter(
             VocabularyItemProgress.user_id == current_user.id,
-            VocabularyItemProgress.status == 'reviewing',
+            VocabularyItemProgress.status.in_(('reviewing', 'learned')),
             VocabularyItemProgress.due_at <= now,
             VocabularySet.status == 'published', VocabularySet.is_locked.is_(False),
         )
@@ -455,9 +462,10 @@ def submit_review(
     old_level, _, _ = _level_info(user.vocab_xp)
 
     _apply_rating(progress, payload.rating)
-    db.add(VocabularyReviewLog(
-        user_id=current_user.id, item_id=item_id, rating=payload.rating, reviewed_at=datetime.utcnow(),
-    ))
+    now = datetime.utcnow()
+    db.add(VocabularyReviewLog(user_id=current_user.id, item_id=item_id, rating=payload.rating, reviewed_at=now))
+    db.flush()  # so _current_streak (below, and inside _check_and_notify_achievements) sees today's review
+    _touch_activity(db, current_user.id, now)
 
     just_learned = progress.status == 'learned' and not was_learned
     xp_gained = RATING_XP[payload.rating]

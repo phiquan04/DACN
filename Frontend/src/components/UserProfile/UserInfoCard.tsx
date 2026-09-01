@@ -4,11 +4,21 @@ import { Modal } from "../ui/modal";
 import Button from "../ui/button/Button";
 import Input from "../form/input/InputField";
 import Label from "../form/Label";
-import type { UserProfile } from "../../services/api";
+import Select from "../form/Select";
+import type { UserProfile, UserProfileUpdate } from "../../services/api";
+import { CalenderIcon, MailIcon, UserCircleIcon, UserIcon } from "../../icons";
+import { PhoneIcon } from "../../icons/custom";
+
+const GENDER_OPTIONS = [
+  { value: "male", label: "Nam" },
+  { value: "female", label: "Nữ" },
+  { value: "other", label: "Khác" },
+];
+const GENDER_LABELS: Record<string, string> = { male: "Nam", female: "Nữ", other: "Khác" };
 
 interface UserInfoCardProps {
   profile: UserProfile;
-  onSave?: (data: Partial<UserProfile>) => Promise<void>;
+  onSave?: (data: UserProfileUpdate) => Promise<void>;
 }
 
 export default function UserInfoCard({ profile, onSave }: UserInfoCardProps) {
@@ -16,20 +26,32 @@ export default function UserInfoCard({ profile, onSave }: UserInfoCardProps) {
   const [firstName, setFirstName] = useState(profile.first_name ?? "");
   const [lastName, setLastName] = useState(profile.last_name ?? "");
   const [phone, setPhone] = useState(profile.phone ?? "");
+  const [dateOfBirth, setDateOfBirth] = useState(profile.date_of_birth ?? "");
+  const [gender, setGender] = useState(profile.gender ?? "");
+  const [saving, setSaving] = useState(false);
 
   useEffect(() => {
     setFirstName(profile.first_name ?? "");
     setLastName(profile.last_name ?? "");
     setPhone(profile.phone ?? "");
+    setDateOfBirth(profile.date_of_birth ?? "");
+    setGender(profile.gender ?? "");
   }, [profile]);
 
   const handleSave = async () => {
     if (onSave) {
-      await onSave({
-        first_name: firstName,
-        last_name: lastName,
-        phone,
-      });
+      setSaving(true);
+      try {
+        await onSave({
+          first_name: firstName,
+          last_name: lastName,
+          phone,
+          date_of_birth: dateOfBirth || null,
+          gender: gender || null,
+        });
+      } finally {
+        setSaving(false);
+      }
     }
     closeModal();
   };
@@ -42,10 +64,10 @@ export default function UserInfoCard({ profile, onSave }: UserInfoCardProps) {
             Thông tin cá nhân
           </h4>
 
-          <div className="grid grid-cols-1 gap-4 lg:grid-cols-2 lg:gap-7 2xl:gap-x-32">
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 lg:gap-x-10">
             <div>
-              <p className="mb-2 text-xs leading-normal text-gray-500 dark:text-gray-400">
-                Họ
+              <p className="mb-2 flex items-center gap-1.5 text-xs leading-normal text-gray-500 dark:text-gray-400">
+                <UserIcon className="h-3.5 w-3.5" /> Họ
               </p>
               <p className="text-sm font-medium text-gray-800 dark:text-white/90">
                 {profile.first_name || "-"}
@@ -53,8 +75,8 @@ export default function UserInfoCard({ profile, onSave }: UserInfoCardProps) {
             </div>
 
             <div>
-              <p className="mb-2 text-xs leading-normal text-gray-500 dark:text-gray-400">
-                Tên
+              <p className="mb-2 flex items-center gap-1.5 text-xs leading-normal text-gray-500 dark:text-gray-400">
+                <UserIcon className="h-3.5 w-3.5" /> Tên
               </p>
               <p className="text-sm font-medium text-gray-800 dark:text-white/90">
                 {profile.last_name || "-"}
@@ -62,8 +84,8 @@ export default function UserInfoCard({ profile, onSave }: UserInfoCardProps) {
             </div>
 
             <div>
-              <p className="mb-2 text-xs leading-normal text-gray-500 dark:text-gray-400">
-                Địa chỉ email
+              <p className="mb-2 flex items-center gap-1.5 text-xs leading-normal text-gray-500 dark:text-gray-400">
+                <MailIcon className="h-3.5 w-3.5" /> Địa chỉ email
               </p>
               <p className="text-sm font-medium text-gray-800 dark:text-white/90">
                 {profile.email}
@@ -71,11 +93,29 @@ export default function UserInfoCard({ profile, onSave }: UserInfoCardProps) {
             </div>
 
             <div>
-              <p className="mb-2 text-xs leading-normal text-gray-500 dark:text-gray-400">
-                Số điện thoại
+              <p className="mb-2 flex items-center gap-1.5 text-xs leading-normal text-gray-500 dark:text-gray-400">
+                <PhoneIcon className="h-3.5 w-3.5" /> Số điện thoại
               </p>
               <p className="text-sm font-medium text-gray-800 dark:text-white/90">
                 {profile.phone || "-"}
+              </p>
+            </div>
+
+            <div>
+              <p className="mb-2 flex items-center gap-1.5 text-xs leading-normal text-gray-500 dark:text-gray-400">
+                <CalenderIcon className="h-3.5 w-3.5" /> Ngày sinh
+              </p>
+              <p className="text-sm font-medium text-gray-800 dark:text-white/90">
+                {profile.date_of_birth ? new Date(`${profile.date_of_birth}T00:00:00`).toLocaleDateString("vi-VN") : "-"}
+              </p>
+            </div>
+
+            <div>
+              <p className="mb-2 flex items-center gap-1.5 text-xs leading-normal text-gray-500 dark:text-gray-400">
+                <UserCircleIcon className="h-3.5 w-3.5" /> Giới tính
+              </p>
+              <p className="text-sm font-medium text-gray-800 dark:text-white/90">
+                {profile.gender ? GENDER_LABELS[profile.gender] ?? profile.gender : "-"}
               </p>
             </div>
           </div>
@@ -109,7 +149,9 @@ export default function UserInfoCard({ profile, onSave }: UserInfoCardProps) {
 
                 <div className="grid grid-cols-1 gap-x-6 gap-y-5 lg:grid-cols-2">
                   <div className="col-span-2 lg:col-span-1">
-                    <Label>Họ</Label>
+                    <Label className="flex items-center gap-1.5">
+                      <UserIcon className="h-3.5 w-3.5" /> Họ
+                    </Label>
                     <Input
                       type="text"
                       value={firstName}
@@ -118,7 +160,9 @@ export default function UserInfoCard({ profile, onSave }: UserInfoCardProps) {
                   </div>
 
                   <div className="col-span-2 lg:col-span-1">
-                    <Label>Tên</Label>
+                    <Label className="flex items-center gap-1.5">
+                      <UserIcon className="h-3.5 w-3.5" /> Tên
+                    </Label>
                     <Input
                       type="text"
                       value={lastName}
@@ -127,16 +171,43 @@ export default function UserInfoCard({ profile, onSave }: UserInfoCardProps) {
                   </div>
 
                   <div className="col-span-2 lg:col-span-1">
-                    <Label>Địa chỉ email</Label>
+                    <Label className="flex items-center gap-1.5">
+                      <MailIcon className="h-3.5 w-3.5" /> Địa chỉ email
+                    </Label>
                     <Input type="text" value={profile.email} disabled />
                   </div>
 
                   <div className="col-span-2 lg:col-span-1">
-                    <Label>Số điện thoại</Label>
+                    <Label className="flex items-center gap-1.5">
+                      <PhoneIcon className="h-3.5 w-3.5" /> Số điện thoại
+                    </Label>
                     <Input
                       type="text"
                       value={phone}
                       onChange={(event) => setPhone(event.target.value)}
+                    />
+                  </div>
+
+                  <div className="col-span-2 lg:col-span-1">
+                    <Label className="flex items-center gap-1.5">
+                      <CalenderIcon className="h-3.5 w-3.5" /> Ngày sinh
+                    </Label>
+                    <Input
+                      type="date"
+                      value={dateOfBirth}
+                      onChange={(event) => setDateOfBirth(event.target.value)}
+                    />
+                  </div>
+
+                  <div className="col-span-2 lg:col-span-1">
+                    <Label className="flex items-center gap-1.5">
+                      <UserCircleIcon className="h-3.5 w-3.5" /> Giới tính
+                    </Label>
+                    <Select
+                      options={GENDER_OPTIONS}
+                      placeholder="Chọn giới tính"
+                      defaultValue={gender}
+                      onChange={setGender}
                     />
                   </div>
                 </div>
@@ -147,8 +218,8 @@ export default function UserInfoCard({ profile, onSave }: UserInfoCardProps) {
               <Button size="sm" variant="outline" onClick={closeModal}>
                 Đóng
               </Button>
-              <Button size="sm" onClick={handleSave}>
-                Lưu thay đổi
+              <Button size="sm" onClick={handleSave} disabled={saving}>
+                {saving ? "Đang lưu..." : "Lưu thay đổi"}
               </Button>
             </div>
           </form>

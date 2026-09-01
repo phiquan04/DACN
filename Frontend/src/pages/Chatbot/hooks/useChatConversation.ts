@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { getErrorInfo } from "../../../utils/errors";
+import { parseApiDate } from "../../../utils/datetime";
 import { useSpeech } from "../../../hooks/useSpeech";
 import { useVoiceInput } from "../../../hooks/useVoiceInput";
 import { checkHealth } from "../../../services/httpClient";
@@ -183,7 +184,7 @@ export function useChatConversation() {
         detail.messages.map((m) => ({
           role: m.role,
           content: m.content,
-          timestamp: new Date(m.created_at).getTime(),
+          timestamp: parseApiDate(m.created_at)?.getTime() ?? Date.now(),
           feedback: m.feedback,
           grammar: m.grammar,
         }))

@@ -1,8 +1,10 @@
 import type { ConversationHistoryItem } from "../../../services/chatApi";
+import { parseApiDate } from "../../../utils/datetime";
 import { ChatBubbleIcon, ChevronLeftIcon, ChevronRightIcon, ClockIcon } from "./icons";
 
 function formatDateTime(iso: string) {
-  const d = new Date(iso);
+  const d = parseApiDate(iso);
+  if (!d) return "";
   return `${d.toLocaleDateString("vi-VN")} ${d.toLocaleTimeString("vi-VN", { hour: "2-digit", minute: "2-digit" })}`;
 }
 

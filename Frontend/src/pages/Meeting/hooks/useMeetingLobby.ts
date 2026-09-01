@@ -39,7 +39,7 @@ export function useMeetingLobby() {
     if (!userProfile) return "Người dùng";
     const firstName = userProfile.first_name || "";
     const lastName = userProfile.last_name || "";
-    const fullName = `${lastName} ${firstName}`.trim();
+    const fullName = `${firstName} ${lastName}`.trim();
     return fullName || userProfile.username;
   };
 

@@ -1,3 +1,5 @@
+from datetime import datetime
+
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 from pydantic import BaseModel, EmailStr, Field
@@ -124,11 +126,12 @@ def sign_in(user_data: UserSignIn, db: Session = Depends(get_db)):
         )
     
     if not user.is_active:
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="User account is inactive"
-        )
-    
+        detail = f"Tài khoản đã bị khóa: {user.locked_reason}" if user.locked_reason else "Tài khoản đã bị khóa"
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=detail)
+
+    user.last_login_at = datetime.utcnow()
+    db.commit()
+
     access_token = create_access_token(
         user_id=user.id, username=user.username, role=user.role.code if user.role else "user"
     )

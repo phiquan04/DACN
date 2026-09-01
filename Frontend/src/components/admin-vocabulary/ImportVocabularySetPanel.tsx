@@ -10,7 +10,7 @@ import {
   fetchCurriculums,
   importVocabularySet,
 } from "../../services/vocabularyApi";
-import { CloudUploadIcon, SettingsIcon, SpinnerIcon, UploadIcon } from "../admin-jlpt/icons";
+import { AlertIcon, CloudUploadIcon, SettingsIcon, SpinnerIcon, UploadIcon } from "../admin-jlpt/icons";
 
 function formatSize(bytes: number): string {
   return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
@@ -300,15 +300,15 @@ export default function ImportVocabularySetPanel() {
                 </span>
               )}
               {result.skipped_count > 0 && (
-                <span className="text-rose-600 dark:text-rose-400">
-                  {" "}
-                  Có {result.skipped_count} mục bị bỏ qua vì AI không xác định được từ/nghĩa.
+                <span className="ml-1 inline-flex items-center gap-1 align-middle text-rose-600 dark:text-rose-400">
+                  <AlertIcon className="h-3 w-3 shrink-0" /> Có {result.skipped_count} mục bị bỏ qua vì AI không xác
+                  định được từ/nghĩa.
                 </span>
               )}
               {result.failed_batch_count > 0 && (
-                <span className="text-rose-600 dark:text-rose-400">
-                  {" "}
-                  Có {result.failed_batch_count} nhóm trang AI xử lý lỗi, từ trong đó bị thiếu hoàn toàn.
+                <span className="ml-1 inline-flex items-center gap-1 align-middle text-rose-600 dark:text-rose-400">
+                  <AlertIcon className="h-3 w-3 shrink-0" /> Có {result.failed_batch_count} nhóm trang AI xử lý lỗi,
+                  từ trong đó bị thiếu hoàn toàn.
                 </span>
               )}
             </p>

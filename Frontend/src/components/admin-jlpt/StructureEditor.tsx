@@ -12,7 +12,7 @@ import {
   fetchStructureSummaries,
   saveStructure,
 } from "../../services/jlptApi";
-import { PlusIcon, TrashIcon } from "./icons";
+import { AlertIcon, CheckIcon, PlusIcon, TrashIcon } from "./icons";
 
 const SECTION_TYPES: SectionType[] = ["kotoba", "dokkai", "choukai"];
 
@@ -227,9 +227,9 @@ export default function StructureEditor() {
             type="button"
             onClick={handleSave}
             disabled={saving}
-            className="rounded-lg bg-brand-500 px-5 py-2 text-sm font-medium text-white hover:bg-brand-600 disabled:opacity-60"
+            className="flex items-center gap-1.5 rounded-lg bg-brand-500 px-5 py-2 text-sm font-medium text-white hover:bg-brand-600 disabled:opacity-60"
           >
-            {saving ? "Đang lưu..." : "Lưu cấu trúc"}
+            <CheckIcon className="h-4 w-4" /> {saving ? "Đang lưu..." : "Lưu cấu trúc"}
           </button>
         </div>
       </div>
@@ -282,7 +282,7 @@ export default function StructureEditor() {
                 Trạng thái mẫu
               </p>
               <p
-                className={`mt-1 text-sm font-bold ${
+                className={`mt-1 flex items-center gap-1.5 text-sm font-bold ${
                   totalMondaiCount === 0
                     ? "text-gray-500 dark:text-gray-400"
                     : isBalanced
@@ -290,6 +290,7 @@ export default function StructureEditor() {
                     : "text-amber-700 dark:text-amber-400"
                 }`}
               >
+                {totalMondaiCount > 0 && (isBalanced ? <CheckIcon className="h-3.5 w-3.5" /> : <AlertIcon className="h-3.5 w-3.5" />)}
                 {totalMondaiCount === 0
                   ? "Chưa cấu hình"
                   : isBalanced
@@ -476,9 +477,9 @@ export default function StructureEditor() {
             <button
               type="button"
               onClick={handleDelete}
-              className="text-sm font-medium text-rose-500 hover:text-rose-600 hover:underline"
+              className="flex items-center gap-1.5 text-sm font-medium text-rose-500 hover:text-rose-600 hover:underline"
             >
-              Xóa toàn bộ cấu trúc đề {level}
+              <TrashIcon className="h-4 w-4" /> Xóa toàn bộ cấu trúc đề {level}
             </button>
           </div>
         </>

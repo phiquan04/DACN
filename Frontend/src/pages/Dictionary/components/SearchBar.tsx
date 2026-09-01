@@ -1,13 +1,15 @@
 import InputField from "../../../components/form/input/InputField";
+import { PencilIcon } from "../../../icons/custom";
 
 interface SearchBarProps {
   searchTerm: string;
   onSearchTermChange: (value: string) => void;
   loading: boolean;
   onSubmit: (e: React.FormEvent) => void;
+  onOpenDraw: () => void;
 }
 
-export default function SearchBar({ searchTerm, onSearchTermChange, loading, onSubmit }: SearchBarProps) {
+export default function SearchBar({ searchTerm, onSearchTermChange, loading, onSubmit, onOpenDraw }: SearchBarProps) {
   return (
     <form onSubmit={onSubmit} className="flex gap-3 items-center">
       <div className="relative flex-1">
@@ -33,6 +35,16 @@ export default function SearchBar({ searchTerm, onSearchTermChange, loading, onS
           />
         </svg>
       </div>
+      <button
+        type="button"
+        onClick={onOpenDraw}
+        disabled={loading}
+        title="Vẽ chữ Hán để tìm kiếm"
+        className="shrink-0 flex items-center gap-1.5 rounded-full border border-outline-variant/60 px-4 py-3 text-sm font-medium text-on-surface-variant transition hover:border-teal-500 hover:text-teal-600 disabled:opacity-50 dark:border-gray-700 dark:text-gray-300 dark:hover:text-teal-400"
+      >
+        <PencilIcon className="h-4 w-4" />
+        <span className="hidden sm:inline">Vẽ</span>
+      </button>
       <button
         type="submit"
         disabled={loading}

@@ -6,6 +6,7 @@ import {
   VocabularySetSummary,
 } from "../../services/vocabularyApi";
 import { LockIcon, PencilIcon, TrashIcon, UnlockIcon } from "../admin-jlpt/icons";
+import { formatApiDate } from "../../utils/datetime";
 
 const STATUS_LABELS: Record<string, string> = {
   draft: "Nháp",
@@ -29,9 +30,6 @@ export function StatusBadge({ status }: { status: string }) {
   );
 }
 
-function formatDate(iso: string): string {
-  return new Date(iso).toLocaleDateString("vi-VN");
-}
 
 interface Props {
   set: VocabularySetSummary;
@@ -177,7 +175,7 @@ export default function VocabularySetRow({ set, curriculums, categories, onOpen,
           <span className="truncate text-sm font-semibold text-gray-800 dark:text-white/90">{set.set_name}</span>
           <StatusBadge status={set.status} />
           {set.is_locked && (
-            <span className="flex items-center gap-1 rounded-full bg-gray-800 px-2 py-0.5 text-[10px] font-semibold uppercase text-white dark:bg-white dark:text-gray-900">
+            <span className="flex items-center gap-1 rounded-full bg-rose-100 px-2 py-0.5 text-[10px] font-semibold uppercase text-rose-700 dark:bg-rose-500/20 dark:text-rose-300">
               <LockIcon className="h-2.5 w-2.5" /> Đã khóa
             </span>
           )}
@@ -188,7 +186,7 @@ export default function VocabularySetRow({ set, curriculums, categories, onOpen,
           {set.category_name && ` · ${set.category_name}`} · {set.reviewed_count}/{set.item_count} từ đã duyệt
         </p>
         <p className="mt-0.5 text-[11px] text-gray-400 dark:text-gray-500">
-          Tạo: {formatDate(set.created_at)} · Sửa: {formatDate(set.updated_at)}
+          Tạo: {formatApiDate(set.created_at)} · Sửa: {formatApiDate(set.updated_at)}
         </p>
         {set.status === "failed" && set.error_message && (
           <p className="mt-1 truncate text-xs text-rose-600 dark:text-rose-400" title={set.error_message}>
@@ -202,7 +200,9 @@ export default function VocabularySetRow({ set, curriculums, categories, onOpen,
           onClick={handleToggleLock}
           disabled={toggling}
           title={set.is_locked ? "Mở khóa (hiện lại cho học viên)" : "Khóa (ẩn khỏi học viên)"}
-          className="text-gray-400 hover:text-gray-700 disabled:opacity-60 dark:hover:text-white"
+          className={`disabled:opacity-60 ${
+            set.is_locked ? "text-emerald-500 hover:text-emerald-600" : "text-gray-400 hover:text-rose-500"
+          }`}
         >
           {set.is_locked ? <UnlockIcon className="h-4 w-4" /> : <LockIcon className="h-4 w-4" />}
         </button>

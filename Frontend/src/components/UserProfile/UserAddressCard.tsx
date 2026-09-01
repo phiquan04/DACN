@@ -4,11 +4,12 @@ import { Modal } from "../ui/modal";
 import Button from "../ui/button/Button";
 import Input from "../form/input/InputField";
 import Label from "../form/Label";
-import type { UserProfile } from "../../services/api";
+import type { UserProfile, UserProfileUpdate } from "../../services/api";
+import { GlobeIcon } from "../../icons/custom";
 
 interface UserAddressCardProps {
   profile: UserProfile;
-  onSave?: (data: Partial<UserProfile>) => Promise<void>;
+  onSave?: (data: UserProfileUpdate) => Promise<void>;
 }
 
 export default function UserAddressCard({ profile, onSave }: UserAddressCardProps) {
@@ -33,40 +34,34 @@ export default function UserAddressCard({ profile, onSave }: UserAddressCardProp
 
   return (
     <>
+      {/* Layout header luôn cùng hàng (không phụ thuộc breakpoint viewport) vì
+          card này thường nằm trong cột hẹp (grid 3 cột) — dùng lg:flex-row ở
+          đây từng khiến tiêu đề/nút bị bóp chật khi container hẹp hơn viewport. */}
       <div className="p-5 border border-gray-200 rounded-2xl dark:border-gray-800 lg:p-6">
-        <div className="flex flex-col gap-6 lg:flex-row lg:items-start lg:justify-between">
-          <div>
-            <h4 className="text-lg font-semibold text-gray-800 dark:text-white/90 lg:mb-6">
-              Địa chỉ
-            </h4>
-
-            <div className="grid grid-cols-1 gap-4 lg:grid-cols-2 lg:gap-7 2xl:gap-x-32">
-              <div>
-                <p className="mb-2 text-xs leading-normal text-gray-500 dark:text-gray-400">
-                  Quốc gia
-                </p>
-                <p className="text-sm font-medium text-gray-800 dark:text-white/90">
-                  {profile.country || "-"}
-                </p>
-              </div>
-
-              <div>
-                <p className="mb-2 text-xs leading-normal text-gray-500 dark:text-gray-400">
-                  Tỉnh/Thành phố
-                </p>
-                <p className="text-sm font-medium text-gray-800 dark:text-white/90">
-                  {profile.city || "-"}
-                </p>
-              </div>
-            </div>
-          </div>
-
+        <div className="flex items-center justify-between gap-3">
+          <h4 className="text-lg font-semibold text-gray-800 dark:text-white/90">Địa chỉ</h4>
           <button
             onClick={openModal}
-            className="flex w-full items-center justify-center gap-2 rounded-full border border-gray-300 bg-white px-4 py-3 text-sm font-medium text-gray-700 shadow-theme-xs hover:bg-gray-50 hover:text-gray-800 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-400 dark:hover:bg-white/[0.03] dark:hover:text-gray-200 lg:inline-flex lg:w-auto"
+            className="shrink-0 rounded-lg border border-gray-300 bg-white px-3 py-1.5 text-xs font-medium text-gray-700 shadow-theme-xs hover:bg-gray-50 hover:text-gray-800 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-400 dark:hover:bg-white/[0.03] dark:hover:text-gray-200"
           >
             Chỉnh sửa
           </button>
+        </div>
+
+        <div className="mt-4 grid grid-cols-2 gap-4">
+          <div>
+            <p className="mb-1.5 flex items-center gap-1.5 text-xs leading-normal text-gray-500 dark:text-gray-400">
+              <GlobeIcon className="h-3.5 w-3.5 shrink-0" /> Quốc gia
+            </p>
+            <p className="text-sm font-medium text-gray-800 dark:text-white/90">{profile.country || "-"}</p>
+          </div>
+
+          <div>
+            <p className="mb-1.5 flex items-center gap-1.5 text-xs leading-normal text-gray-500 dark:text-gray-400">
+              <GlobeIcon className="h-3.5 w-3.5 shrink-0" /> Thành phố
+            </p>
+            <p className="text-sm font-medium text-gray-800 dark:text-white/90">{profile.city || "-"}</p>
+          </div>
         </div>
       </div>
 
@@ -85,7 +80,9 @@ export default function UserAddressCard({ profile, onSave }: UserAddressCardProp
             <div className="px-2 overflow-y-auto custom-scrollbar">
               <div className="grid grid-cols-1 gap-x-6 gap-y-5 lg:grid-cols-2">
                 <div>
-                  <Label>Quốc gia</Label>
+                  <Label className="flex items-center gap-1.5">
+                    <GlobeIcon className="h-3.5 w-3.5" /> Quốc gia
+                  </Label>
                   <Input
                     type="text"
                     value={country}
@@ -94,7 +91,9 @@ export default function UserAddressCard({ profile, onSave }: UserAddressCardProp
                 </div>
 
                 <div>
-                  <Label>Tỉnh/Thành phố</Label>
+                  <Label className="flex items-center gap-1.5">
+                    <GlobeIcon className="h-3.5 w-3.5" /> Tỉnh/Thành phố
+                  </Label>
                   <Input
                     type="text"
                     value={city}

@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { useToast } from "../../context/ToastContext";
 import { ImportExamResult, JLPT_LEVELS, JlptLevel, importExam } from "../../services/jlptApi";
-import { UploadIcon } from "./icons";
+import { AlertIcon, UploadIcon } from "./icons";
 
 export default function ImportExamPanel({ onImported }: { onImported?: (examId: number) => void }) {
   const { showToast } = useToast();
@@ -134,9 +134,9 @@ export default function ImportExamPanel({ onImported }: { onImported?: (examId: 
             {result.question_count} câu hỏi
             {result.has_answer_key ? ", đã có đáp án" : ", chưa có đáp án — cần nhập tay ở bước duyệt"}.
             {result.unmapped_count > 0 && (
-              <span className="text-rose-600 dark:text-rose-400">
-                {" "}
-                Có {result.unmapped_count} câu AI không chắc thuộc mondai nào, hãy kiểm tra kỹ khi duyệt.
+              <span className="ml-1 inline-flex items-center gap-1 align-middle text-rose-600 dark:text-rose-400">
+                <AlertIcon className="h-3 w-3 shrink-0" /> Có {result.unmapped_count} câu AI không chắc thuộc mondai
+                nào, hãy kiểm tra kỹ khi duyệt.
               </span>
             )}
           </p>

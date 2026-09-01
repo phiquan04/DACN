@@ -1,4 +1,4 @@
-from sqlalchemy import Column, String, Integer, Boolean, ForeignKey
+from sqlalchemy import Column, String, Integer, Boolean, DateTime, ForeignKey
 from sqlalchemy.orm import relationship
 
 from .base import BaseModel
@@ -27,6 +27,9 @@ class User(BaseModel):
     role_id = Column(Integer, ForeignKey('roles.id'), nullable=True)
     daily_vocab_goal = Column(Integer, nullable=True)  # words/day target for the vocabulary library; None = use the default
     vocab_xp = Column(Integer, nullable=False, default=0)  # cumulative XP earned from vocabulary reviews; drives the level shown in the library
+    last_login_at = Column(DateTime, nullable=True)
+    locked_reason = Column(String(255), nullable=True)
+    locked_at = Column(DateTime, nullable=True)
 
     conversations = relationship('Conversation', backref='user', lazy=True, cascade='all, delete-orphan')
 
