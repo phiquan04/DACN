@@ -7,21 +7,29 @@ export interface UserProfile {
   first_name?: string;
   last_name?: string;
   phone?: string;
-  facebook_link?: string;
-  instagram_link?: string;
   country?: string;
   city?: string;
   avatar_url?: string;
+  date_of_birth?: string;
+  gender?: string;
+  current_jlpt_level?: string;
+  target_jlpt_level?: string;
 }
 
 export interface UserProfileUpdate {
   first_name?: string;
   last_name?: string;
   phone?: string;
-  facebook_link?: string;
-  instagram_link?: string;
   country?: string;
   city?: string;
+  date_of_birth?: string | null;
+  gender?: string | null;
+  current_jlpt_level?: string | null;
+  target_jlpt_level?: string | null;
+  /** Not a real PUT /profile field (avatar has its own upload/delete endpoints) —
+   * accepted here only so UserMetaCard can hand the freshly-uploaded URL back
+   * through the same onSave callback to update the parent's cached profile. */
+  avatar_url?: string;
 }
 
 export async function uploadAvatar(file: File): Promise<{ avatar_url: string }> {
@@ -57,5 +65,14 @@ export async function updateUserProfile(data: UserProfileUpdate): Promise<UserPr
     method: "PUT",
     headers: jsonHeaders(token),
     body: JSON.stringify(data),
+  });
+}
+
+export async function changePassword(currentPassword: string, newPassword: string): Promise<void> {
+  const token = getToken();
+  await request(`/api/user/password`, {
+    method: "PUT",
+    headers: jsonHeaders(token),
+    body: JSON.stringify({ current_password: currentPassword, new_password: newPassword }),
   });
 }

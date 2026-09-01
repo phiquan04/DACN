@@ -1,3 +1,4 @@
+import { useState } from "react";
 import PageMeta from "../../components/common/PageMeta";
 import type { SearchHistoryItem } from "../../services/api";
 import { useVocabularyPage } from "./hooks/useVocabularyPage";
@@ -9,9 +10,11 @@ import ImagesCard from "./components/ImagesCard";
 import CommentsCard from "./components/CommentsCard";
 import KanjiTab from "./components/KanjiTab";
 import HistorySidebar from "./components/HistorySidebar";
+import KanjiDrawModal from "./components/KanjiDrawModal";
 
 export default function Vocabulary() {
   const { currentUser, history, images, comments, lookup } = useVocabularyPage();
+  const [isDrawOpen, setIsDrawOpen] = useState(false);
 
   const handleUploadImage = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -46,6 +49,7 @@ export default function Vocabulary() {
             onSearchTermChange={lookup.setSearchTerm}
             loading={lookup.loading}
             onSubmit={lookup.handleSearch}
+            onOpenDraw={() => setIsDrawOpen(true)}
           />
 
           {/* Tabs: Từ vựng / Hán tự */}
@@ -166,6 +170,12 @@ export default function Vocabulary() {
           onClearAll={handleClearHistory}
         />
       </div>
+
+      <KanjiDrawModal
+        isOpen={isDrawOpen}
+        onClose={() => setIsDrawOpen(false)}
+        onSelectCharacter={(char) => lookup.setSearchTerm((prev) => prev + char)}
+      />
     </>
   );
 }

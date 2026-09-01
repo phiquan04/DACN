@@ -16,7 +16,8 @@ import {
 } from "../../services/jlptApi";
 import NewQuestionForm from "./NewQuestionForm";
 import ReviewQuestionCard from "./ReviewQuestionCard";
-import { TrashIcon } from "./icons";
+import { AlertIcon, CheckIcon, TrashIcon } from "./icons";
+import { ChevronLeftIcon } from "../../icons";
 
 function StatusBadge({ status }: { status: string }) {
   const isPublished = status === "published";
@@ -155,9 +156,9 @@ export default function ReviewExams({ focusExamId }: { focusExamId?: number | nu
         <button
           type="button"
           onClick={() => setSelectedId(null)}
-          className="text-sm font-medium text-gray-500 hover:text-gray-800 dark:hover:text-white"
+          className="flex items-center gap-1 text-sm font-medium text-gray-500 hover:text-gray-800 dark:hover:text-white"
         >
-          ← Quay lại danh sách
+          <ChevronLeftIcon className="h-4 w-4" /> Quay lại danh sách
         </button>
 
         <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-gray-200 bg-white p-4 shadow-sm dark:border-gray-700 dark:bg-gray-900">
@@ -176,8 +177,9 @@ export default function ReviewExams({ focusExamId }: { focusExamId?: number | nu
             type="button"
             onClick={handlePublish}
             disabled={publishing || detail.status === "published"}
-            className="rounded-lg bg-brand-500 px-5 py-2 text-sm font-medium text-white hover:bg-brand-600 disabled:opacity-50"
+            className="flex items-center gap-1.5 rounded-lg bg-brand-500 px-5 py-2 text-sm font-medium text-white hover:bg-brand-600 disabled:opacity-50"
           >
+            {detail.status === "published" && <CheckIcon className="h-4 w-4" />}
             {detail.status === "published"
               ? "Đã publish"
               : publishing
@@ -251,9 +253,15 @@ export default function ReviewExams({ focusExamId }: { focusExamId?: number | nu
               </span>
               <StatusBadge status={exam.status} />
             </div>
-            <p className="mt-0.5 text-xs text-gray-500 dark:text-gray-400">
-              {exam.level} · {exam.reviewed_count}/{exam.question_count} câu đã duyệt
-              {!exam.has_answer_key && " · chưa có đáp án gốc"}
+            <p className="mt-0.5 flex items-center gap-1 text-xs text-gray-500 dark:text-gray-400">
+              <span>
+                {exam.level} · {exam.reviewed_count}/{exam.question_count} câu đã duyệt
+              </span>
+              {!exam.has_answer_key && (
+                <span className="flex items-center gap-1 text-amber-600 dark:text-amber-400">
+                  <AlertIcon className="h-3 w-3" /> chưa có đáp án gốc
+                </span>
+              )}
             </p>
           </button>
           <button

@@ -71,6 +71,15 @@ class VietnameseMeaningRequest(BaseModel):
     vietnamese: str
 
 
+class HandwritingRecognitionRequest(BaseModel):
+    # One list of [x, y] points per stroke, in the order they were drawn.
+    strokes: List[List[List[float]]]
+
+
+class HandwritingRecognitionResponse(BaseModel):
+    candidates: List[str]
+
+
 class ReadingRequest(BaseModel):
     text: str
 

@@ -6,12 +6,14 @@ app.services.dictionary_ai / dictionary_jmdict instead of here.
 from fastapi import APIRouter
 
 from .comments import router as comments_router
+from .handwriting import router as handwriting_router
 from .history import router as history_router
 from .images import router as images_router
 from .lookup import router as lookup_router
 
 router = APIRouter(prefix="/dictionary", tags=["dictionary"])
 router.include_router(lookup_router)
+router.include_router(handwriting_router)
 router.include_router(history_router)
 router.include_router(images_router)
 router.include_router(comments_router)

@@ -34,7 +34,7 @@ if config.config_file_name is not None:
 # Base.metadata before autogenerate diffs it against the live database.
 from app.models.base import Base  # noqa: E402
 from app.models import (  # noqa: E402,F401
-    user, chat, grammar, transcription, dictionary, profile, jlpt, vocabulary,
+    user, chat, grammar, transcription, dictionary, profile, jlpt, vocabulary, notification,
 )
 
 target_metadata = Base.metadata

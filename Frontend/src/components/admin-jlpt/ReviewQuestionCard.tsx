@@ -1,7 +1,7 @@
 import { useRef, useState } from "react";
 import { QuestionPatch, QuestionReview } from "../../services/jlptApi";
 import FormattedText from "../jlpt/FormattedText";
-import { CheckIcon, TrashIcon } from "./icons";
+import { AlertIcon, CheckIcon, TrashIcon } from "./icons";
 
 interface MondaiOption {
   id: number;
@@ -230,8 +230,8 @@ export default function ReviewQuestionCard({ question, mondaiOptions, currentMon
       </div>
 
       {correctNo === null && (
-        <p className="mt-2 text-xs font-medium text-rose-600 dark:text-rose-400">
-          Chưa chọn đáp án đúng — bắt buộc trước khi publish.
+        <p className="mt-2 flex items-center gap-1.5 text-xs font-medium text-rose-600 dark:text-rose-400">
+          <AlertIcon className="h-3.5 w-3.5 shrink-0" /> Chưa chọn đáp án đúng — bắt buộc trước khi publish.
         </p>
       )}
 

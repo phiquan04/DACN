@@ -51,6 +51,16 @@ export async function lookupWord(word: string): Promise<DictionaryResult> {
   });
 }
 
+/** strokes: one array of [x, y] points per stroke, in drawing order. */
+export async function recognizeHandwriting(strokes: number[][][]): Promise<string[]> {
+  const res = await request<{ candidates: string[] }>(`/api/dictionary/handwriting/recognize`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ strokes }),
+  });
+  return res.candidates;
+}
+
 export function getPronunciationAudioUrl(text: string): string {
   return `${BASE_URL}/api/dictionary/audio?text=${encodeURIComponent(text)}`;
 }
