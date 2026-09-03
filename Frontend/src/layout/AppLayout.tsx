@@ -1,8 +1,11 @@
 import { SidebarProvider, useSidebar } from "../context/SidebarContext";
+import { SiteHelpChatProvider } from "../context/SiteHelpChatContext";
 import { Outlet, useLocation } from "react-router";
 import AppHeader from "./AppHeader";
 import Backdrop from "./Backdrop";
 import AppSidebar from "./AppSidebar";
+import SiteHelpChatWidget from "../components/site-help-chat/SiteHelpChatWidget";
+import SelectionAskPopup from "../components/site-help-chat/SelectionAskPopup";
 
 // Routes whose content should fill the full dashboard width/height instead of
 // sitting inside the centered max-width column — the page owns its own
@@ -36,6 +39,12 @@ const LayoutContent: React.FC = () => {
           <Outlet />
         </div>
       </div>
+      {!isFullBleed && (
+        <>
+          <SiteHelpChatWidget />
+          <SelectionAskPopup />
+        </>
+      )}
     </div>
   );
 };
@@ -43,7 +52,9 @@ const LayoutContent: React.FC = () => {
 const AppLayout: React.FC = () => {
   return (
     <SidebarProvider>
-      <LayoutContent />
+      <SiteHelpChatProvider>
+        <LayoutContent />
+      </SiteHelpChatProvider>
     </SidebarProvider>
   );
 };

@@ -95,7 +95,7 @@ const AdminSidebar: React.FC = () => {
 
   return (
     <aside
-      className={`fixed mt-16 flex flex-col lg:mt-0 top-0 left-0 h-screen bg-brand-800 text-white transition-all duration-300 ease-in-out z-50
+      className={`fixed mt-16 flex flex-col lg:mt-0 top-0 left-0 h-screen bg-brand-900 text-white transition-all duration-300 ease-in-out z-50
         ${isExpanded || isMobileOpen ? "w-[290px]" : isHovered ? "w-[290px]" : "w-[90px]"}
         ${isMobileOpen ? "translate-x-0" : "-translate-x-full"}
         lg:translate-x-0`}
@@ -112,7 +112,7 @@ const AdminSidebar: React.FC = () => {
           {showLabel && (
             <span className="flex flex-col leading-tight">
               <span className="text-base font-bold">Manabi AI</span>
-              <span className="text-xs text-on-primary/60">Trang quản trị</span>
+              <span className="text-xs text-white/40">Trang quản trị</span>
             </span>
           )}
         </Link>
@@ -130,8 +130,8 @@ const AdminSidebar: React.FC = () => {
                     showLabel ? "" : "lg:justify-center"
                   } ${
                     isParentActive(nav)
-                      ? "bg-secondary text-on-secondary"
-                      : "text-on-primary/70 hover:bg-white/5 hover:text-on-primary"
+                      ? "bg-brand-500 text-white"
+                      : "text-white/60 hover:bg-white/8 hover:text-white"
                   }`}
                 >
                   <span className="shrink-0 [&>svg]:size-5">{nav.icon}</span>
@@ -156,8 +156,8 @@ const AdminSidebar: React.FC = () => {
                           to={sub.path}
                           className={`flex items-center gap-2 rounded-lg px-3 py-2 text-sm transition-colors ${
                             isActive(sub.path)
-                              ? "bg-secondary text-on-secondary font-medium"
-                              : "text-on-primary/60 hover:bg-white/5 hover:text-on-primary"
+                              ? "bg-brand-500 text-white font-medium"
+                              : "text-white/50 hover:bg-white/8 hover:text-white"
                           }`}
                         >
                           <span className="shrink-0 [&>svg]:size-4">{sub.icon}</span>
@@ -176,8 +176,8 @@ const AdminSidebar: React.FC = () => {
                     showLabel ? "" : "lg:justify-center"
                   } ${
                     isActive(nav.path)
-                      ? "bg-secondary text-on-secondary"
-                      : "text-on-primary/70 hover:bg-white/5 hover:text-on-primary"
+                      ? "bg-brand-500 text-white"
+                      : "text-white/60 hover:bg-white/8 hover:text-white"
                   }`}
                 >
                   <span className="shrink-0 [&>svg]:size-5">{nav.icon}</span>
@@ -193,8 +193,8 @@ const AdminSidebar: React.FC = () => {
                 showLabel ? "" : "lg:justify-center"
               } ${
                 isActive("/admin/settings")
-                  ? "bg-secondary text-on-secondary"
-                  : "text-on-primary/70 hover:bg-white/5 hover:text-on-primary"
+                  ? "bg-brand-500 text-white"
+                  : "text-white/60 hover:bg-white/8 hover:text-white"
               }`}
             >
               <span className="shrink-0 [&>svg]:size-5">
@@ -209,7 +209,7 @@ const AdminSidebar: React.FC = () => {
       <div className="border-t border-white/10 px-3 py-4">
         <button
           onClick={handleLogout}
-          className={`flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium text-on-primary/70 transition-colors hover:bg-white/5 hover:text-on-primary ${
+          className={`flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium text-white/60 transition-colors hover:bg-white/8 hover:text-white ${
             showLabel ? "" : "lg:justify-center"
           }`}
         >
