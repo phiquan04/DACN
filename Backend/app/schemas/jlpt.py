@@ -114,6 +114,7 @@ class QuestionReviewOut(BaseModel):
     correct_no: Optional[int] = None
     explanation: Optional[str] = None
     is_reviewed: bool = False
+    updated_at: Optional[str] = None
 
 
 class MondaiReviewGroup(BaseModel):
@@ -178,6 +179,7 @@ class TakeMondaiOut(BaseModel):
     description: Optional[str] = None
     tips: Optional[str] = None
     time_minutes: Optional[int] = None
+    question_count: Optional[int] = None  # how many questions this mondai has in a real full JLPT exam
     questions: List[TakeQuestionOut] = []
 
 
@@ -204,6 +206,10 @@ class PublishedExamSummary(BaseModel):
     month: Optional[int] = None
     total_time_minutes: Optional[int] = None
     question_count: int = 0
+    # Only populated for a logged-in user (see get_optional_user_id in attempts.py)
+    best_score: Optional[int] = None
+    best_total: Optional[int] = None
+    attempt_count: int = 0
 
 
 # --- User-facing: submitting an attempt and viewing history ---
@@ -225,6 +231,26 @@ class GradedAnswerOut(BaseModel):
     explanation: Optional[str] = None
 
 
+class SectionScoreOut(BaseModel):
+    section_type: str
+    name: str
+    score: int
+    max: int
+    floor: int
+    above_floor: bool
+
+
+class ScoreBreakdownOut(BaseModel):
+    """The 0-180 scaled score under JLPT's real dual pass condition (total
+    >= pass_total AND every section >= its floor) — see
+    app/services/jlpt_scoring.py for the approximation this is built from."""
+    total: int
+    total_max: int
+    pass_total: int
+    is_pass: bool
+    sections: List[SectionScoreOut] = []
+
+
 class SubmitAttemptOut(BaseModel):
     attempt_id: int
     exam_id: int
@@ -232,6 +258,13 @@ class SubmitAttemptOut(BaseModel):
     total_questions: int
     percent: float
     answers: List[GradedAnswerOut] = []
+    # JLPT-scale breakdown of this one attempt (None if the exam's mondai
+    # aren't mapped to sections, which shouldn't happen for a published exam)
+    total: Optional[int] = None
+    total_max: Optional[int] = None
+    pass_total: Optional[int] = None
+    is_pass: Optional[bool] = None
+    sections: List[SectionScoreOut] = []
 
 
 class AttemptHistoryItem(BaseModel):
@@ -249,3 +282,48 @@ class LevelAverage(BaseModel):
     level: str
     attempt_count: int
     average_percent: float
+
+
+# --- User-facing: dashboard (upcoming exam / predicted score / weak mondai) ---
+
+class WeakMondaiOut(BaseModel):
+    section_type: str
+    section_name: str
+    mondai_no: int
+    mondai_name: Optional[str] = None
+    wrong_count: int
+    total_count: int
+    percent_correct: float
+
+
+class ExamScheduleOut(BaseModel):
+    id: int
+    level: Optional[str] = None
+    exam_date: str
+    registration_deadline: str
+
+
+class ExamPlanIn(BaseModel):
+    level: JlptLevel
+    schedule_id: int
+    location: Optional[str] = None
+
+
+class ExamPlanOut(BaseModel):
+    id: int
+    level: str
+    location: Optional[str] = None
+    schedule: ExamScheduleOut
+
+
+class UpcomingExamOut(BaseModel):
+    schedule: ExamScheduleOut
+    location: Optional[str] = None
+    days_left: int
+    study_pace_message: str
+
+
+class DashboardOut(BaseModel):
+    predicted: Optional[ScoreBreakdownOut] = None
+    weak_mondai: List[WeakMondaiOut] = []
+    upcoming_exam: Optional[UpcomingExamOut] = None

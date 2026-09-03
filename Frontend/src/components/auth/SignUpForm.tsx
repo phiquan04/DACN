@@ -90,7 +90,7 @@ export default function SignUpForm() {
               placeholder="Tên đăng nhập"
               required
               minLength={3}
-              className="!rounded-full !pl-11"
+              className="!rounded-lg !pl-11"
             />
           </div>
         </div>
@@ -109,7 +109,7 @@ export default function SignUpForm() {
               onChange={handleInputChange}
               placeholder="you@example.com"
               required
-              className="!rounded-full !pl-11"
+              className="!rounded-lg !pl-11"
             />
           </div>
         </div>
@@ -129,7 +129,7 @@ export default function SignUpForm() {
               placeholder="Mật khẩu (tối thiểu 8 ký tự)"
               required
               minLength={8}
-              className="!rounded-full !pl-11 !pr-11"
+              className="!rounded-lg !pl-11 !pr-11"
             />
             <span
               onClick={() => setShowPassword(!showPassword)}
@@ -159,7 +159,7 @@ export default function SignUpForm() {
               placeholder="Xác nhận mật khẩu"
               required
               minLength={8}
-              className="!rounded-full !pl-11"
+              className="!rounded-lg !pl-11"
             />
           </div>
         </div>
@@ -167,7 +167,7 @@ export default function SignUpForm() {
         <button
           type="submit"
           disabled={loading}
-          className="mt-2 flex w-full items-center justify-center gap-2 rounded-full bg-primary px-4 py-3 text-sm font-semibold text-on-primary shadow-theme-xs transition hover:bg-brand-600 disabled:cursor-not-allowed disabled:opacity-50"
+          className="mt-2 flex w-full items-center justify-center gap-2 rounded-lg bg-gradient-to-r from-brand-500 to-brand-600 px-4 py-3 text-sm font-semibold text-white shadow-theme-xs transition hover:from-brand-600 hover:to-brand-700 disabled:cursor-not-allowed disabled:opacity-50"
         >
           {loading ? "Đang đăng ký..." : "Đăng ký"}
           {!loading && (

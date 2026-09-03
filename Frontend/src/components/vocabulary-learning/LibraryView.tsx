@@ -10,8 +10,9 @@ import {
   toggleBookmark,
   updateDailyGoal,
 } from "../../services/vocabularyLearningApi";
-import { BoltIcon, CalenderIcon, PencilIcon, ShootingStarIcon } from "../../icons";
+import { BoltIcon, CalenderIcon, PencilIcon, ShootingStarIcon, TaskIcon } from "../../icons";
 import AchievementsPanel from "./AchievementsPanel";
+import BookmarkToggle from "./BookmarkToggle";
 import ProgressBar from "./ProgressBar";
 import StreakHeatmap from "./StreakHeatmap";
 import StudyConfigPanel from "./StudyConfigPanel";
@@ -144,27 +145,36 @@ export default function LibraryView({
 
       <div className="rounded-xl border border-gray-200 bg-white p-5 shadow-sm dark:border-gray-700 dark:bg-gray-900">
         <div className="flex flex-wrap items-center justify-between gap-4">
-          <div className="flex items-center gap-6">
-            <div className="text-center">
-              <div className="mx-auto flex h-11 w-11 items-center justify-center rounded-full bg-teal-100 text-teal-600 dark:bg-teal-500/20 dark:text-teal-300">
+          <div className="flex flex-wrap items-center gap-6">
+            <div className="flex items-center gap-3">
+              <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-teal-100 text-teal-600 dark:bg-teal-500/20 dark:text-teal-300">
                 <BoltIcon />
               </div>
-              <p className="mt-1 text-lg font-bold text-gray-800 dark:text-white/90">{overview?.streak_days ?? 0} ngày</p>
-              <p className="text-xs text-gray-400 dark:text-gray-500">Streak</p>
+              <div>
+                <p className="text-lg font-bold text-gray-800 dark:text-white/90">{overview?.streak_days ?? 0} ngày</p>
+                <p className="text-xs text-gray-400 dark:text-gray-500">Streak</p>
+              </div>
             </div>
-            <div className="text-center">
-              <div className="mx-auto flex h-11 w-11 items-center justify-center rounded-full bg-brand-100 text-brand-600 dark:bg-brand-500/20 dark:text-brand-300">
+            <div className="flex items-center gap-3">
+              <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-brand-100 text-brand-600 dark:bg-brand-500/20 dark:text-brand-300">
                 <ShootingStarIcon />
               </div>
-              <p className="mt-1 text-lg font-bold text-gray-800 dark:text-white/90">Lv.{overview?.level ?? 1}</p>
-              <p className="text-xs text-gray-400 dark:text-gray-500">
-                {overview ? overview.xp - overview.level_xp_floor : 0}/
-                {overview ? overview.level_xp_ceil - overview.level_xp_floor : 100} XP
-              </p>
+              <div>
+                <p className="text-lg font-bold text-gray-800 dark:text-white/90">Lv.{overview?.level ?? 1}</p>
+                <p className="text-xs text-gray-400 dark:text-gray-500">
+                  {overview ? overview.xp - overview.level_xp_floor : 0}/
+                  {overview ? overview.level_xp_ceil - overview.level_xp_floor : 100} XP
+                </p>
+              </div>
             </div>
-            <div className="text-center">
-              <p className="text-lg font-bold text-rose-500">{overview?.due_today_count ?? 0} từ</p>
-              <p className="text-xs text-gray-400 dark:text-gray-500">Cần ôn ngay</p>
+            <div className="flex items-center gap-3">
+              <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-amber-100 text-amber-600 dark:bg-amber-500/20 dark:text-amber-300">
+                <TaskIcon />
+              </div>
+              <div>
+                <p className="text-lg font-bold text-gray-800 dark:text-white/90">{overview?.due_today_count ?? 0} từ</p>
+                <p className="text-xs text-gray-400 dark:text-gray-500">Cần ôn ngay</p>
+              </div>
             </div>
             <div className="min-w-[220px]">
               <div className="flex items-center justify-between text-xs text-gray-500 dark:text-gray-400">
@@ -204,8 +214,8 @@ export default function LibraryView({
                   </span>
                 )}
               </div>
-              <div className="mt-1 h-2 w-full overflow-hidden rounded-full bg-gray-100 dark:bg-gray-800">
-                <div className="h-full bg-gray-900 dark:bg-white" style={{ width: `${goalPct}%` }} />
+              <div className="mt-1 h-2 w-full overflow-hidden rounded-lg bg-gray-100 dark:bg-gray-800">
+                <div className="h-full bg-brand-500" style={{ width: `${goalPct}%` }} />
               </div>
             </div>
           </div>
@@ -213,7 +223,7 @@ export default function LibraryView({
             type="button"
             disabled={!overview || overview.due_today_count === 0}
             onClick={onStartDueQuick}
-            className="flex shrink-0 items-center gap-2 rounded-lg bg-gray-900 px-4 py-2.5 text-sm font-medium text-white transition hover:bg-gray-800 disabled:cursor-not-allowed disabled:opacity-50 dark:bg-white dark:text-gray-900"
+            className="flex shrink-0 items-center gap-2 rounded-lg bg-brand-500 px-4 py-2.5 text-sm font-medium text-white transition hover:bg-brand-600 disabled:cursor-not-allowed disabled:bg-brand-200 disabled:text-white/80"
           >
             <BoltIcon className="h-4 w-4" />
             Ôn tập ngay
@@ -231,165 +241,154 @@ export default function LibraryView({
         </div>
       )}
 
-      <div className="flex gap-1 border-b border-gray-200 dark:border-gray-700">
-        {(
-          [
-            { id: "sets" as Tab, label: "Các bộ từ vựng" },
-            { id: "mine" as Tab, label: "Của tôi" },
-            { id: "achievements" as Tab, label: "Thành tích" },
-          ]
-        ).map((t) => (
-          <button
-            key={t.id}
-            type="button"
-            onClick={() => setTab(t.id)}
-            className={`-mb-px border-b-2 px-3 py-2 text-sm font-medium transition-colors ${
-              tab === t.id
-                ? "border-brand-500 text-brand-600 dark:text-brand-400"
-                : "border-transparent text-gray-500 hover:text-gray-700 dark:text-gray-400"
-            }`}
-          >
-            {t.label}
-          </button>
-        ))}
-      </div>
-
-      {tab === "sets" && (
-        <div className="space-y-4">
-          <div className="flex flex-wrap gap-2">
+      <div className="rounded-xl border border-gray-200 bg-white p-5 shadow-sm dark:border-gray-700 dark:bg-gray-900">
+        <div className="mb-5 flex w-fit gap-1 rounded-lg bg-gray-100 p-1 dark:bg-gray-800">
+          {(
+            [
+              { id: "sets" as Tab, label: "Các bộ từ vựng" },
+              { id: "mine" as Tab, label: "Của tôi" },
+              { id: "achievements" as Tab, label: "Thành tích" },
+            ]
+          ).map((t) => (
             <button
+              key={t.id}
               type="button"
-              onClick={() => setLevel("ALL")}
-              className={`rounded-full px-4 py-1.5 text-xs font-medium transition-colors ${
-                level === "ALL"
-                  ? "bg-gray-900 text-white dark:bg-white dark:text-gray-900"
-                  : "border border-gray-300 text-gray-600 hover:border-gray-400 dark:border-gray-600 dark:text-gray-300"
+              onClick={() => setTab(t.id)}
+              className={`rounded-md px-4 py-1.5 text-sm font-medium transition-colors ${
+                tab === t.id
+                  ? "bg-white text-brand-600 shadow-sm dark:bg-gray-900 dark:text-brand-400"
+                  : "text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200"
               }`}
             >
-              Tất cả
+              {t.label}
             </button>
-            {JLPT_LEVELS.map((lv) => (
+          ))}
+        </div>
+
+        {tab === "sets" && (
+          <div className="space-y-4">
+            <div className="flex flex-wrap gap-2">
               <button
-                key={lv}
                 type="button"
-                onClick={() => setLevel(lv)}
-                className={`rounded-full px-4 py-1.5 text-xs font-medium transition-colors ${
-                  level === lv
-                    ? "bg-gray-900 text-white dark:bg-white dark:text-gray-900"
-                    : "border border-gray-300 text-gray-600 hover:border-gray-400 dark:border-gray-600 dark:text-gray-300"
+                onClick={() => setLevel("ALL")}
+                className={`rounded-lg px-4 py-1.5 text-xs font-medium transition-colors ${
+                  level === "ALL"
+                    ? "bg-brand-500 text-white"
+                    : "border border-gray-300 text-gray-600 hover:border-teal-400 dark:border-gray-600 dark:text-gray-300"
                 }`}
               >
-                {lv}
+                Tất cả
               </button>
-            ))}
-          </div>
-
-          {loadingSets && <p className="text-sm text-gray-500 dark:text-gray-400">Đang tải...</p>}
-          {!loadingSets && groups.length === 0 && (
-            <p className="text-sm text-gray-500 dark:text-gray-400">Chưa có bộ từ vựng nào ở cấp độ này.</p>
-          )}
-
-          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
-            {groups.map((group) => {
-              const isCurriculum = group.curriculumId !== null;
-              const totals = sumGroup(group.sets);
-              const levels = Array.from(new Set(group.sets.map((s) => s.level)));
-              const primarySet = group.sets[0];
-
-              return (
+              {JLPT_LEVELS.map((lv) => (
                 <button
-                  key={isCurriculum ? `c-${group.curriculumId}` : `s-${primarySet.id}`}
+                  key={lv}
                   type="button"
-                  onClick={() =>
-                    isCurriculum ? onSelectCurriculum(group.curriculumName, group.sets) : onSelectSet(primarySet)
-                  }
-                  className="flex flex-col gap-3 rounded-xl border border-gray-200 bg-white p-4 text-left shadow-sm transition hover:border-teal-500 hover:shadow-sm dark:border-gray-700 dark:bg-gray-900"
+                  onClick={() => setLevel(lv)}
+                  className={`rounded-lg px-4 py-1.5 text-xs font-medium transition-colors ${
+                    level === lv
+                      ? "bg-brand-500 text-white"
+                      : "border border-gray-300 text-gray-600 hover:border-teal-400 dark:border-gray-600 dark:text-gray-300"
+                  }`}
                 >
-                  <div className="flex items-center gap-2">
-                    {levels.map((lv) => (
-                      <span
-                        key={lv}
-                        className="shrink-0 rounded-full bg-emerald-100 px-2 py-0.5 text-[10px] font-bold text-emerald-700 dark:bg-emerald-500/20 dark:text-emerald-300"
-                      >
-                        {lv}
-                      </span>
-                    ))}
+                  {lv}
+                </button>
+              ))}
+            </div>
+
+            {loadingSets && <p className="text-sm text-gray-500 dark:text-gray-400">Đang tải...</p>}
+            {!loadingSets && groups.length === 0 && (
+              <p className="text-sm text-gray-500 dark:text-gray-400">Chưa có bộ từ vựng nào ở cấp độ này.</p>
+            )}
+
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+              {groups.map((group) => {
+                const isCurriculum = group.curriculumId !== null;
+                const totals = sumGroup(group.sets);
+                const primarySet = group.sets[0];
+
+                return (
+                  <button
+                    key={isCurriculum ? `c-${group.curriculumId}` : `s-${primarySet.id}`}
+                    type="button"
+                    onClick={() =>
+                      isCurriculum ? onSelectCurriculum(group.curriculumName, group.sets) : onSelectSet(primarySet)
+                    }
+                    className="flex flex-col gap-3 rounded-xl border border-gray-200 bg-white p-4 text-left shadow-sm transition hover:border-teal-500 hover:shadow-sm dark:border-gray-700 dark:bg-gray-900"
+                  >
                     <span className="truncate text-sm font-semibold text-gray-800 dark:text-white/90">
                       {group.curriculumName}
                     </span>
-                  </div>
-                  <p className="text-xs text-gray-400 dark:text-gray-500">
-                    {isCurriculum ? `${group.sets.length} bộ · ${totals.item_count} từ` : `${totals.item_count} từ`}
-                  </p>
-                  <div>
-                    <ProgressBar learned={totals.learned_count} reviewing={totals.reviewing_count} total={totals.item_count} />
-                    <div className="mt-1.5 flex items-center gap-3 text-[11px] text-gray-500 dark:text-gray-400">
-                      <span className="flex items-center gap-1">
-                        <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" /> {totals.learned_count} thuộc
-                      </span>
-                      <span className="flex items-center gap-1">
-                        <span className="h-1.5 w-1.5 rounded-full bg-rose-400" /> {totals.reviewing_count} cần ôn
-                      </span>
-                      <span className="flex items-center gap-1">
-                        <span className="h-1.5 w-1.5 rounded-full bg-gray-300 dark:bg-gray-600" /> {totals.new_count} mới
-                      </span>
-                    </div>
-                  </div>
-                </button>
-              );
-            })}
-          </div>
-        </div>
-      )}
-
-      {tab === "mine" && (
-        <div className="space-y-5">
-          {loadingBookmarked && <p className="text-sm text-gray-500 dark:text-gray-400">Đang tải...</p>}
-          {!loadingBookmarked && bookmarked.length === 0 && (
-            <p className="text-sm text-gray-500 dark:text-gray-400">
-              Chưa có từ nào được đánh dấu. Bấm biểu tượng đánh dấu trên một từ khi học để thêm vào đây.
-            </p>
-          )}
-          {bookmarked.length > 0 && (
-            <>
-              <div className="flex flex-col gap-2.5">
-                {bookmarked.map((item) => (
-                  <div
-                    key={item.id}
-                    className="flex items-center justify-between gap-3 rounded-xl border border-gray-200 bg-white p-3 shadow-sm dark:border-gray-700 dark:bg-gray-900"
-                  >
-                    <div className="min-w-0 flex-1">
-                      <div className="flex items-center gap-2">
-                        <span lang="ja" className="truncate text-sm font-semibold text-gray-800 dark:text-white/90">
-                          {item.word}
+                    <p className="text-xs text-gray-400 dark:text-gray-500">
+                      {isCurriculum ? `${group.sets.length} bộ · ${totals.item_count} từ` : `${totals.item_count} từ`}
+                    </p>
+                    <div>
+                      <ProgressBar learned={totals.learned_count} reviewing={totals.reviewing_count} total={totals.item_count} />
+                      <div className="mt-1.5 flex items-center gap-3 text-[11px] text-gray-500 dark:text-gray-400">
+                        <span className="flex items-center gap-1">
+                          <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" /> {totals.learned_count} thuộc
                         </span>
-                        {item.reading && (
-                          <span lang="ja" className="shrink-0 text-xs text-gray-400 dark:text-gray-500">
-                            {item.reading}
-                          </span>
-                        )}
+                        <span className="flex items-center gap-1">
+                          <span className="h-1.5 w-1.5 rounded-full bg-rose-400" /> {totals.reviewing_count} cần ôn
+                        </span>
+                        <span className="flex items-center gap-1">
+                          <span className="h-1.5 w-1.5 rounded-full bg-gray-300 dark:bg-gray-600" /> {totals.new_count} mới
+                        </span>
                       </div>
-                      <p className="truncate text-xs text-gray-500 dark:text-gray-400">{item.meaning_vi}</p>
                     </div>
-                    <button
-                      type="button"
-                      onClick={() => handleUnbookmark(item.id)}
-                      className="shrink-0 text-xs font-medium text-rose-500 hover:text-rose-600"
-                    >
-                      Bỏ đánh dấu
-                    </button>
-                  </div>
-                ))}
-              </div>
-              <div className="rounded-xl border border-gray-200 bg-white p-5 shadow-sm dark:border-gray-700 dark:bg-gray-900">
-                <StudyConfigPanel onStart={onStartBookmarked} />
-              </div>
-            </>
-          )}
-        </div>
-      )}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+        )}
 
-      {tab === "achievements" && <AchievementsPanel />}
+        {tab === "mine" && (
+          <div className="space-y-5">
+            {loadingBookmarked && <p className="text-sm text-gray-500 dark:text-gray-400">Đang tải...</p>}
+            {!loadingBookmarked && bookmarked.length === 0 && (
+              <p className="text-sm text-gray-500 dark:text-gray-400">
+                Chưa có từ nào được đánh dấu. Bấm biểu tượng đánh dấu trên một từ khi học để thêm vào đây.
+              </p>
+            )}
+            {bookmarked.length > 0 && (
+              <>
+                <div className="flex flex-col gap-2.5">
+                  {bookmarked.map((item) => (
+                    <div
+                      key={item.id}
+                      className="relative flex items-center justify-between gap-3 rounded-xl border border-gray-200 bg-white p-3 shadow-sm dark:border-gray-700 dark:bg-gray-900"
+                    >
+                      <div className="min-w-0 flex-1">
+                        <div className="flex items-center gap-2">
+                          <span lang="ja" className="truncate text-sm font-semibold text-gray-800 dark:text-white/90">
+                            {item.word}
+                          </span>
+                          {item.reading && (
+                            <span lang="ja" className="shrink-0 text-xs text-gray-400 dark:text-gray-500">
+                              {item.reading}
+                            </span>
+                          )}
+                        </div>
+                        <p className="truncate text-xs text-gray-500 dark:text-gray-400">{item.meaning_vi}</p>
+                      </div>
+                      <BookmarkToggle
+                        active
+                        onToggle={() => handleUnbookmark(item.id)}
+                        className="shrink-0"
+                      />
+                    </div>
+                  ))}
+                </div>
+                <div className="rounded-xl border border-gray-200 bg-white p-5 shadow-sm dark:border-gray-700 dark:bg-gray-900">
+                  <StudyConfigPanel onStart={onStartBookmarked} />
+                </div>
+              </>
+            )}
+          </div>
+        )}
+
+        {tab === "achievements" && <AchievementsPanel />}
+      </div>
     </div>
   );
 }

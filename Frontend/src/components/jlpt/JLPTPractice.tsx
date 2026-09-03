@@ -2,24 +2,26 @@ import { useEffect, useState } from "react";
 import { useToast } from "../../context/ToastContext";
 import { getStoredUser } from "../../services/authApi";
 import {
-  AttemptHistoryItem,
+  JlptDashboard,
   JlptLevel,
-  LevelAverage,
   PublishedExamSummary,
   SubmitAttemptResult,
   TakeExam,
-  fetchAverageByLevel,
+  fetchDashboard,
   fetchExamToTake,
-  fetchMyAttempts,
   fetchPublishedExams,
+  fetchStructure,
   submitAttempt,
 } from "../../services/jlptApi";
-import AttemptHistoryPanel from "./AttemptHistoryPanel";
 import ExamBrowseList from "./ExamBrowseList";
 import ExamResultView from "./ExamResultView";
+import PredictedScoreCard from "./PredictedScoreCard";
 import TakeExamView from "./TakeExamView";
+import UpcomingExamCard from "./UpcomingExamCard";
+import WeakMondaiCard from "./WeakMondaiCard";
 
 type View = "browse" | "take" | "result";
+const DEFAULT_LEVEL: JlptLevel = "N3";
 
 export default function JLPTPractice() {
   const { showToast } = useToast();
@@ -29,12 +31,14 @@ export default function JLPTPractice() {
   const [level, setLevel] = useState<JlptLevel | "ALL">("ALL");
   const [exams, setExams] = useState<PublishedExamSummary[]>([]);
   const [loadingExams, setLoadingExams] = useState(true);
-  const [averages, setAverages] = useState<LevelAverage[]>([]);
-  const [history, setHistory] = useState<AttemptHistoryItem[]>([]);
+  const [dashboard, setDashboard] = useState<JlptDashboard | null>(null);
+  const [totalTimeMinutes, setTotalTimeMinutes] = useState<number | null>(null);
 
   const [activeExam, setActiveExam] = useState<TakeExam | null>(null);
   const [result, setResult] = useState<SubmitAttemptResult | null>(null);
   const [submitting, setSubmitting] = useState(false);
+
+  const dashboardLevel: JlptLevel = level === "ALL" ? DEFAULT_LEVEL : level;
 
   const loadExams = async (lv: JlptLevel | "ALL") => {
     setLoadingExams(true);
@@ -45,21 +49,24 @@ export default function JLPTPractice() {
     }
   };
 
+  const loadDashboard = () => {
+    if (!currentUser) return;
+    fetchDashboard(dashboardLevel).then(setDashboard);
+    fetchStructure(dashboardLevel).then((s) => setTotalTimeMinutes(s?.total_time_minutes ?? null));
+  };
+
   useEffect(() => {
     loadExams(level);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [level]);
 
   useEffect(() => {
-    if (!currentUser) return;
-    fetchAverageByLevel().then(setAverages);
-    fetchMyAttempts().then(setHistory);
+    loadDashboard();
     // currentUser comes from getStoredUser(), which JSON.parses localStorage
     // on every render and so returns a new object reference each time —
     // depending on the object itself would re-run this effect (and refetch)
     // on every render, forever. Depend on the primitive id instead.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [currentUser?.id]);
+  }, [currentUser?.id, dashboardLevel]);
 
   const handleStart = async (examId: number) => {
     try {
@@ -82,8 +89,7 @@ export default function JLPTPractice() {
       const res = await submitAttempt(activeExam.id, answers);
       setResult(res);
       setView("result");
-      fetchAverageByLevel().then(setAverages);
-      fetchMyAttempts().then(setHistory);
+      loadDashboard();
     } catch {
       // reported globally
     } finally {
@@ -115,7 +121,20 @@ export default function JLPTPractice() {
 
   return (
     <div className="space-y-5">
-      {currentUser && <AttemptHistoryPanel averages={averages} history={history} />}
+      {currentUser && (
+        <>
+          <div className="grid gap-4 lg:grid-cols-2">
+            <UpcomingExamCard
+              level={dashboardLevel}
+              upcoming={dashboard?.upcoming_exam ?? null}
+              totalTimeMinutes={totalTimeMinutes}
+              onChanged={loadDashboard}
+            />
+            <PredictedScoreCard predicted={dashboard?.predicted ?? null} />
+          </div>
+          <WeakMondaiCard items={dashboard?.weak_mondai ?? []} />
+        </>
+      )}
       <ExamBrowseList
         exams={exams}
         loading={loadingExams}

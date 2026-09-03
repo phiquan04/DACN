@@ -1,11 +1,15 @@
 import { useCallback, useState } from "react";
 import { getErrorInfo } from "../../../utils/errors";
+import { getToken } from "../../../services/authApi";
 import { API_BASE, formatTime, toSRTTime, type Segment, type YouTubeVideo } from "../japaneseVideoUtils";
 
-/** Runs a video through /api/transcribe and holds the resulting Japanese/Vietnamese segments, plus copy/export actions over them. */
-export function useTranscription() {
-  const [segments, setSegments] = useState<Segment[]>([]);
-  const [status, setStatus] = useState<"idle" | "processing" | "done" | "error">("idle");
+/** Runs a video through /api/transcribe and holds the resulting Japanese/Vietnamese segments, plus copy/export actions over them.
+ * `initialSegments` preloads a previously-saved script (from Lịch sử) without hitting /transcribe again. */
+export function useTranscription(initialSegments: Segment[] = []) {
+  const [segments, setSegments] = useState<Segment[]>(initialSegments);
+  const [status, setStatus] = useState<"idle" | "processing" | "done" | "error">(
+    initialSegments.length > 0 ? "done" : "idle"
+  );
   const [errorMsg, setErrorMsg] = useState("");
   const [toast, setToast] = useState("");
 
@@ -33,11 +37,18 @@ export function useTranscription() {
       const timeoutId = setTimeout(() => controller.abort(), 180000);
       const formData = new FormData();
       formData.append("youtube_url", `https://www.youtube.com/watch?v=${video.id}`);
+      formData.append("video_id", video.id);
+      formData.append("video_title", video.title);
+      formData.append("channel_id", video.channelId ?? "");
+      formData.append("channel_title", video.channelTitle);
+      formData.append("thumbnail", video.thumbnail);
 
+      const token = getToken();
       const res = await fetch(`${API_BASE}/api/transcribe`, {
         method: "POST",
         body: formData,
         signal: controller.signal,
+        headers: token ? { Authorization: `Bearer ${token}` } : undefined,
       });
 
       clearTimeout(timeoutId);

@@ -53,3 +53,13 @@ class GrammarHistoryDetail(BaseModel):
     explanation: List[GrammarErrorExplanation] = []
     alternatives: Optional[List[str]] = None
     created_at: str
+
+
+class ErrorTypeStat(BaseModel):
+    error_type: str
+    count: int
+    percentage: float
+
+
+class GrammarErrorStats(BaseModel):
+    stats: List[ErrorTypeStat]

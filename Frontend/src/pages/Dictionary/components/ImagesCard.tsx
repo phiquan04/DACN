@@ -55,7 +55,7 @@ export default function ImagesCard({ word, images, loading, uploading, currentUs
       )}
 
       {!loading && images.length === 0 && (
-        <div className="flex h-44 flex-col items-center justify-center gap-2 rounded-xl border border-dashed border-outline-variant/60 text-outline dark:border-gray-700 dark:text-gray-500">
+        <div className="flex h-44 flex-col items-center justify-center gap-2 rounded-xl border border-dashed border-outline-variant/60 bg-surface-container-lowest text-outline dark:border-gray-700 dark:bg-gray-900 dark:text-gray-500">
           <svg xmlns="http://www.w3.org/2000/svg" className="h-8 w-8" viewBox="0 0 20 20" fill="currentColor">
             <path fillRule="evenodd" d="M4 3a2 2 0 00-2 2v10a2 2 0 002 2h12a2 2 0 002-2V5a2 2 0 00-2-2H4zm12 12H4l4-8 3 6 2-4 3 6z" clipRule="evenodd" />
           </svg>

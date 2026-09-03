@@ -1,6 +1,14 @@
 import { ShootingStarIcon } from "../../icons";
 
-export default function BookmarkToggle({ active, onToggle }: { active: boolean; onToggle: () => void }) {
+export default function BookmarkToggle({
+  active,
+  onToggle,
+  className = "absolute right-3 top-3 z-10",
+}: {
+  active: boolean;
+  onToggle: () => void;
+  className?: string;
+}) {
   return (
     <button
       type="button"
@@ -9,7 +17,7 @@ export default function BookmarkToggle({ active, onToggle }: { active: boolean; 
         onToggle();
       }}
       aria-label={active ? "Bỏ đánh dấu từ này" : "Đánh dấu từ này"}
-      className={`absolute right-3 top-3 z-10 ${
+      className={`${className} ${
         active ? "text-amber-500" : "text-gray-300 hover:text-gray-400 dark:text-gray-600"
       }`}
     >

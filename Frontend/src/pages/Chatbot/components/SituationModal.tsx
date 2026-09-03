@@ -69,7 +69,7 @@ export default function SituationModal({
           type="button"
           onClick={() => onConfirm(value.trim())}
           disabled={saving}
-          className="rounded-lg bg-brand-600 px-4 py-2 text-xs font-semibold text-white transition-colors hover:bg-brand-700 disabled:opacity-50"
+          className="rounded-lg bg-gradient-to-r from-brand-500 to-brand-600 px-4 py-2 text-xs font-semibold text-white transition-colors hover:from-brand-600 hover:to-brand-700 disabled:opacity-50"
         >
           {saving ? "Đang lưu..." : "Lưu"}
         </button>

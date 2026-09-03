@@ -253,7 +253,7 @@ export default function LookupManager({ title, hint, icon, hasDescription, items
                 <button
                   type="button"
                   onClick={() => handleDelete(item)}
-                  className="text-gray-400 hover:text-rose-500"
+                  className="text-gray-400 hover:text-error-500"
                   title="Xóa"
                 >
                   <TrashIcon className="h-4 w-4" />

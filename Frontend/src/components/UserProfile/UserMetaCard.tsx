@@ -110,7 +110,7 @@ export default function UserMetaCard({
   };
 
   return (
-    <div className="rounded-2xl border border-gray-200 bg-white p-5 dark:border-gray-800 dark:bg-white/[0.03] lg:p-6">
+    <div className="rounded-xl border border-gray-200 bg-white p-5 shadow-sm dark:border-gray-700 dark:bg-gray-900 lg:p-6">
       <div className="flex flex-col gap-5 sm:flex-row sm:items-start">
         {/* Avatar chữ nhật, icon máy ảnh (sửa) và thùng rác (xóa) đè ở hai góc dưới */}
         <div
@@ -121,8 +121,13 @@ export default function UserMetaCard({
           {avatarUrl ? (
             <img src={avatarUrl} alt="avatar" className="h-full w-full object-cover" />
           ) : (
-            <div className="flex h-full w-full items-center justify-center bg-gray-200 text-3xl text-gray-500 dark:bg-gray-700">
-              📷
+            <div className="flex h-full w-full items-center justify-center bg-brand-100 text-brand-400 dark:bg-brand-500/20 dark:text-brand-300">
+              <svg width="36" height="36" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <path
+                  d="M6.5 3.75a.75.75 0 0 0-.67.415L5.19 5.5H3.25A1.75 1.75 0 0 0 1.5 7.25v8A1.75 1.75 0 0 0 3.25 17h13.5a1.75 1.75 0 0 0 1.75-1.75v-8A1.75 1.75 0 0 0 16.75 5.5h-1.94l-.64-1.335a.75.75 0 0 0-.67-.415h-7Zm3.5 4.5a3.75 3.75 0 1 1 0 7.5 3.75 3.75 0 0 1 0-7.5Zm0 1.5a2.25 2.25 0 1 0 0 4.5 2.25 2.25 0 0 0 0-4.5Z"
+                  fill="currentColor"
+                />
+              </svg>
             </div>
           )}
           {uploading && (
@@ -209,36 +214,36 @@ export default function UserMetaCard({
       {loadingOverview ? (
         <p className="mt-5 text-sm text-gray-500 dark:text-gray-400">Đang tải...</p>
       ) : overview ? (
-        <div className="mt-5 grid grid-cols-2 gap-3 border-t border-gray-100 pt-5 dark:border-gray-800 sm:grid-cols-4">
-          <div className="text-center">
-            <div className="mx-auto flex h-11 w-11 items-center justify-center rounded-full bg-teal-100 text-teal-600 dark:bg-teal-500/20 dark:text-teal-300">
+        <div className="mt-5 grid grid-cols-2 gap-3 sm:grid-cols-4">
+          <div className="flex flex-col items-center gap-2 rounded-xl border border-gray-200 bg-gray-50 p-4 text-center dark:border-gray-700 dark:bg-gray-800/60">
+            <div className="flex h-11 w-11 items-center justify-center rounded-full bg-teal-100 text-teal-600 dark:bg-teal-500/20 dark:text-teal-300">
               <BoltIcon />
             </div>
-            <p className="mt-1 text-lg font-bold text-gray-800 dark:text-white/90">{overview.streak_days}</p>
+            <p className="text-lg font-bold text-gray-800 dark:text-white/90">{overview.streak_days}</p>
             <p className="text-xs text-gray-400 dark:text-gray-500">Chuỗi ngày học</p>
           </div>
-          <div className="text-center">
-            <div className="mx-auto flex h-11 w-11 items-center justify-center rounded-full bg-brand-100 text-brand-600 dark:bg-brand-500/20 dark:text-brand-300">
+          <div className="flex flex-col items-center gap-2 rounded-xl border border-gray-200 bg-gray-50 p-4 text-center dark:border-gray-700 dark:bg-gray-800/60">
+            <div className="flex h-11 w-11 items-center justify-center rounded-full bg-brand-100 text-brand-600 dark:bg-brand-500/20 dark:text-brand-300">
               <ShootingStarIcon />
             </div>
-            <p className="mt-1 text-lg font-bold text-gray-800 dark:text-white/90">
+            <p className="text-lg font-bold text-gray-800 dark:text-white/90">
               Lv.{overview.level} · {overview.xp}
             </p>
             <p className="text-xs text-gray-400 dark:text-gray-500">XP</p>
           </div>
-          <div className="text-center">
-            <div className="mx-auto flex h-11 w-11 items-center justify-center rounded-full bg-amber-100 text-amber-600 dark:bg-amber-500/20 dark:text-amber-300">
+          <div className="flex flex-col items-center gap-2 rounded-xl border border-gray-200 bg-gray-50 p-4 text-center dark:border-gray-700 dark:bg-gray-800/60">
+            <div className="flex h-11 w-11 items-center justify-center rounded-full bg-amber-100 text-amber-600 dark:bg-amber-500/20 dark:text-amber-300">
               <TaskIcon />
             </div>
-            <p className="mt-1 text-lg font-bold text-gray-800 dark:text-white/90">{overview.due_today_count}</p>
+            <p className="text-lg font-bold text-gray-800 dark:text-white/90">{overview.due_today_count}</p>
             <p className="text-xs text-gray-400 dark:text-gray-500">Cần ôn hôm nay</p>
           </div>
-          <div className="text-center">
-            <div className="mx-auto flex h-11 w-11 items-center justify-center rounded-full bg-emerald-100 text-emerald-600 dark:bg-emerald-500/20 dark:text-emerald-300">
+          <div className="flex flex-col items-center gap-2 rounded-xl border border-gray-200 bg-gray-50 p-4 text-center dark:border-gray-700 dark:bg-gray-800/60">
+            <div className="flex h-11 w-11 items-center justify-center rounded-full bg-brand-100 text-brand-600 dark:bg-brand-500/20 dark:text-brand-300">
               <DocsIcon />
             </div>
             {editingJlpt ? (
-              <div className="mt-1 flex items-center justify-center gap-1">
+              <div className="flex items-center justify-center gap-1">
                 <select
                   autoFocus
                   disabled={savingJlpt || !onSetCurrentLevel}
@@ -275,7 +280,7 @@ export default function UserMetaCard({
               <button
                 type="button"
                 onClick={() => canEditJlpt && setEditingJlpt(true)}
-                className="mt-1 flex items-center justify-center gap-1 text-lg font-bold text-gray-800 hover:text-brand-600 dark:text-white/90 dark:hover:text-brand-400"
+                className="flex items-center justify-center gap-1 text-lg font-bold text-gray-800 hover:text-brand-600 dark:text-white/90 dark:hover:text-brand-400"
                 title={canEditJlpt ? "Đổi trình độ / mục tiêu JLPT" : undefined}
               >
                 {jlptLabel}

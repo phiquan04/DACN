@@ -163,7 +163,7 @@ export default function VocabularyItemCard({ item, onSave, onDelete }: Props) {
             onClick={handleDelete}
             disabled={deleting}
             title="Xóa từ này"
-            className="text-gray-400 hover:text-rose-500 disabled:opacity-60"
+            className="text-gray-400 hover:text-error-500 disabled:opacity-60"
           >
             <TrashIcon className="h-4 w-4" />
           </button>

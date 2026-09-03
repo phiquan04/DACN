@@ -23,7 +23,7 @@ export default function AudioAnalysisCard({
   className = "",
 }: AudioAnalysisCardProps) {
   return (
-    <div className={`rounded-3xl border border-outline-variant/60 bg-surface-container-lowest p-6 shadow-theme-xs dark:border-gray-700 dark:bg-gray-900 ${className}`}>
+    <div className={`rounded-2xl border border-outline-variant/60 bg-surface-container-lowest p-5 shadow-theme-xs dark:border-gray-700 dark:bg-gray-900 ${className}`}>
       <h3 className="mb-5 flex items-center gap-2 text-base font-semibold text-on-surface dark:text-white/90">
         <svg className="w-5 h-5 text-secondary" fill="none" viewBox="0 0 24 24" stroke="currentColor">
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M3 12h2l2-7 3 14 3-10 2 5h4" />

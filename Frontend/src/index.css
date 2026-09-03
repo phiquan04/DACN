@@ -41,29 +41,29 @@ layer(base);
   --color-white: #ffffff;
   --color-black: #101828;
 
-  --color-brand-25: #f5f7fa;
-  --color-brand-50: #eef1f6;
-  --color-brand-100: #d8e3fb;
-  --color-brand-200: #bcc7de;
-  --color-brand-300: #8590a6;
-  --color-brand-400: #3c475a;
-  --color-brand-500: #091426;
-  --color-brand-600: #070f1e;
-  --color-brand-700: #050b16;
-  --color-brand-800: #030710;
-  --color-brand-900: #020509;
-  --color-brand-950: #010204;
+  --color-brand-25: #fbfcfe;
+  --color-brand-50: #f4f8fe;
+  --color-brand-100: #eaf1fc;
+  --color-brand-200: #cbd8f0;
+  --color-brand-300: #9fb3e0;
+  --color-brand-400: #5c82d6;
+  --color-brand-500: #2f5dc8;
+  --color-brand-600: #2650b0;
+  --color-brand-700: #1e4499;
+  --color-brand-800: #16336f;
+  --color-brand-900: #122a5b;
+  --color-brand-950: #0d1f45;
 
   /* Komorebi Study System design tokens */
-  --color-primary: #091426;
+  --color-primary: #2f5dc8;
   --color-on-primary: #ffffff;
-  --color-primary-container: #1e293b;
-  --color-on-primary-container: #8590a6;
-  --color-inverse-primary: #bcc7de;
-  --color-primary-fixed: #d8e3fb;
-  --color-primary-fixed-dim: #bcc7de;
-  --color-on-primary-fixed: #111c2d;
-  --color-on-primary-fixed-variant: #3c475a;
+  --color-primary-container: #2650b0;
+  --color-on-primary-container: #eaf1fc;
+  --color-inverse-primary: #cbd8f0;
+  --color-primary-fixed: #eaf1fc;
+  --color-primary-fixed-dim: #cbd8f0;
+  --color-on-primary-fixed: #16336f;
+  --color-on-primary-fixed-variant: #1e4499;
 
   --color-secondary: #006b5f;
   --color-on-secondary: #ffffff;
@@ -88,24 +88,24 @@ layer(base);
   --color-error-container: #ffdad6;
   --color-on-error-container: #93000a;
 
-  --color-surface: #f7f9fb;
-  --color-surface-dim: #d8dadc;
-  --color-surface-bright: #f7f9fb;
+  --color-surface: #f3f6fb;
+  --color-surface-dim: #d7e0ee;
+  --color-surface-bright: #f3f6fb;
   --color-surface-container-lowest: #ffffff;
-  --color-surface-container-low: #f2f4f6;
-  --color-surface-container: #eceef0;
-  --color-surface-container-high: #e6e8ea;
-  --color-surface-container-highest: #e0e3e5;
-  --color-surface-variant: #e0e3e5;
-  --color-surface-tint: #545f73;
-  --color-on-surface: #191c1e;
-  --color-on-surface-variant: #45474c;
-  --color-inverse-surface: #2d3133;
-  --color-inverse-on-surface: #eff1f3;
-  --color-outline: #75777d;
-  --color-outline-variant: #c5c6cd;
-  --color-background: #f7f9fb;
-  --color-on-background: #191c1e;
+  --color-surface-container-low: #f7f9fc;
+  --color-surface-container: #eef2f9;
+  --color-surface-container-high: #e6ecf6;
+  --color-surface-container-highest: #dde5f2;
+  --color-surface-variant: #dde5f2;
+  --color-surface-tint: #2f5dc8;
+  --color-on-surface: #1b2233;
+  --color-on-surface-variant: #5c6779;
+  --color-inverse-surface: #2a3142;
+  --color-inverse-on-surface: #f3f6fb;
+  --color-outline: #8d97a8;
+  --color-outline-variant: #e1e8f5;
+  --color-background: #f3f6fb;
+  --color-on-background: #1b2233;
 
   --color-blue-light-25: #f5fbff;
   --color-blue-light-50: #f0f9ff;
@@ -120,19 +120,19 @@ layer(base);
   --color-blue-light-900: #0b4a6f;
   --color-blue-light-950: #062c41;
 
-  --color-gray-25: #fcfcfd;
-  --color-gray-50: #f9fafb;
-  --color-gray-100: #f2f4f7;
-  --color-gray-200: #e4e7ec;
-  --color-gray-300: #d0d5dd;
-  --color-gray-400: #98a2b3;
-  --color-gray-500: #667085;
-  --color-gray-600: #475467;
-  --color-gray-700: #344054;
-  --color-gray-800: #1d2939;
-  --color-gray-900: #101828;
-  --color-gray-950: #0c111d;
-  --color-gray-dark: #1a2231;
+  --color-gray-25: #fcfdfe;
+  --color-gray-50: #f7f9fc;
+  --color-gray-100: #f0f3f9;
+  --color-gray-200: #e1e8f5;
+  --color-gray-300: #cbd8f0;
+  --color-gray-400: #8d97a8;
+  --color-gray-500: #5c6779;
+  --color-gray-600: #47505f;
+  --color-gray-700: #333b49;
+  --color-gray-800: #232938;
+  --color-gray-900: #1b2233;
+  --color-gray-950: #12151f;
+  --color-gray-dark: #1b2233;
 
   --color-orange-25: #fffaf5;
   --color-orange-50: #fff6ed;
@@ -239,20 +239,20 @@ layer(base);
     cursor: pointer;
   }
   body {
-    @apply relative font-normal font-outfit z-1 bg-background;
+    @apply relative font-normal font-outfit z-1 bg-background dark:bg-gray-950;
   }
 }
 
 @utility menu-item {
-  @apply relative flex items-center w-full gap-3 px-3 py-2.5 font-medium rounded-lg text-theme-sm;
+  @apply relative flex items-center w-full gap-3 rounded-lg border-l-4 border-l-transparent px-3 py-2.5 font-medium text-theme-sm;
 }
 
 @utility menu-item-active {
-  @apply bg-primary text-on-primary shadow-theme-xs dark:bg-primary-container dark:text-on-primary;
+  @apply border-l-brand-500 bg-brand-100 text-brand-700 font-semibold dark:border-l-brand-400 dark:bg-brand-500/20 dark:text-brand-200;
 }
 
 @utility menu-item-inactive {
-  @apply text-on-surface-variant hover:bg-surface-container hover:text-on-surface dark:text-gray-300 dark:hover:bg-white/5 dark:hover:text-gray-300;
+  @apply text-gray-500 font-medium hover:bg-brand-50 hover:text-on-surface dark:text-gray-300 dark:hover:bg-white/5 dark:hover:text-gray-300;
 }
 
 @utility menu-item-icon {
@@ -260,7 +260,7 @@ layer(base);
 }
 
 @utility menu-item-icon-active {
-  @apply text-on-primary;
+  @apply text-brand-700 dark:text-brand-200;
 }
 
 @utility menu-item-icon-size {
@@ -278,7 +278,7 @@ layer(base);
 }
 
 @utility menu-item-arrow-active {
-  @apply rotate-180 text-on-primary;
+  @apply rotate-180 text-brand-700 dark:text-brand-200;
 }
 
 @utility menu-item-arrow-inactive {
@@ -871,4 +871,40 @@ span.flatpickr-weekday,
 
 .vocab-xp-flash {
   animation: vocab-xp-flash 1.1s ease-out forwards;
+}
+
+/* Sidebar: one-shot falling sakura petals triggered by clicking the logo.
+   Each petal starts already positioned off-screen (top/left set inline per
+   petal, in a fixed full-viewport portal so it renders above the app header
+   too) so it flies IN from outside the viewport, sweeps down at a steep
+   diagonal, and only fades out once it has traveled clear off the far edge
+   of the screen (--sakura-drift is in vw, so it scales to any screen
+   width). */
+@keyframes sakura-fall {
+  0% {
+    transform: translate(0, 0) rotate(0deg);
+    opacity: 0;
+  }
+  8% {
+    opacity: 0.9;
+  }
+  92% {
+    opacity: 0.9;
+  }
+  100% {
+    transform: translate(var(--sakura-drift, 100vw), 135vh) rotate(320deg);
+    opacity: 0;
+  }
+}
+
+.sakura-petal {
+  background: #f7b6c8;
+  border-radius: 70% 0% 70% 0%;
+  animation-name: sakura-fall;
+  animation-timing-function: ease-out;
+  animation-fill-mode: forwards;
+}
+
+.dark .sakura-petal {
+  background: #e08bab;
 }

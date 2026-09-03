@@ -1,11 +1,11 @@
 import { HeatmapDay } from "../../services/vocabularyLearningApi";
 
 function levelClass(count: number): string {
-  if (count <= 0) return "bg-gray-100 dark:bg-gray-800";
-  if (count < 5) return "bg-teal-200 dark:bg-teal-900";
-  if (count < 10) return "bg-teal-400 dark:bg-teal-700";
-  if (count < 20) return "bg-teal-500 dark:bg-teal-600";
-  return "bg-teal-600 dark:bg-teal-400";
+  if (count <= 0) return "bg-gray-200 dark:bg-gray-700";
+  if (count < 5) return "bg-brand-200 dark:bg-brand-900";
+  if (count < 10) return "bg-brand-400 dark:bg-brand-700";
+  if (count < 20) return "bg-brand-500 dark:bg-brand-600";
+  return "bg-brand-600 dark:bg-brand-400";
 }
 
 function formatDate(iso: string): string {

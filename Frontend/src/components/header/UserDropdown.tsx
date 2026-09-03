@@ -53,7 +53,7 @@ export default function UserDropdown() {
     return (
       <Link
         to="/signin"
-        className="inline-flex items-center px-4 py-2 text-sm font-medium text-white rounded-lg bg-brand-500 hover:bg-brand-600"
+        className="inline-flex items-center px-4 py-2 text-sm font-medium text-white rounded-lg bg-gradient-to-r from-brand-500 to-brand-600 hover:from-brand-600 hover:to-brand-700"
       >
         Đăng nhập
       </Link>

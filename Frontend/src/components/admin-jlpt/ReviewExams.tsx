@@ -6,6 +6,7 @@ import {
   QuestionCreate,
   QuestionPatch,
   SECTION_LABELS,
+  aiPreprocessExam,
   createQuestion,
   deleteExam,
   deleteQuestion,
@@ -42,6 +43,7 @@ export default function ReviewExams({ focusExamId }: { focusExamId?: number | nu
   const [detail, setDetail] = useState<ExamReview | null>(null);
   const [loadingDetail, setLoadingDetail] = useState(false);
   const [publishing, setPublishing] = useState(false);
+  const [aiProcessing, setAiProcessing] = useState(false);
 
   const loadList = async () => {
     setLoadingList(true);
@@ -131,6 +133,20 @@ export default function ReviewExams({ focusExamId }: { focusExamId?: number | nu
     }
   };
 
+  const handleAiPreprocess = async () => {
+    if (!selectedId) return;
+    setAiProcessing(true);
+    try {
+      const refreshed = await aiPreprocessExam(selectedId);
+      setDetail(refreshed);
+      showToast("AI đã xử lý xong — kiểm tra lại định dạng/đáp án trước khi publish", "success");
+    } catch {
+      // reported globally
+    } finally {
+      setAiProcessing(false);
+    }
+  };
+
   const handleDelete = async (examId: number) => {
     if (!window.confirm("Xóa đề thi này? Hành động không thể hoàn tác.")) return;
     try {
@@ -173,19 +189,32 @@ export default function ReviewExams({ focusExamId }: { focusExamId?: number | nu
               {detail.level} · {detail.reviewed_count}/{detail.total_questions} câu đã duyệt
             </p>
           </div>
-          <button
-            type="button"
-            onClick={handlePublish}
-            disabled={publishing || detail.status === "published"}
-            className="flex items-center gap-1.5 rounded-lg bg-brand-500 px-5 py-2 text-sm font-medium text-white hover:bg-brand-600 disabled:opacity-50"
-          >
-            {detail.status === "published" && <CheckIcon className="h-4 w-4" />}
-            {detail.status === "published"
-              ? "Đã publish"
-              : publishing
-              ? "Đang publish..."
-              : "Lưu chính thức (Publish)"}
-          </button>
+          <div className="flex items-center gap-2">
+            {detail.status !== "published" && (
+              <button
+                type="button"
+                onClick={handleAiPreprocess}
+                disabled={aiProcessing || publishing}
+                title="Nhờ AI tự thêm định dạng gạch chân/in đậm, chọn đáp án còn thiếu và viết giải thích cho các câu chưa duyệt"
+                className="flex items-center gap-1.5 rounded-lg border border-teal-500 px-4 py-2 text-sm font-medium text-teal-600 hover:bg-teal-50 disabled:opacity-50 dark:text-teal-400 dark:hover:bg-teal-500/10"
+              >
+                {aiProcessing ? "AI đang xử lý..." : "Nhờ AI xử lý trước"}
+              </button>
+            )}
+            <button
+              type="button"
+              onClick={handlePublish}
+              disabled={publishing || aiProcessing || detail.status === "published"}
+              className="flex items-center gap-1.5 rounded-lg bg-brand-500 px-5 py-2 text-sm font-medium text-white hover:bg-brand-600 disabled:opacity-50"
+            >
+              {detail.status === "published" && <CheckIcon className="h-4 w-4" />}
+              {detail.status === "published"
+                ? "Đã publish"
+                : publishing
+                ? "Đang publish..."
+                : "Lưu chính thức (Publish)"}
+            </button>
+          </div>
         </div>
 
         {detail.sections.map((section) => (
@@ -209,7 +238,7 @@ export default function ReviewExams({ focusExamId }: { focusExamId?: number | nu
                 <div className="flex flex-col gap-2.5">
                   {mondai.questions.map((q) => (
                     <ReviewQuestionCard
-                      key={q.id}
+                      key={`${q.id}-${q.updated_at ?? ""}`}
                       question={q}
                       mondaiOptions={mondaiOptions}
                       currentMondaiId={mondai.mondai_template_id}
@@ -267,7 +296,7 @@ export default function ReviewExams({ focusExamId }: { focusExamId?: number | nu
           <button
             type="button"
             onClick={() => handleDelete(exam.id)}
-            className="shrink-0 text-gray-400 hover:text-rose-500"
+            className="shrink-0 text-gray-400 hover:text-error-500"
             title="Xóa đề"
           >
             <TrashIcon className="h-4 w-4" />

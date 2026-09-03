@@ -42,7 +42,7 @@ export default function ChatInput({
 
   return (
     <div className="border-t border-gray-200 px-6 py-4 dark:border-gray-700">
-      <div className="flex items-end gap-2.5">
+      <div className="flex items-center gap-2.5">
         <textarea
           ref={inputRef}
           lang="ja"
@@ -50,11 +50,11 @@ export default function ChatInput({
           onChange={(e) => !isListening && setText(e.target.value)}
           onKeyDown={handleKeyDown}
           placeholder={isListening ? "Đang nghe..." : "Nhập câu trả lời bằng tiếng Nhật hoặc tiếng Việt..."}
-          rows={2}
+          rows={1}
           disabled={isLoading || isListening}
-          className="flex-1 resize-none rounded-lg border border-gray-300 bg-gray-50 px-4 py-3 text-sm leading-relaxed text-gray-900 outline-none focus:border-brand-500 focus:ring-1 focus:ring-brand-500 disabled:opacity-60 dark:border-gray-600 dark:bg-gray-800 dark:text-white/90 dark:focus:border-brand-400"
+          className="h-[42px] flex-1 resize-none rounded-lg border border-gray-300 bg-gray-50 px-4 py-2.5 text-sm leading-relaxed text-gray-900 outline-none focus:border-brand-500 focus:ring-1 focus:ring-brand-500 disabled:opacity-60 dark:border-gray-600 dark:bg-gray-800 dark:text-white/90 dark:focus:border-brand-400"
         />
-        <div className="flex shrink-0 items-center gap-2 pb-0.5">
+        <div className="flex shrink-0 items-center gap-2">
           {voiceSupported && (
             <button
               type="button"
@@ -75,7 +75,7 @@ export default function ChatInput({
             onClick={handleSend}
             disabled={isLoading || (!text.trim() && !transcript)}
             title="Gửi"
-            className="flex h-[42px] w-[42px] shrink-0 items-center justify-center rounded-lg bg-brand-500 text-white transition-colors hover:bg-brand-600 disabled:opacity-40"
+            className="flex h-[42px] w-[42px] shrink-0 items-center justify-center rounded-lg bg-gradient-to-r from-brand-500 to-brand-600 text-white transition-colors hover:from-brand-600 hover:to-brand-700 disabled:opacity-40"
           >
             {isLoading ? (
               <span className="h-4 w-4 animate-spin rounded-full border-2 border-white/40 border-t-white" />

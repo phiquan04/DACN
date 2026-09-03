@@ -38,20 +38,29 @@ export function useYouTubePlayer(selectedVideo: YouTubeVideo | null, segments: S
   const iframeRef = useRef<HTMLIFrameElement>(null);
   const playerRef = useRef<YTPlayer | null>(null);
   const [activeIdx, setActiveIdx] = useState(-1);
+  const [playerReady, setPlayerReady] = useState(false);
+  // Which video.id already has a live YT.Player attached — guards against
+  // creating a second, conflicting player on the same iframe when React
+  // StrictMode double-invokes this effect on mount (happens whenever the
+  // component mounts with selectedVideo already set, e.g. opening a video
+  // straight from Lịch sử instead of picking one from search).
+  const initializedIdRef = useRef<string | null>(null);
 
   // ── Initialize YouTube Player ──
   useEffect(() => {
+    setPlayerReady(false);
     if (!selectedVideo || !iframeRef.current) return;
 
     const initPlayer = () => {
-      if (window.YT?.Player) {
-        playerRef.current = new window.YT.Player(iframeRef.current!, {
-          events: {
-            onReady: () => {},
-            onStateChange: () => {},
-          },
-        });
-      }
+      if (!window.YT?.Player) return;
+      if (initializedIdRef.current === selectedVideo.id && playerRef.current) return;
+      playerRef.current = new window.YT.Player(iframeRef.current!, {
+        events: {
+          onReady: () => setPlayerReady(true),
+          onStateChange: () => {},
+        },
+      });
+      initializedIdRef.current = selectedVideo.id;
     };
 
     // Wait for YouTube API to be ready
@@ -70,7 +79,7 @@ export function useYouTubePlayer(selectedVideo: YouTubeVideo | null, segments: S
 
   // ── Poll player time and sync script ──
   useEffect(() => {
-    if (!playerRef.current || segments.length === 0) return;
+    if (!playerReady || !playerRef.current || segments.length === 0) return;
 
     const interval = setInterval(() => {
       if (playerRef.current?.getCurrentTime) {
@@ -87,7 +96,7 @@ export function useYouTubePlayer(selectedVideo: YouTubeVideo | null, segments: S
     }, 300);
 
     return () => clearInterval(interval);
-  }, [segments, activeIdx]);
+  }, [segments, activeIdx, playerReady]);
 
   // ── Seek via YouTube API ──
   const seekTo = useCallback((start: number, idx: number) => {

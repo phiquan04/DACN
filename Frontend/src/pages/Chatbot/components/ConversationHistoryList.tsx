@@ -1,6 +1,7 @@
+import Pagination from "../../../components/ui/pagination";
 import type { ConversationHistoryItem } from "../../../services/chatApi";
 import { parseApiDate } from "../../../utils/datetime";
-import { ChatBubbleIcon, ChevronLeftIcon, ChevronRightIcon, ClockIcon } from "./icons";
+import { ChatBubbleIcon, ClockIcon } from "./icons";
 
 function formatDateTime(iso: string) {
   const d = parseApiDate(iso);
@@ -24,15 +25,17 @@ function HistoryCard({
       type="button"
       onClick={onResume}
       disabled={resuming}
-      className={`flex items-center gap-3 rounded-xl border p-3.5 text-left transition-colors disabled:opacity-60 ${
+      className={`flex items-center gap-3 rounded-lg border-l-4 p-3.5 text-left transition-colors disabled:opacity-60 ${
         isActive
-          ? "border-2 border-brand-500 bg-brand-50 shadow-sm dark:bg-brand-500/10"
-          : "border-gray-200 bg-white hover:border-teal-500 hover:shadow-sm dark:border-gray-700 dark:bg-gray-900 dark:hover:border-teal-400"
+          ? "border-l-brand-500 bg-brand-100 dark:border-l-brand-400 dark:bg-brand-500/15"
+          : "border-l-brand-200 bg-brand-50/70 hover:border-l-teal-500 hover:bg-teal-50 dark:border-l-brand-500/40 dark:bg-brand-500/5 dark:hover:border-l-teal-400 dark:hover:bg-teal-500/10"
       }`}
     >
       <span
-        className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-lg text-base text-white ${
-          isActive ? "bg-brand-600" : "bg-gray-900 dark:bg-gray-700"
+        className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-lg text-base ${
+          isActive
+            ? "bg-brand-600 text-white"
+            : "bg-white text-gray-600 dark:bg-gray-800 dark:text-gray-300"
         }`}
       >
         {item.scenario_icon || <ChatBubbleIcon className="h-4 w-4" />}
@@ -109,24 +112,8 @@ export default function ConversationHistoryList({
       </div>
 
       {totalPages > 1 && (
-        <div className="flex shrink-0 items-center justify-center gap-2 border-t border-gray-200 px-4 py-3 dark:border-gray-700">
-          <button
-            onClick={() => load(Math.max(1, page - 1))}
-            disabled={page <= 1}
-            className="flex h-7 w-7 items-center justify-center rounded-full border border-gray-300 text-gray-600 hover:border-brand-500 hover:text-brand-600 disabled:opacity-40 dark:border-gray-700 dark:text-gray-300"
-          >
-            <ChevronLeftIcon className="h-3.5 w-3.5" />
-          </button>
-          <span className="text-xs text-gray-500 dark:text-gray-400">
-            {page} / {totalPages}
-          </span>
-          <button
-            onClick={() => load(Math.min(totalPages, page + 1))}
-            disabled={page >= totalPages}
-            className="flex h-7 w-7 items-center justify-center rounded-full border border-gray-300 text-gray-600 hover:border-brand-500 hover:text-brand-600 disabled:opacity-40 dark:border-gray-700 dark:text-gray-300"
-          >
-            <ChevronRightIcon className="h-3.5 w-3.5" />
-          </button>
+        <div className="shrink-0 border-t border-gray-200 px-4 py-3 dark:border-gray-700">
+          <Pagination page={page} totalPages={totalPages} onChange={load} />
         </div>
       )}
     </div>

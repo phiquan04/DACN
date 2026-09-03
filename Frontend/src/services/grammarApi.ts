@@ -1,4 +1,4 @@
-import { authHeaders, jsonHeaders, request } from "./httpClient";
+import { authHeaders, jsonHeaders, request, BASE_URL } from "./httpClient";
 import { getToken } from "./authApi";
 
 export interface GrammarErrorExplanation {
@@ -76,4 +76,41 @@ export async function fetchGrammarHistoryDetail(id: number): Promise<GrammarHist
   return request(`/api/correct/history/${id}`, {
     headers: authHeaders(getToken()),
   });
+}
+
+export async function deleteGrammarHistoryItem(id: number): Promise<void> {
+  await request(`/api/correct/history/${id}`, {
+    method: "DELETE",
+    headers: authHeaders(getToken()),
+  });
+}
+
+let currentAudio: HTMLAudioElement | null = null;
+
+/** Fetches gTTS audio for a Japanese sentence and plays it immediately. */
+export async function speakSentence(text: string): Promise<void> {
+  const form = new FormData();
+  form.append("text", text);
+  const res = await fetch(`${BASE_URL}/api/pronunciation/tts`, { method: "POST", body: form });
+  if (!res.ok) throw new Error("Không thể phát âm thanh");
+  const blob = await res.blob();
+  currentAudio?.pause();
+  const url = URL.createObjectURL(blob);
+  const audio = new Audio(url);
+  currentAudio = audio;
+  audio.addEventListener("ended", () => URL.revokeObjectURL(url));
+  await audio.play();
+}
+
+export interface ErrorTypeStat {
+  error_type: string;
+  count: number;
+  percentage: number;
+}
+
+export async function fetchGrammarErrorStats(limit = 3): Promise<ErrorTypeStat[]> {
+  const data = await request<{ stats: ErrorTypeStat[] }>(`/api/correct/stats?limit=${limit}`, {
+    headers: authHeaders(getToken()),
+  });
+  return data.stats;
 }

@@ -20,7 +20,7 @@ export default function SearchBar({ searchTerm, onSearchTermChange, loading, onS
           value={searchTerm}
           onChange={(e) => onSearchTermChange(e.target.value)}
           disabled={loading}
-          className="!rounded-full !pl-5 !pr-12 !py-3 !border-outline-variant/60 dark:!border-gray-700"
+          className="!rounded-lg !pl-5 !pr-12 !py-3 !border-outline-variant/60 dark:!border-gray-700"
         />
         <svg
           xmlns="http://www.w3.org/2000/svg"
@@ -40,7 +40,7 @@ export default function SearchBar({ searchTerm, onSearchTermChange, loading, onS
         onClick={onOpenDraw}
         disabled={loading}
         title="Vẽ chữ Hán để tìm kiếm"
-        className="shrink-0 flex items-center gap-1.5 rounded-full border border-outline-variant/60 px-4 py-3 text-sm font-medium text-on-surface-variant transition hover:border-teal-500 hover:text-teal-600 disabled:opacity-50 dark:border-gray-700 dark:text-gray-300 dark:hover:text-teal-400"
+        className="shrink-0 flex items-center gap-1.5 rounded-lg border border-outline-variant/60 px-4 py-3 text-sm font-medium text-on-surface-variant transition hover:border-teal-500 hover:text-teal-600 disabled:opacity-50 dark:border-gray-700 dark:text-gray-300 dark:hover:text-teal-400"
       >
         <PencilIcon className="h-4 w-4" />
         <span className="hidden sm:inline">Vẽ</span>
@@ -48,7 +48,7 @@ export default function SearchBar({ searchTerm, onSearchTermChange, loading, onS
       <button
         type="submit"
         disabled={loading}
-        className="shrink-0 rounded-full bg-primary px-6 py-3 text-sm font-semibold text-on-primary shadow-theme-xs transition hover:bg-brand-600 disabled:opacity-50 dark:bg-primary-container dark:hover:bg-brand-700"
+        className="shrink-0 rounded-lg bg-gradient-to-r from-brand-500 to-brand-600 px-6 py-3 text-sm font-semibold text-white shadow-theme-xs transition hover:from-brand-600 hover:to-brand-700 disabled:opacity-50"
       >
         {loading ? "Đang tìm..." : "Tra cứu"}
       </button>

@@ -10,6 +10,7 @@ export interface Segment {
 export interface YouTubeVideo {
   id: string;
   title: string;
+  channelId: string;
   channelTitle: string;
   thumbnail: string;
   duration: string;

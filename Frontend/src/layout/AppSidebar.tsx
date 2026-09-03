@@ -1,24 +1,25 @@
 import { useCallback, useEffect, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import { Link, useLocation } from "react-router";
 
 // Assume these icons are imported from an icon library
+import Logo from "../components/common/Logo";
 import { useSidebar } from "../context/SidebarContext";
 import {
+  AudioIcon,
   CalenderIcon,
-  ChatbotIcon,
+  ChatIcon,
+  CheckLineIcon,
   ChevronDownIcon,
+  DocsIcon,
+  GroupIcon,
   HorizontaLDots,
   PageIcon,
+  TaskIcon,
   UserCircleIcon,
   VideoIcon,
-  CheckLineIcon,
-  AudioIcon,
-  GroupIcon,
-  TaskIcon,
-  DocsIcon,
 } from "../icons";
 import SidebarWidget from "./SidebarWidget";
-import Logo from "../components/common/Logo";
 
 type NavItem = {
   name: string;
@@ -54,8 +55,8 @@ const navItems: NavItem[] = [
     path: "/meeting",
   },
   {
-    name: "Chatbot",
-    icon: <ChatbotIcon />,
+    name: "Luyện hội thoại AI",
+    icon: <ChatIcon />,
     path: "/chat-bot",
   },
   {
@@ -95,6 +96,38 @@ const AppSidebar: React.FC = () => {
     {}
   );
   const subMenuRefs = useRef<Record<string, HTMLDivElement | null>>({});
+
+  interface SakuraPetal {
+    id: number;
+    left: number;
+    top: number;
+    delay: number;
+    duration: number;
+    size: number;
+    drift: number;
+  }
+  const [sakuraPetals, setSakuraPetals] = useState<SakuraPetal[]>([]);
+
+  const handleLogoClick = () => {
+    const petals: SakuraPetal[] = Array.from({ length: 55 }, (_, i) => ({
+      id: Date.now() + i,
+      // Spawn off the top-left, outside the visible viewport (px, since the
+      // portal container below spans the whole screen, not just the
+      // sidebar's own width), so petals fly in rather than fading in already
+      // on-screen.
+      left: -40 + Math.random() * 220,
+      top: -10 + Math.random() * -160,
+      delay: Math.random() * 1.2,
+      duration: 6 + Math.random() * 3,
+      size: 4 + Math.random() * 4,
+      // Horizontal travel in vw (scales to any screen size) — kept modest so
+      // the steep vertical fall below reads as a steep diagonal rather than
+      // a flat sideways sweep.
+      drift: 70 + Math.random() * 40,
+    }));
+    setSakuraPetals(petals);
+    window.setTimeout(() => setSakuraPetals([]), 10800);
+  };
 
   const isActive = useCallback(
     (path: string) =>
@@ -290,25 +323,63 @@ const AppSidebar: React.FC = () => {
       onMouseEnter={() => !isExpanded && setIsHovered(true)}
       onMouseLeave={() => setIsHovered(false)}
     >
+      {sakuraPetals.length > 0 &&
+        createPortal(
+          <div className="pointer-events-none fixed inset-0 z-[100000]">
+            {sakuraPetals.map((p) => (
+              <span
+                key={p.id}
+                className="sakura-petal absolute"
+                style={
+                  {
+                    left: `${p.left}px`,
+                    top: `${p.top}px`,
+                    width: p.size,
+                    height: p.size,
+                    animationDuration: `${p.duration}s`,
+                    animationDelay: `${p.delay}s`,
+                    "--sakura-drift": `${p.drift}vw`,
+                  } as React.CSSProperties
+                }
+              />
+            ))}
+          </div>,
+          document.body
+        )}
+
       <div
-        className={`flex items-center gap-3 py-6 border-b border-outline-variant/60 ${
+        className={`relative -mx-5 flex h-[100px] shrink-0 items-center gap-3 overflow-hidden px-5 ${
           !isExpanded && !isHovered ? "lg:justify-center" : "justify-start"
         }`}
       >
-        <Link to="/dictionary" className="flex items-center gap-3 shrink-0">
+        <div
+          className="absolute inset-0 bg-center bg-no-repeat"
+          style={{
+            backgroundImage:
+              "url('/images/13d90ef1-c8ef-4e12-b2e9-f4f49b32aa72.png')",
+            backgroundSize: "cover",
+            WebkitMaskImage: "radial-gradient(ellipse 75% 85% at center, black 55%, transparent 92%)",
+            maskImage: "radial-gradient(ellipse 75% 85% at center, black 55%, transparent 92%)",
+          }}
+        />
+        <div className="absolute inset-0 bg-white/45 dark:bg-gray-900/55" />
+        <Link
+          to="/dictionary"
+          onClick={handleLogoClick}
+          className="relative flex items-center gap-3 shrink-0"
+        >
           <Logo size={36} />
           {(isExpanded || isHovered || isMobileOpen) && (
             <span className="flex flex-col leading-tight">
               <span className="text-base font-bold text-on-surface">
-                Manabi<span className="text-secondary">AI</span>
+                Manabi <span className="text-secondary">Nihongo</span>
               </span>
-              <span className="text-xs text-on-surface-variant">Học tiếng Nhật cùng AI</span>
             </span>
           )}
         </Link>
       </div>
       <div className="flex flex-col overflow-y-auto duration-300 ease-linear no-scrollbar">
-        <nav className="mt-6 mb-6">
+        <nav className="mt-3 mb-6">
           <div className="flex flex-col gap-4">
             <div>
               <h2
@@ -319,7 +390,7 @@ const AppSidebar: React.FC = () => {
                 }`}
               >
                 {isExpanded || isHovered || isMobileOpen ? (
-                  "Menu chính"
+                  ""
                 ) : (
                   <HorizontaLDots className="size-6" />
                 )}

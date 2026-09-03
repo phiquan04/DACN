@@ -1,3 +1,4 @@
+import Pagination from "../../../components/ui/pagination";
 import type { DictionaryCommentItem, User } from "../../../services/api";
 import { COMMENTS_PER_PAGE } from "../dictionaryUtils";
 
@@ -48,13 +49,13 @@ export default function CommentsCard({
             onKeyDown={(e) => e.key === "Enter" && onPost()}
             placeholder="Chia sẻ cách hiểu, ví dụ của bạn..."
             disabled={postingComment}
-            className="flex-1 rounded-full border border-outline-variant/60 bg-surface-container-lowest px-3 py-1.5 text-sm text-on-surface dark:border-gray-700 dark:bg-gray-900 dark:text-gray-200"
+            className="flex-1 rounded-lg border border-outline-variant/60 bg-surface-container-lowest px-3 py-1.5 text-sm text-on-surface dark:border-gray-700 dark:bg-gray-900 dark:text-gray-200"
           />
           <button
             type="button"
             disabled={postingComment || !newComment.trim()}
             onClick={onPost}
-            className="shrink-0 rounded-full bg-primary px-4 py-1.5 text-sm font-semibold text-on-primary disabled:opacity-50 dark:bg-primary-container"
+            className="shrink-0 rounded-lg bg-gradient-to-r from-brand-500 to-brand-600 px-4 py-1.5 text-sm font-semibold text-white hover:from-brand-600 hover:to-brand-700 disabled:opacity-50 disabled:from-brand-300 disabled:to-brand-300"
           >
             Gửi
           </button>
@@ -123,29 +124,9 @@ export default function CommentsCard({
             ))}
           </ul>
 
-          {totalPages > 1 && (
-            <div className="mt-4 flex items-center justify-center gap-3 text-xs">
-              <button
-                type="button"
-                onClick={() => onPageChange(Math.max(1, page - 1))}
-                disabled={page <= 1}
-                className="rounded-full border border-outline-variant/60 px-3 py-1 font-medium text-on-surface-variant hover:border-brand-500 hover:text-brand-600 disabled:opacity-40 disabled:hover:border-outline-variant/60 disabled:hover:text-on-surface-variant dark:border-gray-700 dark:text-gray-300"
-              >
-                ‹ Trước
-              </button>
-              <span className="text-outline dark:text-gray-500">
-                Trang {page}/{totalPages}
-              </span>
-              <button
-                type="button"
-                onClick={() => onPageChange(Math.min(totalPages, page + 1))}
-                disabled={page >= totalPages}
-                className="rounded-full border border-outline-variant/60 px-3 py-1 font-medium text-on-surface-variant hover:border-brand-500 hover:text-brand-600 disabled:opacity-40 disabled:hover:border-outline-variant/60 disabled:hover:text-on-surface-variant dark:border-gray-700 dark:text-gray-300"
-              >
-                Sau ›
-              </button>
-            </div>
-          )}
+          <div className="mt-4">
+            <Pagination page={page} totalPages={totalPages} onChange={onPageChange} />
+          </div>
         </>
       )}
 

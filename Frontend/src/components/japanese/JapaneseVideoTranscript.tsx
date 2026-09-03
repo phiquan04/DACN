@@ -1,17 +1,25 @@
 import { useState } from "react";
-import type { DisplayMode, YouTubeVideo } from "./japaneseVideoUtils";
+import { markVideoWatched } from "../../services/videoLearnApi";
+import type { DisplayMode, Segment, YouTubeVideo } from "./japaneseVideoUtils";
 import { useYouTubePlayer } from "./hooks/useYouTubePlayer";
 import { useTranscription } from "./hooks/useTranscription";
 import YouTubeSearchPanel from "./components/YouTubeSearchPanel";
 import ProcessingState from "./components/ProcessingState";
 import ModeToggle from "./components/ModeToggle";
 import SegmentRow from "./components/SegmentRow";
+import RelatedVideos from "./components/RelatedVideos";
 
-export default function JapaneseVideoTranscript() {
-  const [selectedVideo, setSelectedVideo] = useState<YouTubeVideo | null>(null);
+/** Preloads a previously-saved video + script (from Lịch sử) straight into the player, skipping /transcribe. */
+export interface InitialSession {
+  video: YouTubeVideo;
+  segments: Segment[];
+}
+
+export default function JapaneseVideoTranscript({ initialSession }: { initialSession?: InitialSession }) {
+  const [selectedVideo, setSelectedVideo] = useState<YouTubeVideo | null>(initialSession?.video ?? null);
   const [mode, setMode] = useState<DisplayMode>("both");
 
-  const transcription = useTranscription();
+  const transcription = useTranscription(initialSession?.segments ?? []);
   const player = useYouTubePlayer(selectedVideo, transcription.segments);
 
   // ── Select video (no auto-transcribe) ──
@@ -19,6 +27,7 @@ export default function JapaneseVideoTranscript() {
     setSelectedVideo(video);
     transcription.reset();
     player.setActiveIdx(-1);
+    markVideoWatched(video);
   };
 
   const handleBack = () => {
@@ -101,11 +110,14 @@ export default function JapaneseVideoTranscript() {
             {status === "idle" && segments.length === 0 && (
               <button
                 onClick={handleStartTranscribe}
-                className="w-full rounded-lg bg-yellow-400 px-4 py-3 text-base font-semibold text-black transition hover:bg-yellow-300"
+                className="w-full rounded-lg bg-gradient-to-r from-yellow-400 to-yellow-500 px-4 py-3 text-base font-semibold text-black transition hover:from-yellow-500 hover:to-yellow-600"
               >
                 🎙 Tạo Script
               </button>
             )}
+
+            {/* Related videos */}
+            <RelatedVideos video={selectedVideo} onSelect={handleSelectVideo} />
           </>
         )}
       </div>
@@ -175,7 +187,7 @@ export default function JapaneseVideoTranscript() {
             <button
               onClick={() => transcription.exportSRT(selectedVideo.title)}
               disabled={segments.length === 0}
-              className="flex flex-1 items-center justify-center gap-2 rounded-lg bg-yellow-400 py-2 text-sm font-semibold text-black transition hover:bg-yellow-300 disabled:cursor-not-allowed disabled:opacity-40"
+              className="flex flex-1 items-center justify-center gap-2 rounded-lg bg-gradient-to-r from-yellow-400 to-yellow-500 py-2 text-sm font-semibold text-black transition hover:from-yellow-500 hover:to-yellow-600 disabled:cursor-not-allowed disabled:opacity-40"
             >
               ⬇ Xuất SRT
             </button>

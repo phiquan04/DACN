@@ -63,7 +63,7 @@ export default function MiniStoryPanel({
         type="button"
         onClick={handleFinish}
         disabled={loading}
-        className="w-full rounded-lg bg-brand-500 py-2.5 text-sm font-medium text-white hover:bg-brand-600 disabled:cursor-not-allowed disabled:opacity-50"
+        className="w-full rounded-lg bg-gradient-to-r from-brand-500 to-brand-600 py-2.5 text-sm font-medium text-white hover:from-brand-600 hover:to-brand-700 disabled:cursor-not-allowed disabled:from-brand-300 disabled:to-brand-300"
       >
         Đã đọc xong, đánh dấu đã ôn tất cả
       </button>

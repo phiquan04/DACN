@@ -45,7 +45,7 @@ export default function SecurityCard() {
   };
 
   return (
-    <div className="p-5 border border-gray-200 rounded-2xl dark:border-gray-800 lg:p-6">
+    <div className="rounded-xl border border-gray-200 bg-white p-5 shadow-sm dark:border-gray-700 dark:bg-gray-900 lg:p-6">
       <div className="flex items-center justify-between gap-3">
         <h4 className="text-lg font-semibold text-gray-800 dark:text-white/90">Bảo mật</h4>
         <button

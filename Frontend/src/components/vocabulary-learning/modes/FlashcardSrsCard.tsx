@@ -35,7 +35,7 @@ export default function FlashcardSrsCard({
                   e.stopPropagation();
                   speakJapanese(item.word).catch(() => {});
                 }}
-                className="mt-2 flex items-center gap-1.5 rounded-full border border-gray-200 px-3 py-1 text-xs text-gray-500 hover:border-teal-500 hover:text-teal-600 dark:border-gray-700 dark:text-gray-400"
+                className="mt-2 flex items-center gap-1.5 rounded-lg border border-gray-200 px-3 py-1 text-xs text-gray-500 hover:border-teal-500 hover:text-teal-600 dark:border-gray-700 dark:text-gray-400"
               >
                 <AudioIcon className="h-4 w-4" />
                 Nghe

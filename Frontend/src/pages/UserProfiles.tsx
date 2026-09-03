@@ -60,11 +60,11 @@ export default function UserProfiles() {
         description="Thông tin hồ sơ người dùng"
       />
       {loading ? (
-        <div className="rounded-2xl border border-gray-200 bg-white p-5 dark:border-gray-800 dark:bg-white/[0.03] lg:p-6">
+        <div className="rounded-xl border border-gray-200 bg-white p-5 shadow-sm dark:border-gray-700 dark:bg-gray-900 lg:p-6">
           <p>Đang tải...</p>
         </div>
       ) : error ? (
-        <div className="rounded-2xl border border-gray-200 bg-white p-5 dark:border-gray-800 dark:bg-white/[0.03] lg:p-6">
+        <div className="rounded-xl border border-gray-200 bg-white p-5 shadow-sm dark:border-gray-700 dark:bg-gray-900 lg:p-6">
           <p className="text-sm text-red-600">{error}</p>
         </div>
       ) : profile ? (
@@ -92,7 +92,7 @@ export default function UserProfiles() {
           </div>
         </div>
       ) : (
-        <div className="rounded-2xl border border-gray-200 bg-white p-5 dark:border-gray-800 dark:bg-white/[0.03] lg:p-6">
+        <div className="rounded-xl border border-gray-200 bg-white p-5 shadow-sm dark:border-gray-700 dark:bg-gray-900 lg:p-6">
           <p>Không có thông tin hồ sơ.</p>
         </div>
       )}

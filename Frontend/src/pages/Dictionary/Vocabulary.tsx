@@ -40,10 +40,10 @@ export default function Vocabulary() {
         description="Trang tra cứu từ điển Nhật - Việt (JMdict-EDICT)"
       />
 
-      {/* Two-column layout: main (large) + history sidebar (small) */}
-      <div className="flex gap-5 items-start">
+      {/* Two-column layout: one shared card surface so content sits above the page background, split by a vertical divider */}
+      <div className="flex items-stretch divide-x divide-gray-200 rounded-2xl border border-gray-200 bg-white shadow-sm dark:divide-gray-700 dark:border-gray-700 dark:bg-gray-900">
         {/* ===== LEFT: Dictionary lookup ===== */}
-        <div className="flex-1 min-w-0 space-y-6">
+        <div className="flex-1 min-w-0 space-y-6 p-6">
           <SearchBar
             searchTerm={lookup.searchTerm}
             onSearchTermChange={lookup.setSearchTerm}
@@ -54,14 +54,14 @@ export default function Vocabulary() {
 
           {/* Tabs: Từ vựng / Hán tự */}
           {lookup.results.length > 0 && (
-            <div className="flex w-fit gap-1 rounded-full bg-surface-container p-1 dark:bg-gray-800">
+            <div className="flex w-fit gap-1 rounded-lg bg-gray-100 p-1 dark:bg-gray-800">
               <button
                 type="button"
                 onClick={() => lookup.setActiveTab("vocab")}
-                className={`rounded-full px-4 py-1.5 text-sm font-medium transition-colors ${
+                className={`rounded-md px-4 py-1.5 text-sm font-medium transition-colors ${
                   lookup.activeTab === "vocab"
-                    ? "bg-surface-container-lowest text-brand-600 shadow-theme-xs dark:bg-gray-900 dark:text-brand-400"
-                    : "text-on-surface-variant hover:text-on-surface dark:text-gray-400 dark:hover:text-gray-200"
+                    ? "bg-white text-brand-600 shadow-sm dark:bg-gray-900 dark:text-brand-400"
+                    : "text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200"
                 }`}
               >
                 Từ vựng
@@ -69,10 +69,10 @@ export default function Vocabulary() {
               <button
                 type="button"
                 onClick={() => lookup.setActiveTab("kanji")}
-                className={`rounded-full px-4 py-1.5 text-sm font-medium transition-colors ${
+                className={`rounded-md px-4 py-1.5 text-sm font-medium transition-colors ${
                   lookup.activeTab === "kanji"
-                    ? "bg-surface-container-lowest text-brand-600 shadow-theme-xs dark:bg-gray-900 dark:text-brand-400"
-                    : "text-on-surface-variant hover:text-on-surface dark:text-gray-400 dark:hover:text-gray-200"
+                    ? "bg-white text-brand-600 shadow-sm dark:bg-gray-900 dark:text-brand-400"
+                    : "text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200"
                 }`}
               >
                 Hán tự
@@ -96,6 +96,7 @@ export default function Vocabulary() {
                     item={item}
                     onPlayPronunciation={lookup.playPronunciation}
                     onPracticePronunciation={lookup.goToPronunciationPractice}
+                    showKanjiPreview={lookup.activeTab === "vocab"}
                   />
 
                   {/* ===== Tab: Từ vựng — supporting cards ===== */}
@@ -142,16 +143,15 @@ export default function Vocabulary() {
           )}
 
           {lookup.searchPerformed && lookup.results.length === 0 && !lookup.loading && (
-            <div className="flex min-h-[600px] flex-col items-center justify-center gap-4 rounded-2xl border-2 border-dashed border-outline-variant/60 text-center text-on-surface-variant dark:border-gray-700 dark:text-gray-400">
+            <div className="flex min-h-[600px] flex-col items-center justify-center gap-4 rounded-2xl border border-gray-200 bg-gradient-to-b from-brand-50 to-white text-center text-on-surface-variant dark:border-gray-700 dark:from-gray-900 dark:to-gray-900 dark:text-gray-400">
               {lookup.error ? "Lỗi khi tra cứu từ" : "Không tìm thấy từ vựng phù hợp."}
             </div>
           )}
 
           {!lookup.searchPerformed && (
-            <div className="flex min-h-[600px] flex-col items-center justify-center gap-5 rounded-2xl border-2 border-dashed border-outline-variant/60 dark:border-gray-700">
-              <div className="relative h-14 w-14 text-outline-variant dark:text-gray-600">
-                <span className="absolute left-0 top-0 text-4xl font-medium leading-none">文</span>
-                <span className="absolute bottom-0 right-0 text-2xl font-semibold leading-none">A</span>
+            <div className="flex min-h-[600px] flex-col items-center justify-center gap-5 rounded-2xl border border-gray-200 bg-gradient-to-b from-brand-50 to-white dark:border-gray-700 dark:from-gray-900 dark:to-gray-900">
+              <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-brand-100 text-2xl font-semibold text-brand-500 dark:bg-brand-500/20 dark:text-brand-300">
+                文
               </div>
               <p className="text-base text-outline dark:text-gray-500">
                 Nhập từ tiếng Nhật để bắt đầu tra cứu...
