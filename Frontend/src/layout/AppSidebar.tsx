@@ -372,7 +372,8 @@ const AppSidebar: React.FC = () => {
           {(isExpanded || isHovered || isMobileOpen) && (
             <span className="flex flex-col leading-tight">
               <span className="text-base font-bold text-on-surface">
-                Manabi <span className="text-secondary">Nihongo</span>
+                <span className="text-primary">Manabi</span>{" "}
+                <span className="text-secondary">Nihongo</span>
               </span>
             </span>
           )}
