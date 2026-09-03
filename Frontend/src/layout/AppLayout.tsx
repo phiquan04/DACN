@@ -7,7 +7,7 @@ import AppSidebar from "./AppSidebar";
 // Routes whose content should fill the full dashboard width/height instead of
 // sitting inside the centered max-width column — the page owns its own
 // internal scrolling instead of the document scrolling.
-const FULL_BLEED_ROUTES = ["/chat-bot"];
+const FULL_BLEED_ROUTES = ["/chat-bot", "/meeting"];
 
 const LayoutContent: React.FC = () => {
   const { isExpanded, isHovered, isMobileOpen } = useSidebar();

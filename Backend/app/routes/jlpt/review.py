@@ -16,6 +16,7 @@ from app.models.jlpt import (
 from app.schemas.jlpt import (
     ExamReviewOut, ExamSummary, JlptLevel, QuestionCreate, QuestionPatch, QuestionReviewOut,
 )
+from app.services import practice_test_ocr
 
 router = APIRouter(prefix="/exams", tags=["jlpt-exams"])
 
@@ -51,6 +52,7 @@ def _question_out(q: JlptQuestion) -> dict:
         "correct_no": q.correct_no,
         "explanation": q.explanation,
         "is_reviewed": q.is_reviewed,
+        "updated_at": q.updated_at.isoformat() if q.updated_at else None,
     }
 
 
@@ -130,6 +132,98 @@ def get_exam_for_review(
         "sections": sections_out,
         "total_questions": total, "reviewed_count": reviewed, "ready_to_publish": ready,
     }
+
+
+@router.post("/{exam_id}/ai-preprocess", response_model=ExamReviewOut)
+def ai_preprocess_exam(
+    exam_id: int,
+    db: Session = Depends(get_db),
+    admin: UserResponse = Depends(require_admin),
+):
+    """Runs a second, text-only AI pass over every not-yet-reviewed question in
+    this draft exam (grouped by mondai, one AI call per mondai): inserts
+    <u>/<b> formatting tags the free-tier OCR step stripped out, fills
+    correct_no when no answer key was imported, and writes an explanation.
+    Only touches questions with is_reviewed=False, so it never overwrites
+    what an admin already confirmed by hand. A mondai whose AI call fails is
+    skipped (logged, not fatal) so the rest of the exam still gets processed."""
+    exam = (
+        db.query(JlptExam)
+        .options(
+            selectinload(JlptExam.questions).selectinload(JlptQuestion.choices),
+            selectinload(JlptExam.questions)
+            .selectinload(JlptQuestion.mondai_template)
+            .joinedload(JlptMondaiTemplate.section),
+        )
+        .filter(JlptExam.id == exam_id)
+        .first()
+    )
+    if not exam:
+        raise HTTPException(status_code=404, detail="Không tìm thấy đề thi")
+    if exam.status == 'published':
+        raise HTTPException(status_code=400, detail="Đề đã publish, không thể chạy AI xử lý lại")
+
+    pending = [q for q in exam.questions if not q.is_reviewed]
+    if not pending:
+        raise HTTPException(status_code=409, detail="Không còn câu nào chưa duyệt để AI xử lý")
+
+    by_mondai = {}
+    for q in pending:
+        by_mondai.setdefault(q.mondai_template_id, []).append(q)
+
+    failed_count = 0
+    for qs in by_mondai.values():
+        mondai = qs[0].mondai_template
+        payload = [
+            {
+                "id": q.id,
+                "question_text": q.question_text,
+                "choices": [
+                    {"choice_no": c.choice_no, "choice_text": c.choice_text}
+                    for c in sorted(q.choices, key=lambda c: c.choice_no)
+                ],
+                "correct_no": q.correct_no,
+            }
+            for q in qs
+        ]
+        fill_missing = any(q.correct_no is None for q in qs)
+        try:
+            results = practice_test_ocr.ai_preprocess_mondai_questions(
+                payload,
+                mondai.name or f"Mondai {mondai.mondai_no}",
+                mondai.description or '',
+                mondai.section.section_type,
+                fill_missing,
+            )
+        except Exception as e:
+            print(f"[JLPT AI preprocess] Mondai {mondai.mondai_no} thất bại: {e}", flush=True)
+            failed_count += 1
+            continue
+
+        q_by_id = {q.id: q for q in qs}
+        for r in results:
+            q = q_by_id.get(r.get('id'))
+            if not q:
+                continue
+            if r.get('question_text'):
+                q.question_text = r['question_text']
+            if r.get('choices'):
+                existing_by_no = {c.choice_no: c for c in q.choices}
+                for c in r['choices']:
+                    choice = existing_by_no.get(c.get('choice_no'))
+                    if choice and c.get('choice_text'):
+                        choice.choice_text = c['choice_text']
+            if q.correct_no is None and r.get('correct_no') is not None:
+                q.correct_no = r['correct_no']
+            if not q.explanation and r.get('explanation'):
+                q.explanation = r['explanation']
+
+    if failed_count == len(by_mondai):
+        db.rollback()
+        raise HTTPException(status_code=502, detail="AI xử lý thất bại cho tất cả mondai, thử lại sau")
+
+    db.commit()
+    return get_exam_for_review(exam_id, db, admin)
 
 
 @router.patch("/{exam_id}/questions/{question_id}", response_model=QuestionReviewOut)

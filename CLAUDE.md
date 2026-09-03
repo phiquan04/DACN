@@ -62,30 +62,74 @@ Requires `Backend/.env` (gitignored) with `DATABASE_URL`, `OPENROUTER_API_KEY` (
 
 ## Design system & UI conventions
 
-TailwindCSS only (TailAdmin base) — no CSS modules, no styled-components. Every
-surface must render correctly in both light and dark mode: any `bg-`/`text-`/
-`border-` utility needs its `dark:` counterpart.
+TailwindCSS only (TailAdmin base) — no CSS modules, no styled-components. Every surface must render correctly in both light and dark mode: any `bg-`/`text-`/`border-` utility needs its `dark:` counterpart.
 
-**Color roles** (keep consistent across features):
+The visual direction is **"washi paper + faded indigo ink"** — warm, low-contrast, easy on the eyes for hour-long study sessions. No neon, no saturated dashboard colors, no gradient backgrounds, no dark navy blocks.
+
+### Brand color
+
+`brand-500 = #4a6ba3` (aiiro, faded indigo ink) is the product's **primary color**. It replaced the old dark navy `#091426`, which is no longer used anywhere.
+
+```
+brand-50  #eff3fa    brand-400 #6f8bbe    brand-800 #2a3d5c
+brand-100 #dde6f4    brand-500 #4a6ba3 ←  brand-900 #24334b
+brand-200 #c3d1e9    brand-600 #3d5987
+brand-300 #9db1d6    brand-700 #324a70
+```
+
+- **Solid brand-500** only for real primary actions: the main button on a screen, the current page in pagination, a submit button. `hover:bg-brand-600`, disabled `bg-brand-200`.
+- **Light tints brand-50 / brand-100** for everything ambient: active nav rows, selected states, quiet highlights.
+- **brand-600 / brand-700** for brand-colored *text* on light fills (contrast, not decoration).
+- Never fill a large surface (sidebar, header, hero) with a dark brand shade in the learner app.
+
+### Color roles (keep consistent across features)
+
 - `brand-*` — primary actions, active nav, pagination current page
 - `teal-*` — anything AI-generated (corrections, suggestions, AI chat)
 - `rose-*` — user errors / detected mistakes (never for destructive buttons)
 - `emerald-*` — success, "no errors found"
-- `gray-*` — text hierarchy: `gray-800` primary, `gray-500` secondary, `gray-400` meta
+- `amber-*` — pending review (admin queues)
+- `gray-*` — text hierarchy: `gray-800` primary, `gray-500` secondary, `gray-400` meta. The gray ramp is **warm** (paper-toned), not blue-grey.
 
-**Cards & lists:** `rounded-xl border border-gray-200 bg-white shadow-sm` +
-`dark:border-gray-700 dark:bg-gray-900`. List rows are compact one-per-line
-horizontal cards, spaced with `flex flex-col gap-2.5` (not `space-y-*`).
-Hover state = border turns `teal-500` + soft shadow, no scale/translate.
+### Surfaces
 
-**Japanese text:** always `lang="ja"` on elements containing Japanese so the
-browser picks correct CJK glyphs. Long sentences `truncate` on one line with a
-`title` attribute; full text lives in the detail modal, never wrapped in the row.
+Page background is warm paper `#f7f6f2`, not white; cards are white on top of it. Dark mode uses warm charcoals (`#16181a` page, `#212428` card) — never pure black.
 
-**Filter chips:** `rounded-full px-4 py-1.5 text-xs`; active = `bg-gray-900 text-white`
-(inverted in dark mode), inactive = bordered.
+### Sidebar & navigation
 
-**Icons:** 2px-stroke SVG from the shared icon set, 20px in nav / 16px inline.
-No emoji, no Unicode glyphs (`→`, `✓`) as icons in new code.
+**The learner sidebar is light.** White surface, hairline right border, dark text — no dark fill.
 
-**Page titles** go through `usePageHeader()` (see above), never an inline `<h1>`.
+- Active row: **`bg-brand-100 text-brand-700 font-semibold`** (`dark:bg-brand-500/20 dark:text-brand-200`), 8px radius, icon inherits the text color. **Not** a solid `bg-brand-500` block and **not** a dark navy block.
+- Hover row: `bg-brand-50` (`dark:bg-white/5`).
+- Rest row: `text-gray-500`, `font-medium`.
+- No shadow on nav rows.
+
+The **admin** sidebar keeps its dark indigo (`brand-800`) treatment with teal active rows — that contrast is intentional to separate the admin surface from the learner surface.
+
+### Cards & lists
+
+`rounded-xl border border-gray-200 bg-white shadow-sm` + `dark:border-gray-700 dark:bg-gray-900`. List rows are compact one-per-line horizontal cards, spaced with `flex flex-col gap-2.5` (not `space-y-*`). Hover state = border turns `teal-500` + soft shadow, **no scale/translate**.
+
+### Japanese text
+
+Always `lang="ja"` on elements containing Japanese so the browser picks correct CJK glyphs. Long sentences `truncate` on one line with a `title` attribute; full text lives in the detail modal, never wrapped in the row. Reading passages use relaxed leading (`leading-relaxed`).
+
+### Filter chips
+
+`rounded-full px-4 py-1.5 text-xs`; active = `bg-gray-900 text-white` (inverted in dark mode), inactive = bordered, hover border `teal-400`.
+
+### Buttons, inputs, focus
+
+Buttons and inputs are `rounded-lg` (8px), inputs are 44px tall (also the minimum tap target). Focus = `border-brand-400` plus a 3px translucent brand ring; never remove the focus ring.
+
+### Icons
+
+2px-stroke SVG from the shared icon set, 20px in nav / 16px inline. Icons inherit `currentColor`. No emoji, no Unicode glyphs (`→`, `✓`) as icons in new code.
+
+### Motion
+
+150ms color transitions, 200ms background, 300ms sidebar collapse, all `ease-in-out`. No bounces, no entrance animations.
+
+### Page titles
+
+Go through `usePageHeader()` (see above), never an inline `<h1>`.

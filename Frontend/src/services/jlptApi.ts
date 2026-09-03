@@ -7,8 +7,8 @@ export const JLPT_LEVELS: JlptLevel[] = ["N1", "N2", "N3", "N4", "N5"];
 export type SectionType = "kotoba" | "dokkai" | "choukai";
 
 export const SECTION_LABELS: Record<SectionType, string> = {
-  kotoba: "Từ vựng - Ngữ pháp (文字・語彙・文法)",
-  dokkai: "Đọc hiểu (読解)",
+  kotoba: "Từ vựng · Chữ viết (文字・語彙)",
+  dokkai: "Ngữ pháp · Đọc hiểu (文法・読解)",
   choukai: "Nghe hiểu (聴解)",
 };
 
@@ -143,6 +143,7 @@ export interface QuestionReview {
   correct_no?: number | null;
   explanation?: string | null;
   is_reviewed: boolean;
+  updated_at?: string | null;
 }
 
 export interface MondaiReviewGroup {
@@ -184,6 +185,16 @@ export async function fetchAdminExams(params?: { level?: JlptLevel; status?: str
 
 export async function fetchExamReview(examId: number): Promise<ExamReview> {
   return request(`/api/jlpt/exams/${examId}`, { headers: authHeaders(getToken()) });
+}
+
+/** Runs a second, text-only AI pass over every not-yet-reviewed question:
+ * adds <u>/<b> formatting tags, fills correct_no when missing, and writes
+ * an explanation — a pre-fill step before the admin reviews by hand. */
+export async function aiPreprocessExam(examId: number): Promise<ExamReview> {
+  return request(`/api/jlpt/exams/${examId}/ai-preprocess`, {
+    method: "POST",
+    headers: authHeaders(getToken()),
+  });
 }
 
 export interface QuestionPatch {
@@ -267,6 +278,7 @@ export interface TakeMondai {
   description?: string | null;
   tips?: string | null;
   time_minutes?: number | null;
+  question_count?: number | null;
   questions: TakeQuestion[];
 }
 
@@ -293,11 +305,14 @@ export interface PublishedExamSummary {
   month?: number | null;
   total_time_minutes?: number | null;
   question_count: number;
+  best_score?: number | null;
+  best_total?: number | null;
+  attempt_count: number;
 }
 
 export async function fetchPublishedExams(level?: JlptLevel): Promise<PublishedExamSummary[]> {
   const qs = level ? `?level=${level}` : "";
-  return request(`/api/jlpt/published-exams${qs}`, { silent: true });
+  return request(`/api/jlpt/published-exams${qs}`, { headers: authHeaders(getToken()), silent: true });
 }
 
 export async function fetchExamToTake(examId: number): Promise<TakeExam> {
@@ -312,6 +327,15 @@ export interface GradedAnswer {
   explanation?: string | null;
 }
 
+export interface SectionScore {
+  section_type: SectionType;
+  name: string;
+  score: number;
+  max: number;
+  floor: number;
+  above_floor: boolean;
+}
+
 export interface SubmitAttemptResult {
   attempt_id: number;
   exam_id: number;
@@ -319,6 +343,11 @@ export interface SubmitAttemptResult {
   total_questions: number;
   percent: number;
   answers: GradedAnswer[];
+  total?: number | null;
+  total_max?: number | null;
+  pass_total?: number | null;
+  is_pass?: boolean | null;
+  sections: SectionScore[];
 }
 
 export async function submitAttempt(
@@ -332,36 +361,74 @@ export async function submitAttempt(
   });
 }
 
-export interface AttemptHistoryItem {
-  attempt_id: number;
-  exam_id: number;
-  exam_title: string;
-  level: string;
-  score: number;
-  total_questions: number;
-  percent: number;
-  submitted_at?: string | null;
+// ---------- User-facing: dashboard (upcoming exam / predicted score / weak mondai) ----------
+
+export interface ExamSchedule {
+  id: number;
+  level?: string | null;
+  exam_date: string;
+  registration_deadline: string;
 }
 
-export async function fetchMyAttempts(level?: JlptLevel): Promise<AttemptHistoryItem[]> {
+export interface ExamPlan {
+  id: number;
+  level: string;
+  location?: string | null;
+  schedule: ExamSchedule;
+}
+
+export interface ScoreBreakdown {
+  total: number;
+  total_max: number;
+  pass_total: number;
+  is_pass: boolean;
+  sections: SectionScore[];
+}
+
+export interface WeakMondai {
+  section_type: SectionType;
+  section_name: string;
+  mondai_no: number;
+  mondai_name?: string | null;
+  wrong_count: number;
+  total_count: number;
+  percent_correct: number;
+}
+
+export interface UpcomingExam {
+  schedule: ExamSchedule;
+  location?: string | null;
+  days_left: number;
+  study_pace_message: string;
+}
+
+export interface JlptDashboard {
+  predicted: ScoreBreakdown | null;
+  weak_mondai: WeakMondai[];
+  upcoming_exam: UpcomingExam | null;
+}
+
+export async function fetchSchedules(level?: JlptLevel): Promise<ExamSchedule[]> {
   const qs = level ? `?level=${level}` : "";
-  try {
-    return await request(`/api/jlpt/attempts/me${qs}`, { headers: authHeaders(getToken()), silent: true });
-  } catch {
-    return [];
-  }
+  return request(`/api/jlpt/schedules${qs}`, { silent: true });
 }
 
-export interface LevelAverage {
-  level: string;
-  attempt_count: number;
-  average_percent: number;
+export async function saveExamPlan(payload: {
+  level: JlptLevel;
+  schedule_id: number;
+  location?: string | null;
+}): Promise<ExamPlan> {
+  return request(`/api/jlpt/exam-plan`, {
+    method: "PUT",
+    headers: jsonHeaders(getToken()),
+    body: JSON.stringify(payload),
+  });
 }
 
-export async function fetchAverageByLevel(): Promise<LevelAverage[]> {
+export async function fetchDashboard(level: JlptLevel): Promise<JlptDashboard | null> {
   try {
-    return await request(`/api/jlpt/attempts/average`, { headers: authHeaders(getToken()), silent: true });
+    return await request(`/api/jlpt/dashboard?level=${level}`, { headers: authHeaders(getToken()), silent: true });
   } catch {
-    return [];
+    return null;
   }
 }

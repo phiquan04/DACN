@@ -33,17 +33,17 @@ function KanjiDetail({ k }: { k: KanjiInfo }) {
       <div className="min-w-0 flex-1 space-y-2">
         <div className="flex flex-wrap items-center gap-2">
           {k.hanviet.length > 0 && (
-            <span className="rounded-full bg-primary-fixed px-3 py-1 text-sm font-semibold text-on-primary-fixed break-words">
+            <span className="rounded-lg bg-primary-fixed px-3 py-1 text-sm font-semibold text-on-primary-fixed break-words">
               {k.hanviet.join(", ")}
             </span>
           )}
           {k.jlpt && (
-            <span className="inline-block rounded-full bg-surface-container-high px-2.5 py-1 text-xs font-medium text-on-surface-variant">
+            <span className="inline-block rounded-lg bg-surface-container-high px-2.5 py-1 text-xs font-medium text-on-surface-variant">
               JLPT {k.jlpt}
             </span>
           )}
           {k.stroke_count != null && (
-            <span className="inline-block rounded-full bg-surface-container-high px-2.5 py-1 text-xs font-medium text-on-surface-variant">
+            <span className="inline-block rounded-lg bg-surface-container-high px-2.5 py-1 text-xs font-medium text-on-surface-variant">
               {k.stroke_count} nét
             </span>
           )}
@@ -91,7 +91,7 @@ export default function KanjiTab({ kanji }: KanjiTabProps) {
                   onClick={() => setActiveIndex(idx)}
                   className={`flex h-14 w-14 shrink-0 items-center justify-center rounded-xl text-3xl font-bold transition-colors ${
                     idx === activeIndex
-                      ? "bg-primary text-on-primary shadow-theme-xs"
+                      ? "bg-gradient-to-r from-brand-500 to-brand-600 text-white shadow-theme-xs"
                       : "bg-surface-container text-on-surface hover:bg-surface-container-high dark:bg-gray-800 dark:text-gray-200 dark:hover:bg-gray-700"
                   }`}
                 >

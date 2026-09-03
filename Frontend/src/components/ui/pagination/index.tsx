@@ -1,4 +1,4 @@
-import { AngleLeftIcon, AngleRightIcon } from "../../icons";
+import { AngleLeftIcon, AngleRightIcon } from "../../../icons";
 
 function getPageList(current: number, total: number): (number | "...")[] {
   const delta = 1;
@@ -21,6 +21,8 @@ function getPageList(current: number, total: number): (number | "...")[] {
   return withDots;
 }
 
+/** Shared numbered pagination — same rounded-lg/brand-gradient look everywhere it's used
+ * (vocabulary lists, history tabs, comments, ...), right-aligned within its container. */
 export default function Pagination({
   page,
   totalPages,
@@ -33,7 +35,7 @@ export default function Pagination({
   if (totalPages <= 1) return null;
 
   return (
-    <div className="flex items-center justify-center gap-1.5">
+    <div className="flex items-center justify-end gap-1.5">
       <button
         type="button"
         onClick={() => onChange(page - 1)}
@@ -56,7 +58,7 @@ export default function Pagination({
             onClick={() => onChange(p)}
             className={`flex h-8 w-8 items-center justify-center rounded-lg text-sm font-medium transition-colors ${
               p === page
-                ? "bg-brand-500 text-white"
+                ? "bg-gradient-to-r from-brand-500 to-brand-600 text-white"
                 : "border border-gray-200 text-gray-600 hover:border-gray-300 dark:border-gray-700 dark:text-gray-300"
             }`}
           >

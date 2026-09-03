@@ -17,6 +17,7 @@ from .jlpt import (
     JlptLevelStructure, JlptSection, JlptMondaiTemplate,
     JlptExam, JlptPassage, JlptQuestion, JlptChoice,
     JlptTestAttempt, JlptTestAttemptAnswer,
+    JlptExamSchedule, JlptUserExamPlan,
 )
 from .vocabulary import VocabularyCurriculum, VocabularyCategory, VocabularySet, VocabularyItem
 
@@ -31,5 +32,6 @@ __all__ = [
     'JlptLevelStructure', 'JlptSection', 'JlptMondaiTemplate',
     'JlptExam', 'JlptPassage', 'JlptQuestion', 'JlptChoice',
     'JlptTestAttempt', 'JlptTestAttemptAnswer',
+    'JlptExamSchedule', 'JlptUserExamPlan',
     'VocabularyCurriculum', 'VocabularyCategory', 'VocabularySet', 'VocabularyItem',
 ]

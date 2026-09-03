@@ -13,10 +13,10 @@ import { useConversationHistory } from "./hooks/useConversationHistory";
 type SidebarTab = "scenarios" | "history";
 
 function sidebarTabClass(isActive: boolean) {
-  return `flex-1 rounded-full px-4 py-1.5 text-xs font-medium transition-colors ${
+  return `flex-1 rounded-lg px-4 py-1.5 text-xs font-medium transition-colors ${
     isActive
-      ? "bg-gray-900 text-white dark:bg-white dark:text-gray-900"
-      : "border border-gray-300 text-gray-600 hover:border-gray-400 dark:border-gray-600 dark:text-gray-300"
+      ? "bg-brand-500 text-white"
+      : "border border-gray-300 text-gray-600 hover:border-teal-400 dark:border-gray-600 dark:text-gray-300"
   }`;
 }
 
@@ -105,7 +105,7 @@ export default function ChatBot() {
         {/* Chat panel */}
         <main className="flex min-w-0 flex-1 flex-col">
           <div className="flex shrink-0 items-center gap-3 border-b border-gray-200 px-6 py-4 dark:border-gray-700">
-            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-teal-600 text-sm font-bold text-white">
+            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-brand-500 text-sm font-bold text-white">
               AI
             </div>
             <div className="min-w-0 flex-1">

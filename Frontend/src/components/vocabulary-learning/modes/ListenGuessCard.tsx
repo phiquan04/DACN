@@ -37,7 +37,7 @@ export default function ListenGuessCard({
           type="button"
           onClick={play}
           disabled={playing}
-          className="flex h-16 w-16 items-center justify-center rounded-full bg-teal-500 text-white transition hover:bg-teal-600 disabled:opacity-60"
+          className="flex h-16 w-16 items-center justify-center rounded-full bg-gradient-to-r from-teal-500 to-teal-600 text-white transition hover:from-teal-600 hover:to-teal-700 disabled:opacity-60"
         >
           <AudioIcon className="h-7 w-7" />
         </button>

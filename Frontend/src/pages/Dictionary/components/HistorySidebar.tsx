@@ -18,15 +18,15 @@ export default function HistorySidebar({
   onClearAll,
 }: HistorySidebarProps) {
   return (
-    <aside className="w-80 shrink-0">
+    <aside className="flex w-80 shrink-0 flex-col p-6">
       {/* Header */}
-      <div className="mb-4 flex items-center justify-between">
+      <div className="flex items-center justify-between border-b border-gray-200 pb-4 mb-4 dark:border-gray-700">
         <div className="flex items-center gap-2">
           <svg
             xmlns="http://www.w3.org/2000/svg"
             viewBox="0 0 20 20"
             fill="currentColor"
-            className="h-4 w-4 text-on-surface-variant dark:text-gray-400"
+            className="h-4 w-4 text-brand-500 dark:text-brand-400"
           >
             <path
               fillRule="evenodd"
@@ -39,7 +39,7 @@ export default function HistorySidebar({
         {history.length > 0 && (
           <button
             onClick={onClearAll}
-            className="text-xs font-medium text-error hover:opacity-80 dark:hover:text-red-300 transition-colors"
+            className="text-xs font-semibold text-error hover:text-error/80 transition-colors"
             title="Xóa toàn bộ lịch sử"
           >
             Xóa tất cả
@@ -48,21 +48,21 @@ export default function HistorySidebar({
       </div>
 
       {/* Body */}
-      <div className="max-h-[calc(100vh-12rem)] space-y-3 overflow-y-auto pr-1">
+      <div className="max-h-[calc(100vh-16rem)] space-y-2 overflow-y-auto pr-1">
         {!currentUser && (
-          <p className="rounded-2xl border border-outline-variant/60 px-4 py-6 text-center text-xs text-outline dark:border-gray-700 dark:text-gray-500">
+          <p className="rounded-lg border border-gray-200 px-4 py-6 text-center text-xs text-outline dark:border-gray-700 dark:text-gray-500">
             Đăng nhập để lưu lịch sử tra cứu.
           </p>
         )}
 
         {currentUser && loadingHistory && (
-          <p className="rounded-2xl border border-outline-variant/60 px-4 py-6 text-center text-xs italic text-outline dark:border-gray-700">
+          <p className="rounded-lg border border-gray-200 px-4 py-6 text-center text-xs italic text-outline dark:border-gray-700">
             Đang tải...
           </p>
         )}
 
         {currentUser && !loadingHistory && history.length === 0 && (
-          <p className="rounded-2xl border border-outline-variant/60 px-4 py-6 text-center text-xs text-outline dark:border-gray-700 dark:text-gray-500">
+          <p className="rounded-lg border border-gray-200 px-4 py-6 text-center text-xs text-outline dark:border-gray-700 dark:text-gray-500">
             Chưa có từ nào được tra cứu.
           </p>
         )}
@@ -73,12 +73,12 @@ export default function HistorySidebar({
           history.map((item) => (
             <div
               key={item.id}
-              className="group relative cursor-pointer rounded-2xl border border-outline-variant/60 bg-surface-container-lowest px-5 py-4 shadow-theme-xs transition hover:border-outline-variant hover:shadow-theme-sm dark:border-gray-700 dark:bg-gray-900"
+              className="group relative cursor-pointer rounded-lg border border-l-[3px] border-gray-200 border-l-brand-500 bg-brand-50 px-3 py-2.5 transition hover:border-teal-500 hover:border-l-teal-500 dark:border-gray-700 dark:border-l-brand-400 dark:bg-white/[0.03] dark:hover:border-teal-500 dark:hover:border-l-teal-500"
               onClick={() => onItemClick(item)}
             >
               <button
                 onClick={(e) => onDeleteItem(e, item)}
-                className="absolute right-3 top-3 shrink-0 text-outline-variant opacity-0 transition-all hover:text-error group-hover:opacity-100 dark:text-gray-600 dark:hover:text-red-400"
+                className="absolute right-2.5 top-2.5 shrink-0 text-outline-variant opacity-0 transition-all hover:text-error group-hover:opacity-100 dark:text-gray-600 dark:hover:text-red-400"
                 title="Xóa mục này"
               >
                 <svg xmlns="http://www.w3.org/2000/svg" className="h-3.5 w-3.5" viewBox="0 0 20 20" fill="currentColor">
@@ -86,14 +86,14 @@ export default function HistorySidebar({
                 </svg>
               </button>
 
-              <p lang="ja" className="pr-5 text-lg font-bold text-on-surface dark:text-white truncate">
+              <p lang="ja" className="pr-5 text-base font-semibold text-on-surface dark:text-white truncate">
                 {item.word}
               </p>
               {item.reading && item.reading !== item.word && (
-                <p className="mt-0.5 text-sm text-outline dark:text-gray-500 truncate">{item.reading}</p>
+                <p className="mt-0.5 text-xs text-brand-700 dark:text-brand-300 truncate">{item.reading}</p>
               )}
               {item.meaning && (
-                <p className="mt-1.5 text-xs text-on-surface-variant dark:text-gray-400 truncate">{item.meaning}</p>
+                <p className="mt-1 text-xs text-on-surface-variant dark:text-gray-400 truncate">{item.meaning}</p>
               )}
             </div>
           ))}

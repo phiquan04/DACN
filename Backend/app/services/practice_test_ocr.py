@@ -330,6 +330,8 @@ Dưới đây là CẤU TRÚC MONDAI chuẩn của level này (admin đã cấu 
 
 Nếu nhiều câu hỏi liên tiếp dùng chung một đoạn văn đọc hiểu, hãy điền đoạn văn đó (giống hệt nhau) vào "passage_text" của các câu đó; nếu câu hỏi không có đoạn văn dùng chung thì để "passage_text": null.
 
+QUAN TRỌNG — BỎ QUA CÂU VÍ DỤ: mỗi mondai thường có một câu ví dụ mẫu đứng ngay trước câu 1, được đánh dấu bằng "例" hoặc "れい" thay vì một số thứ tự thật (1, 2, 3...). Câu này chỉ minh hoạ cách làm bài, KHÔNG phải câu hỏi thật của đề — TUYỆT ĐỐI không đưa nó vào mảng "questions", kể cả khi nó có đủ câu hỏi/đáp án/lựa chọn trông giống câu thật.
+
 QUAN TRỌNG: Chỉ trả về JSON thuần túy, không markdown, không giải thích thêm.
 
 Format JSON:
@@ -381,3 +383,83 @@ Format JSON:
     raw = response.json()['choices'][0]['message']['content'].strip()
     clean = re.sub(r'```json|```', '', raw).strip()
     return json.loads(clean)
+
+
+def ai_preprocess_mondai_questions(
+    questions: list,
+    mondai_name: str,
+    mondai_description: str,
+    section_type: str,
+    fill_missing_answers: bool,
+) -> list:
+    """Second, text-only AI pass over one mondai's already-imported draft
+    questions (run on demand, before the admin opens the review screen):
+    inserts <u>/<b> formatting tags where the JLPT convention calls for them
+    (e.g. underlining the target word in a kotoba fill-in mondai), fills
+    correct_no when no answer key was available, and writes a Vietnamese
+    explanation. Operates on the plain OCR'd text already in the DB — no
+    access to the original page image, so it can misjudge which word to
+    underline; the admin still confirms every question afterwards.
+    """
+    api_key = os.environ.get("OPENROUTER_API_KEY", "")
+
+    answer_instruction = (
+        "Chưa có đáp án cho các câu này — hãy tự xác định correct_no (1-4) chính xác nhất dựa trên "
+        "kiến thức tiếng Nhật của bạn."
+        if fill_missing_answers else
+        "Đáp án đúng (correct_no) đã có sẵn cho các câu này — GIỮ NGUYÊN, không được đổi."
+    )
+
+    prompt = f"""Bạn là biên tập viên đề thi JLPT. Dưới đây là các câu hỏi thuộc mondai "{mondai_name}"
+({mondai_description or 'không có mô tả'}), phần {section_type}, đã được OCR từ đề gốc nhưng mất hết định dạng
+(gạch chân, in đậm) do bước OCR chỉ trích xuất text thuần.
+
+Với MỖI câu hỏi, hãy:
+1. Nếu dạng câu hỏi yêu cầu chọn/xử lý một từ hoặc cụm từ được gạch chân/in đậm trong câu gốc (ví dụ mondai
+   dạng "từ được gạch chân dưới đây gần nghĩa nhất với...", hoặc chỗ trống cần điền), hãy chèn thẻ
+   <u>...</u> quanh đúng từ/cụm từ đó trong "question_text". CHỈ chèn khi bạn xác định được rõ ràng từ nào
+   cần đánh dấu dựa vào chính nội dung câu hỏi — nếu không chắc chắn thì để nguyên, không đoán bừa.
+2. {answer_instruction}
+3. Viết "explanation" ngắn gọn bằng tiếng Việt giải thích vì sao đáp án đúng, đối chiếu với các lựa chọn sai.
+
+QUAN TRỌNG: Không đổi nội dung tiếng Nhật của câu hỏi/lựa chọn, chỉ thêm thẻ <u> khi cần. Chỉ trả về JSON
+thuần túy, không markdown, không giải thích thêm, đúng format:
+{{
+  "questions": [
+    {{
+      "id": 123,
+      "question_text": "...",
+      "choices": [
+        {{"choice_no": 1, "choice_text": "..."}},
+        {{"choice_no": 2, "choice_text": "..."}},
+        {{"choice_no": 3, "choice_text": "..."}},
+        {{"choice_no": 4, "choice_text": "..."}}
+      ],
+      "correct_no": 2,
+      "explanation": "..."
+    }}
+  ]
+}}
+
+===CÂU HỎI===
+{json.dumps(questions, ensure_ascii=False, indent=2)}"""
+
+    response = req.post(
+        "https://openrouter.ai/api/v1/chat/completions",
+        headers={
+            "Authorization": f"Bearer {api_key}",
+            "Content-Type": "application/json",
+        },
+        json={
+            "model": "openai/gpt-4o-mini",
+            "messages": [{"role": "user", "content": prompt}],
+            "temperature": 0.1,
+            "max_tokens": 8000,
+        },
+        timeout=180
+    )
+
+    response.raise_for_status()
+    raw = response.json()['choices'][0]['message']['content'].strip()
+    clean = re.sub(r'```json|```', '', raw).strip()
+    return json.loads(clean).get('questions', [])

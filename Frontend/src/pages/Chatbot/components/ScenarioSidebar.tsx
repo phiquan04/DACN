@@ -45,15 +45,17 @@ export default function ScenarioSidebar({ scenarios, activeScenarioId, onSelect,
               key={s.id}
               type="button"
               onClick={() => onSelect(s)}
-              className={`flex items-start gap-3 rounded-xl border p-3.5 text-left transition-colors ${
+              className={`flex items-start gap-3 rounded-lg border-l-4 p-3.5 text-left transition-colors ${
                 isActive
-                  ? "border-2 border-brand-500 bg-brand-50 shadow-sm dark:bg-brand-500/10"
-                  : "border-gray-200 bg-white hover:border-teal-500 hover:bg-teal-50/40 hover:shadow-sm dark:border-gray-700 dark:bg-gray-900 dark:hover:bg-teal-500/5"
+                  ? "border-l-brand-500 bg-brand-100 dark:border-l-brand-400 dark:bg-brand-500/15"
+                  : "border-l-brand-200 bg-brand-50/70 hover:border-l-teal-500 hover:bg-teal-50 dark:border-l-brand-500/40 dark:bg-brand-500/5 dark:hover:border-l-teal-400 dark:hover:bg-teal-500/10"
               }`}
             >
               <span
                 className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-lg text-base ${
-                  isActive ? "bg-brand-600 text-white" : "bg-gray-900 text-white dark:bg-gray-700"
+                  isActive
+                    ? "bg-brand-600 text-white"
+                    : "bg-white text-gray-600 dark:bg-gray-800 dark:text-gray-300"
                 }`}
               >
                 {s.icon || <ChatBubbleIcon className="h-4 w-4" />}
@@ -68,7 +70,7 @@ export default function ScenarioSidebar({ scenarios, activeScenarioId, onSelect,
                     {s.title}
                   </span>
                   {s.level && (
-                    <span className="shrink-0 rounded-full bg-emerald-100 px-2 py-0.5 text-[10px] font-bold text-emerald-700 dark:bg-emerald-500/20 dark:text-emerald-300">
+                    <span className="shrink-0 rounded-md bg-brand-100 px-2 py-0.5 text-[10px] font-bold text-brand-700 dark:bg-brand-500/20 dark:text-brand-300">
                       {s.level}
                     </span>
                   )}

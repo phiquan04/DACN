@@ -1,5 +1,5 @@
 import type { EvaluationResult } from "../pronunciationUtils";
-import { scoreBarColor, scoreRingColor } from "../pronunciationUtils";
+import { encouragementBadgeClass, getEncouragement, scoreBarColor, scoreRingColor } from "../pronunciationUtils";
 
 export interface ScoreMetric {
   label: string;
@@ -28,14 +28,22 @@ export default function ScoreCard({
 }: ScoreCardProps) {
   const ringSizeClass = size === "lg" ? "h-28 w-28" : "h-24 w-24";
   const scoreTextClass = size === "lg" ? "text-3xl" : "text-2xl";
+  const encouragement = evaluation ? getEncouragement(evaluation) : null;
 
   return (
-    <div className="rounded-3xl border border-outline-variant/60 bg-surface-container-lowest p-6 text-center shadow-theme-xs dark:border-gray-700 dark:bg-gray-900">
-      <h3 className="mb-4 text-base font-semibold text-on-surface dark:text-white/90">Điểm tổng quan</h3>
-      {evaluation && !evaluation.wrong_word ? (
+    <div className="rounded-2xl border border-outline-variant/60 bg-surface-container-lowest p-5 shadow-theme-xs dark:border-gray-700 dark:bg-gray-900">
+      {!evaluation ? (
+        <div className={minHeightClass} />
+      ) : evaluation.wrong_word ? (
+        <div
+          className={`flex flex-col items-center justify-center text-center text-sm text-on-surface-variant dark:text-gray-400 ${minHeightClass}`}
+        >
+          {wrongWordMessage}
+        </div>
+      ) : (
         <>
-          <div className="mb-5 flex justify-center">
-            <div className={`relative flex items-center justify-center ${ringSizeClass}`}>
+          <div className="flex flex-col items-center gap-5 text-center sm:flex-row sm:items-center sm:text-left">
+            <div className={`relative flex shrink-0 items-center justify-center ${ringSizeClass}`}>
               <svg className={`-rotate-90 ${ringSizeClass}`} viewBox="0 0 96 96">
                 <circle cx="48" cy="48" r="40" fill="none" strokeWidth="8" className="stroke-surface-container-high dark:stroke-gray-700" />
                 <circle
@@ -55,8 +63,23 @@ export default function ScoreCard({
                 <span className="text-xs text-on-surface-variant dark:text-gray-400">/ 100</span>
               </div>
             </div>
+            <div className="min-w-0 flex-1">
+              {encouragement && (
+                <span className={`inline-block rounded-lg px-2.5 py-1 text-xs font-semibold ${encouragementBadgeClass(encouragement.tone)}`}>
+                  {encouragement.title}
+                </span>
+              )}
+              {encouragement && (
+                <p className="mt-2 text-sm text-on-surface dark:text-gray-200">{encouragement.message}</p>
+              )}
+              {evaluation.recognized_text !== undefined && (
+                <p className="mt-2 text-xs text-on-surface-variant dark:text-gray-400">
+                  Whisper nhận diện: <span className="font-semibold text-on-surface dark:text-gray-200">{evaluation.recognized_text || "(không nhận diện được)"}</span>
+                </p>
+              )}
+            </div>
           </div>
-          <div className="space-y-3 text-left">
+          <div className="mt-6 space-y-3 text-left">
             {metrics.map((m) => (
               <div key={m.label}>
                 <div className="flex justify-between text-sm text-on-surface dark:text-gray-200">
@@ -72,14 +95,6 @@ export default function ScoreCard({
             ))}
           </div>
         </>
-      ) : (
-        <div
-          className={`flex flex-col items-center justify-center text-sm text-on-surface-variant dark:text-gray-400 ${minHeightClass} ${
-            size === "lg" ? "h-full" : ""
-          }`}
-        >
-          {evaluation?.wrong_word ? wrongWordMessage : "Ghi âm để xem điểm số của bạn."}
-        </div>
       )}
     </div>
   );

@@ -69,14 +69,14 @@ export default function SynonymsCard({ synonyms, loading, onLookupWord }: Synony
             <button
               type="button"
               onClick={() => setPending(null)}
-              className="rounded-full border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 dark:border-gray-600 dark:text-gray-300 dark:hover:bg-gray-800"
+              className="rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 dark:border-gray-600 dark:text-gray-300 dark:hover:bg-gray-800"
             >
               Hủy
             </button>
             <button
               type="button"
               onClick={confirmLookup}
-              className="rounded-full bg-teal-600 px-4 py-2 text-sm font-semibold text-white hover:bg-teal-700"
+              className="rounded-lg bg-gradient-to-r from-teal-500 to-teal-600 px-4 py-2 text-sm font-semibold text-white hover:from-teal-600 hover:to-teal-700"
             >
               Tra cứu
             </button>

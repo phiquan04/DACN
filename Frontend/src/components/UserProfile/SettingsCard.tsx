@@ -43,7 +43,7 @@ export default function SettingsCard() {
   };
 
   return (
-    <div className="p-5 border border-gray-200 rounded-2xl dark:border-gray-800 lg:p-6">
+    <div className="rounded-xl border border-gray-200 bg-white p-5 shadow-sm dark:border-gray-700 dark:bg-gray-900 lg:p-6">
       <h4 className="mb-4 text-lg font-semibold text-gray-800 dark:text-white/90">Cài đặt khác</h4>
 
       <button

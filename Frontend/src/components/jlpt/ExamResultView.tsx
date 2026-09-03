@@ -1,5 +1,6 @@
 import { SubmitAttemptResult, TakeExam } from "../../services/jlptApi";
 import FormattedText from "./FormattedText";
+import SectionScoreBars from "./SectionScoreBars";
 
 export default function ExamResultView({
   exam,
@@ -13,7 +14,8 @@ export default function ExamResultView({
   const questionById = new Map(
     exam.sections.flatMap((s) => s.mondai.flatMap((m) => m.questions.map((q) => [q.id, q] as const)))
   );
-  const isPass = result.percent >= 60;
+  const hasBreakdown = result.is_pass !== null && result.is_pass !== undefined && result.sections.length > 0;
+  const isPass = hasBreakdown ? result.is_pass! : result.percent >= 60;
 
   return (
     <div className="space-y-5">
@@ -30,16 +32,29 @@ export default function ExamResultView({
             isPass ? "text-emerald-600 dark:text-emerald-400" : "text-rose-600 dark:text-rose-400"
           }`}
         >
-          {result.score}/{result.total_questions} ({result.percent}%)
+          {hasBreakdown ? `${result.total}/${result.total_max}` : `${result.score}/${result.total_questions}`}
+          <span className="ml-1 text-lg font-medium text-gray-400 dark:text-gray-500">
+            ({result.score}/{result.total_questions} câu đúng)
+          </span>
+        </p>
+        <p className={`mt-1 text-sm font-semibold ${isPass ? "text-emerald-700 dark:text-emerald-400" : "text-rose-700 dark:text-rose-400"}`}>
+          {isPass ? "Dự kiến đậu" : "Dự kiến rớt"}
+          {hasBreakdown ? ` · cần ${result.pass_total} để đậu` : ""}
         </p>
         <button
           type="button"
           onClick={onBack}
-          className="mt-4 rounded-lg bg-brand-500 px-5 py-2 text-sm font-medium text-white hover:bg-brand-600"
+          className="mt-4 rounded-lg bg-gradient-to-r from-brand-500 to-brand-600 px-5 py-2 text-sm font-medium text-white hover:from-brand-600 hover:to-brand-700"
         >
           Làm đề khác
         </button>
       </div>
+
+      {hasBreakdown && (
+        <div className="rounded-xl border border-gray-200 bg-white p-4 shadow-sm dark:border-gray-700 dark:bg-gray-900">
+          <SectionScoreBars sections={result.sections} />
+        </div>
+      )}
 
       <div className="flex flex-col gap-2.5">
         {result.answers.map((a) => {

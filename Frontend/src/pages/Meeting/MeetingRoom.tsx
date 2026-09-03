@@ -39,7 +39,7 @@ export default function MeetingRoom() {
             <p className="text-gray-400 text-sm mt-1 max-w-xs">{errorMsg}</p>
           </div>
           <div className="flex gap-2">
-            <button onClick={() => window.location.reload()} className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm rounded-lg transition">
+            <button onClick={() => window.location.reload()} className="px-4 py-2 bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 text-white text-sm rounded-lg transition">
               Thử lại
             </button>
             <button onClick={() => window.close()} className="px-4 py-2 bg-gray-700 hover:bg-gray-600 text-white text-sm rounded-lg transition">

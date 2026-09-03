@@ -10,7 +10,7 @@ export function highlightWord(text: string, word: string): React.ReactNode {
   parts.forEach((part, i) => {
     if (i > 0) {
       nodes.push(
-        <span key={`hl-${i}`} className="font-semibold text-secondary dark:text-secondary-fixed-dim">
+        <span key={`hl-${i}`} className="font-semibold text-brand-600 dark:text-brand-400">
           {word}
         </span>
       );
@@ -42,10 +42,10 @@ export function classifyPos(label: string): PosCategory {
 
 /** Tailwind classes per part-of-speech category: noun=green, verb=red, adjective=yellow, other=blue. */
 export const POS_BADGE_CLASSES: Record<PosCategory, string> = {
-  noun: "bg-emerald-100 text-emerald-700 dark:bg-emerald-500/20 dark:text-emerald-300",
-  verb: "bg-rose-100 text-rose-700 dark:bg-rose-500/20 dark:text-rose-300",
-  adjective: "bg-amber-100 text-amber-700 dark:bg-amber-500/20 dark:text-amber-300",
-  other: "bg-sky-100 text-sky-700 dark:bg-sky-500/20 dark:text-sky-300",
+  noun: "rounded-lg bg-emerald-100 text-emerald-700 dark:bg-emerald-500/20 dark:text-emerald-300",
+  verb: "rounded-lg bg-rose-100 text-rose-700 dark:bg-rose-500/20 dark:text-rose-300",
+  adjective: "rounded-lg bg-amber-100 text-amber-700 dark:bg-amber-500/20 dark:text-amber-300",
+  other: "rounded-lg bg-sky-100 text-sky-700 dark:bg-sky-500/20 dark:text-sky-300",
 };
 
 /** KanjiVG's file naming: lowercase hex of the Unicode code point, zero-padded to 5 digits. */

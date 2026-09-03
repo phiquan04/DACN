@@ -1,8 +1,9 @@
+import Pagination from "../../../components/ui/pagination";
 import { getStoredUser } from "../../../services/authApi";
 import type { GrammarHistoryItem, GrammarHistoryStatus } from "../../../services/grammarApi";
 import { useGrammarHistory } from "../hooks/useGrammarHistory";
 import HistoryDetailModal from "./HistoryDetailModal";
-import { ArrowRightIcon, CheckIcon, ChevronLeftIcon, ChevronRightIcon, ClockIcon } from "./icons";
+import { ArrowRightIcon, CheckIcon, ClockIcon } from "./icons";
 
 const STATUS_TABS: { value: GrammarHistoryStatus; label: string }[] = [
   { value: "all", label: "Tất cả" },
@@ -18,6 +19,19 @@ function formatTime(iso: string) {
 function formatDate(iso: string) {
   const d = new Date(iso);
   return d.toLocaleDateString("vi-VN");
+}
+
+/** Groups records by calendar day for the "2/9/2026 · 2 lần" section headers. Items already
+ * arrive newest-first from the backend, so grouping preserves that order without re-sorting. */
+function groupByDate(items: GrammarHistoryItem[]): { date: string; items: GrammarHistoryItem[] }[] {
+  const groups: { date: string; items: GrammarHistoryItem[] }[] = [];
+  for (const item of items) {
+    const date = formatDate(item.created_at);
+    const last = groups[groups.length - 1];
+    if (last && last.date === date) last.items.push(item);
+    else groups.push({ date, items: [item] });
+  }
+  return groups;
 }
 
 /** First CJK character of the sentence — used as the large faded kanji watermark on the card. */
@@ -74,7 +88,13 @@ function HistoryCard({ item, onOpen }: { item: GrammarHistoryItem; onOpen: () =>
   const mark = watermarkChar(item.original_text);
 
   return (
-    <div className="group relative overflow-hidden rounded-xl border border-gray-200 bg-white px-5 py-4 shadow-sm transition-colors duration-200 hover:border-teal-500 hover:shadow-[0_4px_18px_rgba(0,107,95,0.12)] dark:border-gray-700 dark:bg-gray-900 dark:hover:border-teal-400">
+    <div
+      className={`group relative overflow-hidden rounded-xl border border-l-4 bg-white px-5 py-4 shadow-sm transition-shadow duration-200 hover:shadow-[0_4px_18px_rgba(0,107,95,0.12)] dark:bg-gray-900 ${
+        hasError
+          ? "border-gray-200 border-l-rose-400 dark:border-gray-700"
+          : "border-gray-200 border-l-emerald-500 dark:border-gray-700"
+      }`}
+    >
       {mark && (
         <span
           aria-hidden="true"
@@ -87,12 +107,11 @@ function HistoryCard({ item, onOpen }: { item: GrammarHistoryItem; onOpen: () =>
 
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:gap-5 sm:pr-36">
         {/* Time */}
-        <div className="flex shrink-0 flex-col gap-0.5 sm:w-24 sm:border-r sm:border-gray-200 sm:pr-4 dark:sm:border-gray-700">
+        <div className="flex shrink-0 items-center sm:w-20 sm:border-r sm:border-gray-200 sm:pr-4 dark:sm:border-gray-700">
           <p className="flex items-center gap-1 text-sm font-semibold tabular-nums text-gray-800 dark:text-white/90">
             <ClockIcon className="h-3.5 w-3.5 text-gray-400 dark:text-gray-500" />
             {formatTime(item.created_at)}
           </p>
-          <p className="text-xs tabular-nums text-gray-400 dark:text-gray-500">{formatDate(item.created_at)}</p>
         </div>
 
         {/* Sentence + AI correction */}
@@ -178,19 +197,9 @@ function HistoryCard({ item, onOpen }: { item: GrammarHistoryItem; onOpen: () =>
   );
 }
 
-function buildPageNumbers(current: number, total: number): (number | "...")[] {
-  if (total <= 7) return Array.from({ length: total }, (_, i) => i + 1);
-  const pages: (number | "...")[] = [1];
-  if (current > 3) pages.push("...");
-  for (let p = Math.max(2, current - 1); p <= Math.min(total - 1, current + 1); p++) pages.push(p);
-  if (current < total - 2) pages.push("...");
-  pages.push(total);
-  return pages;
-}
-
 /** History tab: header stats, filter chips (Tất cả/Có lỗi/Đúng hoàn toàn), one compact card per row (10/page),
  * "Hiển thị X-Y trong số Z bản ghi" + right-aligned numbered pagination; clicking a card opens the detail modal. */
-export default function HistoryTab({ active }: { active: boolean }) {
+export default function HistoryTab({ active, onRecheck }: { active: boolean; onRecheck: (text: string) => void }) {
   const currentUser = getStoredUser();
   const {
     items,
@@ -207,6 +216,7 @@ export default function HistoryTab({ active }: { active: boolean }) {
     load,
     openDetail,
     closeDetail,
+    removeItem,
     selected,
     detailLoading,
   } = useGrammarHistory(active && !!currentUser);
@@ -223,22 +233,22 @@ export default function HistoryTab({ active }: { active: boolean }) {
   const rangeEnd = Math.min(page * pageSize, total);
 
   return (
-    <div className="space-y-4">
+    <div className="rounded-xl border border-gray-200 bg-white p-5 shadow-sm dark:border-gray-700 dark:bg-gray-900">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <p className="text-sm text-gray-500 dark:text-gray-400">
           <span className="font-semibold text-gray-800 dark:text-white/90">{totalAll} bản ghi</span>
           {" · "}
           {totalChanged} câu đã được sửa
         </p>
-        <div className="flex gap-2">
+        <div className="flex gap-1 rounded-lg bg-gray-100 p-1 dark:bg-gray-800">
           {STATUS_TABS.map((tab) => (
             <button
               key={tab.value}
               onClick={() => changeStatus(tab.value)}
-              className={`rounded-full px-4 py-1.5 text-xs font-medium transition-colors ${
+              className={`rounded-md px-4 py-1.5 text-sm font-medium transition-colors ${
                 status === tab.value
-                  ? "bg-gray-900 text-white dark:bg-white dark:text-gray-900"
-                  : "border border-gray-300 text-gray-600 hover:border-gray-400 dark:border-gray-600 dark:text-gray-300"
+                  ? "bg-white text-brand-600 shadow-sm dark:bg-gray-900 dark:text-brand-400"
+                  : "text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200"
               }`}
             >
               {tab.label}
@@ -252,73 +262,55 @@ export default function HistoryTab({ active }: { active: boolean }) {
       )}
 
       {error && (
-        <div className="rounded-lg border border-red-200 bg-red-50 p-4 text-sm text-red-700 dark:border-red-700 dark:bg-red-500/10 dark:text-red-400">
+        <div className="mt-4 rounded-lg border border-red-200 bg-red-50 p-4 text-sm text-red-700 dark:border-red-700 dark:bg-red-500/10 dark:text-red-400">
           {error}
         </div>
       )}
 
       {!loading && !error && items.length === 0 && (
-        <div className="rounded-lg border border-gray-200 bg-white p-12 text-center dark:border-gray-700 dark:bg-gray-900">
+        <div className="mt-4 rounded-lg border border-gray-200 p-12 text-center dark:border-gray-700">
           <p className="text-gray-500 dark:text-gray-400">Chưa có lịch sử kiểm tra ngữ pháp nào.</p>
         </div>
       )}
 
       {!loading && items.length > 0 && (
         <>
-          <div className="flex flex-col gap-2.5">
-            {items.map((item) => (
-              <HistoryCard key={item.id} item={item} onOpen={() => openDetail(item.id)} />
+          <div className="mt-4 space-y-5">
+            {groupByDate(items).map((group) => (
+              <div key={group.date}>
+                <div className="mb-2 flex items-center justify-between border-b border-gray-200 pb-1.5 dark:border-gray-700">
+                  <span className="text-sm font-semibold text-gray-700 dark:text-gray-200">{group.date}</span>
+                  <span className="text-xs text-gray-400 dark:text-gray-500">{group.items.length} lần</span>
+                </div>
+                <div className="flex flex-col gap-2.5">
+                  {group.items.map((item) => (
+                    <HistoryCard key={item.id} item={item} onOpen={() => openDetail(item.id)} />
+                  ))}
+                </div>
+              </div>
             ))}
           </div>
 
-          <div className="flex flex-wrap items-center justify-between gap-3 pt-1">
+          <div className="mt-4 flex flex-wrap items-center justify-between gap-3">
             <p className="text-xs text-gray-400 dark:text-gray-500">
               Hiển thị {rangeStart}-{rangeEnd} trong số {total} bản ghi
             </p>
-
-            {totalPages > 1 && (
-              <div className="flex items-center gap-2 text-sm">
-                <button
-                  onClick={() => load(Math.max(1, page - 1))}
-                  disabled={page <= 1}
-                  className="flex h-8 w-8 items-center justify-center rounded-full border border-gray-300 text-gray-600 hover:border-brand-500 hover:text-brand-600 disabled:opacity-40 dark:border-gray-700 dark:text-gray-300"
-                >
-                  <ChevronLeftIcon className="h-4 w-4" />
-                </button>
-                {buildPageNumbers(page, totalPages).map((p, idx) =>
-                  p === "..." ? (
-                    <span key={`ellipsis-${idx}`} className="px-1 text-gray-400">
-                      …
-                    </span>
-                  ) : (
-                    <button
-                      key={p}
-                      onClick={() => load(p)}
-                      className={`h-8 w-8 rounded-full text-sm font-medium transition-colors ${
-                        p === page
-                          ? "bg-brand-500 text-white"
-                          : "text-gray-600 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-gray-800"
-                      }`}
-                    >
-                      {p}
-                    </button>
-                  )
-                )}
-                <button
-                  onClick={() => load(Math.min(totalPages, page + 1))}
-                  disabled={page >= totalPages}
-                  className="flex h-8 w-8 items-center justify-center rounded-full border border-gray-300 text-gray-600 hover:border-brand-500 hover:text-brand-600 disabled:opacity-40 dark:border-gray-700 dark:text-gray-300"
-                >
-                  <ChevronRightIcon className="h-4 w-4" />
-                </button>
-              </div>
-            )}
+            <Pagination page={page} totalPages={totalPages} onChange={load} />
           </div>
         </>
       )}
 
       {(selected || detailLoading) && (
-        <HistoryDetailModal detail={selected} loading={detailLoading} onClose={closeDetail} />
+        <HistoryDetailModal
+          detail={selected}
+          loading={detailLoading}
+          onClose={closeDetail}
+          onDelete={removeItem}
+          onRecheck={(text) => {
+            closeDetail();
+            onRecheck(text);
+          }}
+        />
       )}
     </div>
   );

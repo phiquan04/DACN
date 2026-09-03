@@ -125,7 +125,7 @@ export default function MatchPairsGame({
           <button
             type="button"
             onClick={onFinish}
-            className="mt-3 rounded-lg bg-brand-500 px-5 py-2 text-sm font-medium text-white hover:bg-brand-600"
+            className="mt-3 rounded-lg bg-gradient-to-r from-brand-500 to-brand-600 px-5 py-2 text-sm font-medium text-white hover:from-brand-600 hover:to-brand-700"
           >
             Xem kết quả
           </button>

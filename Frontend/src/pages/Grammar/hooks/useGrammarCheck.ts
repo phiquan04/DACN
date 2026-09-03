@@ -23,15 +23,16 @@ export function useGrammarCheck() {
   const [altLoading, setAltLoading] = useState(false);
   const [altError, setAltError] = useState<string | null>(null);
 
-  const handleCheck = async () => {
-    if (!sentence.trim()) return;
+  const handleCheck = async (overrideText?: string) => {
+    const text = overrideText ?? sentence;
+    if (!text.trim()) return;
     setLoading(true);
     setError(null);
     setResult(null);
     setAlternatives([]);
 
     try {
-      const data = await correctGrammar(sentence);
+      const data = await correctGrammar(text);
       setResult({
         correctedText: data.correctedText,
         diffs: data.diffs,

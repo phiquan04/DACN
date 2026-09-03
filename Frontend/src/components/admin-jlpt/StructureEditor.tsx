@@ -447,7 +447,7 @@ export default function StructureEditor() {
                               <button
                                 type="button"
                                 onClick={() => removeMondai(section.section_type, m.mondai_no)}
-                                className="text-gray-400 hover:text-rose-500"
+                                className="text-gray-400 hover:text-error-500"
                                 title="Xóa mondai"
                               >
                                 <TrashIcon className="h-4 w-4" />
@@ -477,7 +477,7 @@ export default function StructureEditor() {
             <button
               type="button"
               onClick={handleDelete}
-              className="flex items-center gap-1.5 text-sm font-medium text-rose-500 hover:text-rose-600 hover:underline"
+              className="flex items-center gap-1.5 text-sm font-medium text-error-500 hover:text-error-600 hover:underline"
             >
               <TrashIcon className="h-4 w-4" /> Xóa toàn bộ cấu trúc đề {level}
             </button>

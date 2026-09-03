@@ -78,8 +78,10 @@ export default function PronounceCard({
           type="button"
           onClick={isRecording ? stopRecording : startRecording}
           disabled={isProcessing}
-          className={`rounded-full px-5 py-2.5 text-sm font-medium text-white transition disabled:opacity-60 ${
-            isRecording ? "bg-rose-500 hover:bg-rose-600" : "bg-teal-500 hover:bg-teal-600"
+          className={`rounded-lg px-5 py-2.5 text-sm font-medium text-white transition disabled:opacity-60 ${
+            isRecording
+              ? "bg-gradient-to-r from-rose-500 to-rose-600 hover:from-rose-600 hover:to-rose-700"
+              : "bg-gradient-to-r from-teal-500 to-teal-600 hover:from-teal-600 hover:to-teal-700"
           }`}
         >
           {isRecording ? "Dừng ghi âm" : "Bấm để ghi âm"}

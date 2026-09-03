@@ -15,7 +15,7 @@ from typing import List, Optional
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session, joinedload, selectinload
 
-from app.dependencies import get_current_user, UserResponse
+from app.dependencies import get_current_user, get_optional_user_id, UserResponse
 from app.models.database import get_db
 from app.models.jlpt import (
     JlptExam, JlptLevelStructure, JlptQuestion, JlptSection, JlptTestAttempt, JlptTestAttemptAnswer,
@@ -24,12 +24,17 @@ from app.schemas.jlpt import (
     AttemptHistoryItem, JlptLevel, LevelAverage, PublishedExamSummary,
     SubmitAttemptIn, SubmitAttemptOut, TakeExamOut,
 )
+from app.services.jlpt_scoring import build_score_breakdown, raw_section_counts
 
 router = APIRouter(tags=["jlpt-attempts"])
 
 
 @router.get("/published-exams", response_model=List[PublishedExamSummary])
-def list_published_exams(level: Optional[JlptLevel] = None, db: Session = Depends(get_db)):
+def list_published_exams(
+    level: Optional[JlptLevel] = None,
+    db: Session = Depends(get_db),
+    current_user_id: Optional[int] = Depends(get_optional_user_id),
+):
     query = (
         db.query(JlptExam)
         .options(selectinload(JlptExam.questions), joinedload(JlptExam.level_structure))
@@ -38,12 +43,33 @@ def list_published_exams(level: Optional[JlptLevel] = None, db: Session = Depend
     if level:
         query = query.filter(JlptExam.level == level)
     exams = query.order_by(JlptExam.year.desc(), JlptExam.month.desc()).all()
+
+    best_by_exam = {}
+    if current_user_id and exams:
+        exam_ids = [e.id for e in exams]
+        attempts = (
+            db.query(JlptTestAttempt)
+            .filter(
+                JlptTestAttempt.user_id == current_user_id,
+                JlptTestAttempt.exam_id.in_(exam_ids),
+                JlptTestAttempt.status == 'completed',
+            )
+            .all()
+        )
+        for a in attempts:
+            entry = best_by_exam.setdefault(a.exam_id, {"best_score": None, "best_total": None, "attempt_count": 0})
+            entry["attempt_count"] += 1
+            if a.total_questions and (entry["best_score"] is None or (a.score or 0) > entry["best_score"]):
+                entry["best_score"] = a.score or 0
+                entry["best_total"] = a.total_questions
+
     return [
         {
             "id": e.id, "title": e.title, "level": e.level,
             "year": e.year, "month": e.month,
             "total_time_minutes": e.level_structure.total_time_minutes if e.level_structure else None,
             "question_count": len(e.questions),
+            **best_by_exam.get(e.id, {"best_score": None, "best_total": None, "attempt_count": 0}),
         }
         for e in exams
     ]
@@ -79,7 +105,7 @@ def get_exam_to_take(exam_id: int, db: Session = Depends(get_db)):
                 continue
             mondai_out.append({
                 "mondai_no": m.mondai_no, "name": m.name, "description": m.description,
-                "tips": m.tips, "time_minutes": m.time_minutes,
+                "tips": m.tips, "time_minutes": m.time_minutes, "question_count": m.question_count,
                 "questions": [
                     {
                         "id": q.id, "question_no": q.question_no, "question_text": q.question_text,
@@ -156,10 +182,15 @@ def submit_attempt(
     db.commit()
     db.refresh(attempt)
 
+    breakdown = build_score_breakdown(exam.level, raw_section_counts(db, attempt.answers))
+
     return {
         "attempt_id": attempt.id, "exam_id": exam.id, "score": score, "total_questions": total,
         "percent": round(score / total * 100, 1) if total else 0.0,
         "answers": graded,
+        "total": breakdown["total"], "total_max": breakdown["total_max"],
+        "pass_total": breakdown["pass_total"], "is_pass": breakdown["is_pass"],
+        "sections": breakdown["sections"],
     }
 
 

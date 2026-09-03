@@ -37,7 +37,7 @@ export default function UserAddressCard({ profile, onSave }: UserAddressCardProp
       {/* Layout header luôn cùng hàng (không phụ thuộc breakpoint viewport) vì
           card này thường nằm trong cột hẹp (grid 3 cột) — dùng lg:flex-row ở
           đây từng khiến tiêu đề/nút bị bóp chật khi container hẹp hơn viewport. */}
-      <div className="p-5 border border-gray-200 rounded-2xl dark:border-gray-800 lg:p-6">
+      <div className="rounded-xl border border-gray-200 bg-white p-5 shadow-sm dark:border-gray-700 dark:bg-gray-900 lg:p-6">
         <div className="flex items-center justify-between gap-3">
           <h4 className="text-lg font-semibold text-gray-800 dark:text-white/90">Địa chỉ</h4>
           <button

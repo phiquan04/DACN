@@ -265,7 +265,7 @@ const Calendar: React.FC = () => {
               <button
                 onClick={handleAddOrUpdateEvent}
                 type="button"
-                className="btn btn-success btn-update-event flex w-full justify-center rounded-lg bg-brand-500 px-4 py-2.5 text-sm font-medium text-white hover:bg-brand-600 sm:w-auto"
+                className="btn btn-success btn-update-event flex w-full justify-center rounded-lg bg-gradient-to-r from-brand-500 to-brand-600 px-4 py-2.5 text-sm font-medium text-white hover:from-brand-600 hover:to-brand-700 sm:w-auto"
               >
                 {selectedEvent ? "Cập nhật" : "Thêm sự kiện"}
               </button>

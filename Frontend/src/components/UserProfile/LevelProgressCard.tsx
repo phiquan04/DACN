@@ -6,7 +6,7 @@ export default function LevelProgressCard({ overview, loading }: { overview: Stu
   const xpProgress = overview ? Math.min(100, Math.max(0, ((overview.xp - overview.level_xp_floor) / xpSpan) * 100)) : 0;
 
   return (
-    <div className="rounded-2xl border border-gray-200 bg-white p-5 dark:border-gray-800 dark:bg-white/[0.03] lg:p-6">
+    <div className="rounded-xl border border-gray-200 bg-white p-5 shadow-sm dark:border-gray-700 dark:bg-gray-900 lg:p-6">
       <h4 className="mb-4 flex items-center gap-1.5 text-sm font-semibold text-gray-800 dark:text-white/90">
         <ArrowUpIcon className="h-4 w-4 text-brand-500" /> Tiến độ lên cấp
       </h4>

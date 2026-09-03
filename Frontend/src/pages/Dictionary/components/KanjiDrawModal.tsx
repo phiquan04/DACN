@@ -144,7 +144,7 @@ export default function KanjiDrawModal({ isOpen, onClose, onSelectCharacter }: K
             type="button"
             onClick={handleUndo}
             disabled={!hasInk}
-            className="rounded-full border border-gray-200 px-4 py-1.5 text-sm font-medium text-gray-700 transition hover:border-teal-500 disabled:opacity-40 dark:border-gray-700 dark:text-gray-300"
+            className="rounded-lg border border-gray-200 px-4 py-1.5 text-sm font-medium text-gray-700 transition hover:border-teal-500 disabled:opacity-40 dark:border-gray-700 dark:text-gray-300"
           >
             Xóa nét cuối
           </button>
@@ -152,7 +152,7 @@ export default function KanjiDrawModal({ isOpen, onClose, onSelectCharacter }: K
             type="button"
             onClick={reset}
             disabled={!hasInk}
-            className="rounded-full border border-gray-200 px-4 py-1.5 text-sm font-medium text-gray-700 transition hover:border-teal-500 disabled:opacity-40 dark:border-gray-700 dark:text-gray-300"
+            className="rounded-lg border border-gray-200 px-4 py-1.5 text-sm font-medium text-gray-700 transition hover:border-teal-500 disabled:opacity-40 dark:border-gray-700 dark:text-gray-300"
           >
             Xóa hết
           </button>
@@ -160,7 +160,7 @@ export default function KanjiDrawModal({ isOpen, onClose, onSelectCharacter }: K
             type="button"
             onClick={handleRecognize}
             disabled={!hasInk || loading}
-            className="rounded-full bg-primary px-5 py-1.5 text-sm font-semibold text-on-primary shadow-theme-xs transition hover:bg-brand-600 disabled:opacity-50 dark:bg-primary-container dark:hover:bg-brand-700"
+            className="rounded-lg bg-gradient-to-r from-brand-500 to-brand-600 px-5 py-1.5 text-sm font-semibold text-white shadow-theme-xs transition hover:from-brand-600 hover:to-brand-700 disabled:opacity-50"
           >
             {loading ? "Đang nhận diện..." : "Nhận diện"}
           </button>

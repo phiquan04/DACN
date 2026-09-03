@@ -1,4 +1,4 @@
-from sqlalchemy import Column, String, Integer, Text, Boolean, DateTime, ForeignKey, UniqueConstraint
+from sqlalchemy import Column, String, Integer, Text, Boolean, Date, DateTime, ForeignKey, UniqueConstraint
 from sqlalchemy.orm import relationship
 
 from .base import BaseModel
@@ -181,3 +181,40 @@ class JlptTestAttemptAnswer(BaseModel):
 
     def __repr__(self):
         return f'<JlptTestAttemptAnswer {self.id}>'
+
+
+class JlptExamSchedule(BaseModel):
+    """One real-world JLPT test sitting a user can target. level is nullable
+    because every level is held on the same date; registration_deadline is a
+    ~12-week-before estimate (JLPT doesn't publish a machine-readable
+    calendar), surfaced in the UI as an estimate rather than an official date.
+    Seeded/refreshed by app.models.seed.seed_jlpt_schedules."""
+    __tablename__ = 'jlpt_exam_schedules'
+
+    level = Column(String(10), nullable=True)
+    exam_date = Column(Date, nullable=False, unique=True)
+    registration_deadline = Column(Date, nullable=False)
+
+    def __repr__(self):
+        return f'<JlptExamSchedule {self.exam_date}>'
+
+
+class JlptUserExamPlan(BaseModel):
+    """A user's chosen target sitting for one level ("kỳ thi sắp tới"): which
+    schedule they're aiming for and, optionally, which test center."""
+    __tablename__ = 'jlpt_user_exam_plans'
+
+    user_id = Column(Integer, ForeignKey('users.id'), nullable=False)
+    level = Column(String(10), nullable=False)
+    schedule_id = Column(Integer, ForeignKey('jlpt_exam_schedules.id'), nullable=False)
+    location = Column(String(255), nullable=True)
+
+    user = relationship('User')
+    schedule = relationship('JlptExamSchedule')
+
+    __table_args__ = (
+        UniqueConstraint('user_id', 'level', name='uq_user_exam_plan_user_level'),
+    )
+
+    def __repr__(self):
+        return f'<JlptUserExamPlan user={self.user_id} level={self.level}>'

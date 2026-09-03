@@ -221,7 +221,7 @@ export default function VocabularySetRow({ set, curriculums, categories, onOpen,
             onDelete();
           }}
           title="Xóa bộ từ vựng"
-          className="text-gray-400 hover:text-rose-500"
+          className="text-gray-400 hover:text-error-500"
         >
           <TrashIcon className="h-4 w-4" />
         </button>

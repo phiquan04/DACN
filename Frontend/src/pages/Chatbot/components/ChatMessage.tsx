@@ -41,7 +41,7 @@ export default function ChatMessage({ message }: Props) {
   return (
     <div className={`flex gap-2.5 ${isUser ? "flex-row-reverse" : ""}`}>
       {!isUser && (
-        <div className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-teal-600 text-[11px] font-bold text-white">
+        <div className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-brand-500 text-[11px] font-bold text-white">
           AI
         </div>
       )}
@@ -50,7 +50,7 @@ export default function ChatMessage({ message }: Props) {
           lang="ja"
           className={`rounded-xl px-4 py-3 text-sm leading-relaxed break-words ${
             isUser
-              ? "rounded-br-sm bg-brand-500 text-white"
+              ? "rounded-br-sm bg-gradient-to-r from-brand-500 to-brand-600 text-white"
               : message.isOffTopic
               ? "rounded-bl-sm border border-amber-200 bg-amber-50 text-amber-800 dark:border-amber-500/30 dark:bg-amber-500/10 dark:text-amber-300"
               : "rounded-bl-sm border border-gray-200 bg-gray-100 text-gray-800 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-100"

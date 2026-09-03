@@ -1,0 +1,31 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(npm run *)",
+      "Bash(curl -s -o /dev/null -w \"%{http_code}\\\\n\" http://127.0.0.1:8080/api/health)",
+      "Bash(curl -s -o /dev/null -w \"%{http_code}\\\\n\" http://localhost:5173)",
+      "PowerShell(Get-NetTCPConnection -State Listen | Where-Object { $_.LocalPort -eq 8080 -or $_.LocalPort -eq 5173 } | Select-Object LocalAddress, LocalPort, OwningProcess)",
+      "PowerShell(Get-Command chromium-cli -ErrorAction SilentlyContinue)",
+      "PowerShell(Get-Command npx -ErrorAction SilentlyContinue)",
+      "Bash(npx --no-install playwright --version)",
+      "Bash(npx --no-install playwright install --dry-run chromium)",
+      "Bash(ls \"C:/Users/User/AppData/Local/ms-playwright/\" 2>&1)",
+      "Read(//c/Users/User/AppData/Local/ms-playwright/**)",
+      "Read(//c/Users/User/AppData/Local/npm-cache/_npx/**)",
+      "Bash(cmd.exe /c \"where playwright\")",
+      "Bash(npm config *)",
+      "Bash(curl -s \"http://127.0.0.1:8080/api/jlpt/schedules?level=N3\")",
+      "Bash(curl -s -w '\\\\nHTTP:%{http_code}\\\\n' http://127.0.0.1:8080/api/jlpt/exam-plan?level=N3 -H 'Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VyX2lkIjoyMywidXNlcm5hbWUiOiJqbHB0dGVzdDE3ODg0MTExMTAiLCJyb2xlIjoidXNlciIsInR5cGUiOiJhY2Nlc3MiLCJleHAiOjE3ODg0MTI5MTF9.4irPMt0fJyQBPizDNb5eVyKf7jtJk9iKhGLr52BFrx8')",
+      "Bash(curl -s http://127.0.0.1:8080/api/jlpt/dashboard?level=N3 -H 'Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VyX2lkIjoyMywidXNlcm5hbWUiOiJqbHB0dGVzdDE3ODg0MTExMTAiLCJyb2xlIjoidXNlciIsInR5cGUiOiJhY2Nlc3MiLCJleHAiOjE3ODg0MTI5MTF9.4irPMt0fJyQBPizDNb5eVyKf7jtJk9iKhGLr52BFrx8')",
+      "Bash(curl -s http://127.0.0.1:8080/api/jlpt/published-exams?level=N3 -H 'Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VyX2lkIjoyMywidXNlcm5hbWUiOiJqbHB0dGVzdDE3ODg0MTExMTAiLCJyb2xlIjoidXNlciIsInR5cGUiOiJhY2Nlc3MiLCJleHAiOjE3ODg0MTI5MTF9.4irPMt0fJyQBPizDNb5eVyKf7jtJk9iKhGLr52BFrx8')",
+      "Bash(curl -s http://127.0.0.1:8080/api/jlpt/published-exams -H 'Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VyX2lkIjoyMywidXNlcm5hbWUiOiJqbHB0dGVzdDE3ODg0MTExMTAiLCJyb2xlIjoidXNlciIsInR5cGUiOiJhY2Nlc3MiLCJleHAiOjE3ODg0MTI5MTF9.4irPMt0fJyQBPizDNb5eVyKf7jtJk9iKhGLr52BFrx8')",
+      "Bash(curl -s http://127.0.0.1:8080/api/jlpt/published-exams/13 -H 'Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VyX2lkIjoyMywidXNlcm5hbWUiOiJqbHB0dGVzdDE3ODg0MTExMTAiLCJyb2xlIjoidXNlciIsInR5cGUiOiJhY2Nlc3MiLCJleHAiOjE3ODg0MTI5MTF9.4irPMt0fJyQBPizDNb5eVyKf7jtJk9iKhGLr52BFrx8')",
+      "Bash(curl -s -X POST http://127.0.0.1:8080/api/jlpt/published-exams/13/submit -H 'Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VyX2lkIjoyMywidXNlcm5hbWUiOiJqbHB0dGVzdDE3ODg0MTExMTAiLCJyb2xlIjoidXNlciIsInR5cGUiOiJhY2Nlc3MiLCJleHAiOjE3ODg0MTI5MTF9.4irPMt0fJyQBPizDNb5eVyKf7jtJk9iKhGLr52BFrx8' -H 'Content-Type: application/json' -d '{\"answers\":[{\"question_id\":109,\"selected_choice_no\":3},{\"question_id\":110,\"selected_choice_no\":4},{\"question_id\":111,\"selected_choice_no\":2},{\"question_id\":112,\"selected_choice_no\":3},{\"question_id\":113,\"selected_choice_no\":4},{\"question_id\":114,\"selected_choice_no\":1},{\"question_id\":115,\"selected_choice_no\":2},{\"question_id\":116,\"selected_choice_no\":1}]}')",
+      "Bash(curl -s http://127.0.0.1:8080/api/jlpt/dashboard?level=N5 -H 'Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VyX2lkIjoyMywidXNlcm5hbWUiOiJqbHB0dGVzdDE3ODg0MTExMTAiLCJyb2xlIjoidXNlciIsInR5cGUiOiJhY2Nlc3MiLCJleHAiOjE3ODg0MTI5MTF9.4irPMt0fJyQBPizDNb5eVyKf7jtJk9iKhGLr52BFrx8')",
+      "Bash(node jlpt_smoke.js \"jlpt_smoketest_1788411110@example.com\" \"Test1234!\")",
+      "Bash(node jlpt_smoke2.js \"jlpt_smoketest_1788411110@example.com\" \"Test1234!\")",
+      "Bash(curl -s -o /dev/null -w \"backend:%{http_code}\\\\n\" http://127.0.0.1:8080/api/health)",
+      "Bash(curl -s -o /dev/null -w \"frontend:%{http_code}\\\\n\" http://localhost:5173)"
+    ]
+  }
+}

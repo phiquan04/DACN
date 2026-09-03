@@ -25,19 +25,18 @@ export default function CheckPronunciation() {
         title="Kiểm tra phát âm tiếng Nhật"
         description="Luyện phát âm từ có sẵn hoặc sử dụng giọng nói để nhận diện và sửa phát âm"
       />
-      <div className="container mx-auto px-4 py-6">
-
-        <div className="mb-8 grid grid-cols-1 gap-4 sm:grid-cols-2">
+      <div className="space-y-6">
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
           <button
             onClick={() => setActiveMode("predefined")}
             className={`rounded-2xl px-6 py-4 font-medium text-center transition-all ${
               activeMode === "predefined"
-                ? "bg-primary text-on-primary shadow-theme-md"
+                ? "bg-gradient-to-r from-brand-500 to-brand-600 text-white shadow-theme-md"
                 : "bg-surface-container-lowest border border-outline-variant/60 text-on-surface hover:border-outline-variant dark:bg-gray-900 dark:border-gray-700 dark:text-gray-200 dark:hover:border-gray-600"
             }`}
           >
             <div className="font-semibold">Từ có sẵn</div>
-            <div className={`text-sm ${activeMode === "predefined" ? "text-on-primary/80" : "text-on-surface-variant dark:text-gray-400"}`}>
+            <div className={`text-sm ${activeMode === "predefined" ? "text-white/80" : "text-on-surface-variant dark:text-gray-400"}`}>
               Chọn từ trong danh sách
             </div>
           </button>
@@ -45,12 +44,12 @@ export default function CheckPronunciation() {
             onClick={() => setActiveMode("voice")}
             className={`rounded-2xl px-6 py-4 font-medium text-center transition-all ${
               activeMode === "voice"
-                ? "bg-primary text-on-primary shadow-theme-md"
+                ? "bg-gradient-to-r from-brand-500 to-brand-600 text-white shadow-theme-md"
                 : "bg-surface-container-lowest border border-outline-variant/60 text-on-surface hover:border-outline-variant dark:bg-gray-900 dark:border-gray-700 dark:text-gray-200 dark:hover:border-gray-600"
             }`}
           >
             <div className="font-semibold">Nhận diện giọng nói</div>
-            <div className={`text-sm ${activeMode === "voice" ? "text-on-primary/80" : "text-on-surface-variant dark:text-gray-400"}`}>
+            <div className={`text-sm ${activeMode === "voice" ? "text-white/80" : "text-on-surface-variant dark:text-gray-400"}`}>
               Nhập câu và ghi âm để đánh giá
             </div>
           </button>

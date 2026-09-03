@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
 import {
+  deleteGrammarHistoryItem,
   fetchGrammarHistory,
   fetchGrammarHistoryDetail,
   type GrammarHistoryDetail,
@@ -64,6 +65,15 @@ export function useGrammarHistory(active: boolean) {
 
   const closeDetail = useCallback(() => setSelected(null), []);
 
+  const removeItem = useCallback(
+    async (id: number) => {
+      await deleteGrammarHistoryItem(id);
+      setSelected(null);
+      load(page, status);
+    },
+    [load, page, status]
+  );
+
   return {
     items,
     page,
@@ -79,6 +89,7 @@ export function useGrammarHistory(active: boolean) {
     load: (targetPage: number) => load(targetPage, status),
     openDetail,
     closeDetail,
+    removeItem,
     selected,
     detailLoading,
   };

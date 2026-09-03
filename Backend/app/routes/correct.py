@@ -9,6 +9,8 @@ from app.models.database import get_db
 from app.schemas.grammar import (
     CorrectRequest,
     CorrectResponse,
+    ErrorTypeStat,
+    GrammarErrorStats,
     GrammarHistoryDetail,
     GrammarHistoryItem,
     GrammarHistoryPage,
@@ -127,6 +129,41 @@ def get_history(
         page_size=HISTORY_PAGE_SIZE,
         total_all=total_all,
         total_changed=total_changed,
+    )
+
+
+@router.get('/correct/stats', response_model=GrammarErrorStats)
+def get_error_stats(
+    limit: int = 3,
+    current_user: UserResponse = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """Most frequent grammar error types across the user's checked sentences,
+    computed from the per-error `explanation` saved with each correction."""
+    records = db.query(GrammarCorrection.explanation).filter(
+        GrammarCorrection.user_id == current_user.id,
+        GrammarCorrection.message_id.is_(None),
+        GrammarCorrection.explanation.isnot(None),
+    ).all()
+
+    counts: dict[str, int] = {}
+    for (explanation,) in records:
+        for err in explanation or []:
+            error_type = err.get('error_type') if isinstance(err, dict) else None
+            if error_type:
+                counts[error_type] = counts.get(error_type, 0) + 1
+
+    total = sum(counts.values())
+    top = sorted(counts.items(), key=lambda kv: kv[1], reverse=True)[:limit]
+    return GrammarErrorStats(
+        stats=[
+            ErrorTypeStat(
+                error_type=error_type,
+                count=count,
+                percentage=round(count / total * 100, 1) if total else 0.0,
+            )
+            for error_type, count in top
+        ]
     )
 
 
