@@ -3,11 +3,12 @@ from sqlalchemy.orm import Session
 
 from app.models import ChatScenario
 from app.models.database import get_db
+from app.schemas.scenario import ScenarioSummary
 
 router = APIRouter(prefix="/scenarios", tags=["scenarios"])
 
 
-@router.get("")
+@router.get("", response_model=list[ScenarioSummary])
 def list_scenarios(db: Session = Depends(get_db)):
     scenarios = (
         db.query(ChatScenario)
@@ -16,12 +17,13 @@ def list_scenarios(db: Session = Depends(get_db)):
         .all()
     )
     return [
-        {
-            "id": s.id,
-            "title": s.title,
-            "description": s.description,
-            "level": s.level,
-            "icon": s.icon,
-        }
+        ScenarioSummary(
+            id=s.id,
+            title=s.title,
+            description=s.description,
+            level=s.level,
+            icon=s.icon,
+            context_fields=s.context_fields or [],
+        )
         for s in scenarios
     ]

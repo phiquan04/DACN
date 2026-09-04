@@ -1,4 +1,4 @@
-from sqlalchemy import Column, String, Integer, Text, Boolean, ForeignKey
+from sqlalchemy import Column, String, Integer, Text, Boolean, ForeignKey, JSON
 from sqlalchemy.orm import relationship
 
 from .base import BaseModel
@@ -15,6 +15,12 @@ class ChatScenario(BaseModel):
     opening_line = Column(Text, nullable=True)  # scripted first AI message; auto-generated if empty
     topic_prompt = Column(Text, nullable=True)  # extra system-prompt instructions; derived from title/description if empty
     is_active = Column(Boolean, default=True)
+    # Admin-defined structured fields the user fills in instead of a single free-text
+    # '場面' box, e.g. [{"key": "field_1", "label": "Tên công ty", "placeholder": "..."}].
+    # Answers are joined into a "Label: value" block and stored in
+    # Conversation.situation_context, same as the old free-text flow. Null/empty
+    # means the scenario still uses the plain textarea.
+    context_fields = Column(JSON, nullable=True)
 
     conversations = relationship('Conversation', backref='scenario', lazy=True)
 

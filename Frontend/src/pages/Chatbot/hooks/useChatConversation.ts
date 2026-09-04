@@ -178,7 +178,16 @@ export function useChatConversation() {
       setConversationId(detail.id);
       setSituationContext(detail.situation_context);
       setActiveScenario(
-        detail.scenario_id ? { id: detail.scenario_id, title: detail.scenario_title ?? "", description: null, level: null, icon: null } : null
+        detail.scenario_id
+          ? scenarios.find((s) => s.id === detail.scenario_id) ?? {
+              id: detail.scenario_id,
+              title: detail.scenario_title ?? "",
+              description: null,
+              level: null,
+              icon: null,
+              context_fields: [],
+            }
+          : null
       );
       setMessages(
         detail.messages.map((m) => ({
@@ -190,7 +199,7 @@ export function useChatConversation() {
         }))
       );
     },
-    [stop, stopListening]
+    [stop, stopListening, scenarios]
   );
 
   const handleSend = useCallback(
