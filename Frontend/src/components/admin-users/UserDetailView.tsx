@@ -1,10 +1,16 @@
 import { useEffect, useState } from "react";
-import { AdminUserDetail, AdminUserLearningStats, fetchUserLearningStats } from "../../services/adminUserApi";
-import { formatApiDateTime } from "../../utils/datetime";
+import {
+  AdminActivityEntry,
+  AdminUserDetail,
+  AdminUserLearningStats,
+  UpdateUserPayload,
+  fetchUserActivity,
+  fetchUserLearningStats,
+} from "../../services/adminUserApi";
+import { formatApiDate, formatApiDateTime } from "../../utils/datetime";
 import { LockIcon, UnlockIcon } from "../admin-jlpt/icons";
-import { KeyIcon } from "../../icons/custom";
-import { ChevronLeftIcon, PencilIcon } from "../../icons";
-import { AccountStatusBadge, RoleBadge } from "./badges";
+import { ChevronLeftIcon, ShootingStarIcon } from "../../icons";
+import { AccountStatusBadge, JlptLevelBadge } from "./badges";
 import UserAvatar from "./UserAvatar";
 import {
   ConversationTab,
@@ -31,6 +37,7 @@ interface Props {
   onRequestLock: () => void;
   unlocking: boolean;
   onUnlock: () => void;
+  onQuickUpdate: (payload: UpdateUserPayload) => Promise<void>;
 }
 
 export default function UserDetailView({
@@ -42,10 +49,13 @@ export default function UserDetailView({
   onRequestLock,
   unlocking,
   onUnlock,
+  onQuickUpdate,
 }: Props) {
   const [tab, setTab] = useState<ProfileTabKey>("overview");
   const [stats, setStats] = useState<AdminUserLearningStats | null>(null);
   const [loadingStats, setLoadingStats] = useState(true);
+  const [activity, setActivity] = useState<AdminActivityEntry[]>([]);
+  const [loadingActivity, setLoadingActivity] = useState(true);
 
   useEffect(() => {
     let cancelled = false;
@@ -62,7 +72,25 @@ export default function UserDetailView({
     };
   }, [user.id]);
 
-  const tabProps = { user, stats, loadingStats };
+  useEffect(() => {
+    let cancelled = false;
+    setLoadingActivity(true);
+    fetchUserActivity(user.id)
+      .then((res) => {
+        if (!cancelled) setActivity(res);
+      })
+      .finally(() => {
+        if (!cancelled) setLoadingActivity(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [user.id]);
+
+  const tabProps = {
+    user, stats, loadingStats, activity, loadingActivity, onRequestEdit, onRequestResetPassword,
+    isSelf, onRequestLock, onUnlock, unlocking, onQuickUpdate,
+  };
 
   return (
     <div className="flex flex-col gap-5">
@@ -74,57 +102,56 @@ export default function UserDetailView({
         <ChevronLeftIcon className="h-4 w-4" /> Quay lại danh sách
       </button>
 
-      <div className="flex flex-wrap items-center justify-between gap-4 rounded-2xl border border-admin-border bg-white p-5 shadow-[0_4px_16px_rgba(35,67,110,0.05)]">
-        <div className="flex items-center gap-4">
-          <UserAvatar id={user.id} name={displayName(user)} username={user.username} avatarUrl={user.avatar_url} size={64} />
+      <div className="flex flex-wrap items-stretch gap-6 rounded-2xl border border-admin-border bg-white p-8 shadow-[0_4px_16px_rgba(35,67,110,0.05)]">
+        <div className="flex flex-1 items-center gap-6">
+          <UserAvatar id={user.id} name={displayName(user)} username={user.username} avatarUrl={user.avatar_url} size={104} />
           <div>
-            <div className="flex flex-wrap items-center gap-2">
-              <h3 className="text-lg font-semibold text-admin-ink">{displayName(user)}</h3>
-              <RoleBadge role={user.role} />
+            <div className="flex flex-wrap items-center gap-3">
+              <h3 className="text-2xl font-bold text-admin-ink">{displayName(user)}</h3>
               <AccountStatusBadge isActive={user.is_active} />
             </div>
-            <p className="mt-0.5 text-xs text-admin-meta">
-              @{user.username} · ID #{user.id}
+            <p className="mt-1.5 text-base text-admin-meta">
+              {user.email} · Tham gia từ {formatApiDate(user.created_at)}
             </p>
+            <div className="mt-3 flex flex-wrap items-center gap-2.5">
+              <span className="inline-flex items-center rounded-[6px] bg-[#EDE7FA] px-3 py-1.5 text-sm font-semibold text-[#5B21B6]">
+                {user.role === "admin" ? "Quản trị viên" : "Học viên"}
+              </span>
+              {user.current_jlpt_level && <JlptLevelBadge level={user.current_jlpt_level} />}
+              {user.is_active ? (
+                !isSelf && (
+                  <button
+                    type="button"
+                    onClick={onRequestLock}
+                    className="inline-flex items-center gap-1.5 rounded-[6px] bg-[#FDEBEC] px-3 py-1.5 text-sm font-semibold text-[#C94D5C] hover:bg-[#F9D8DE]"
+                  >
+                    <LockIcon className="h-4 w-4" /> Khóa
+                  </button>
+                )
+              ) : (
+                <button
+                  type="button"
+                  onClick={onUnlock}
+                  disabled={unlocking}
+                  className="inline-flex items-center gap-1.5 rounded-[6px] bg-[#E4F5F1] px-3 py-1.5 text-sm font-semibold text-[#15988E] hover:bg-[#D2EEE7] disabled:opacity-50"
+                >
+                  <UnlockIcon className="h-4 w-4" /> {unlocking ? "Đang mở khóa..." : "Mở khóa"}
+                </button>
+              )}
+            </div>
           </div>
         </div>
-        <div className="flex items-center gap-2">
-          <button
-            type="button"
-            onClick={onRequestEdit}
-            className="flex items-center gap-1.5 rounded-[9px] border border-admin-border-input px-4 py-2 text-sm font-medium text-admin-body hover:bg-admin-fill"
-          >
-            <PencilIcon className="h-4 w-4" /> Sửa
-          </button>
-          <button
-            type="button"
-            onClick={onRequestResetPassword}
-            className="flex items-center gap-1.5 rounded-[9px] border border-admin-border-input px-4 py-2 text-sm font-medium text-admin-body hover:bg-admin-fill"
-          >
-            <KeyIcon className="h-4 w-4" /> Đặt lại mật khẩu
-          </button>
-          {user.is_active ? (
-            isSelf ? (
-              <span className="text-xs text-admin-meta">Không thể tự khóa tài khoản của mình</span>
-            ) : (
-              <button
-                type="button"
-                onClick={onRequestLock}
-                className="flex items-center gap-1.5 rounded-[9px] bg-[#C94D5C] px-4 py-2 text-sm font-medium text-white hover:bg-[#B23F4D]"
-              >
-                <LockIcon className="h-4 w-4" /> Khóa tài khoản
-              </button>
-            )
-          ) : (
-            <button
-              type="button"
-              onClick={onUnlock}
-              disabled={unlocking}
-              className="flex items-center gap-1.5 rounded-[9px] bg-[#15988E] px-4 py-2 text-sm font-medium text-white hover:bg-[#128178] disabled:opacity-50"
-            >
-              <UnlockIcon className="h-4 w-4" /> {unlocking ? "Đang mở khóa..." : "Mở khóa"}
-            </button>
-          )}
+
+        <div className="hidden self-stretch border-l border-admin-border sm:block" />
+
+        <div className="flex shrink-0 items-center pl-2 sm:pl-10">
+          <div className="text-left">
+            <p className="text-[11px] font-semibold uppercase tracking-[1.2px] text-admin-meta">Tổng XP</p>
+            <p className="mt-1 text-3xl font-bold leading-tight text-admin-ink">{user.vocab_xp.toLocaleString("vi-VN")}</p>
+            <p className="mt-1.5 flex items-center justify-end gap-1 text-xs font-semibold text-[#B47A1B]">
+              <ShootingStarIcon className="h-3.5 w-3.5" /> Top {user.xp_percentile_top}% học viên
+            </p>
+          </div>
         </div>
       </div>
 
@@ -135,21 +162,21 @@ export default function UserDetailView({
         </div>
       )}
 
-      <div className="rounded-2xl border border-admin-border bg-white p-1.5 shadow-[0_4px_16px_rgba(35,67,110,0.05)]">
-        <div className="flex flex-wrap gap-1">
-          {PROFILE_TABS.map((t) => (
-            <button
-              key={t.key}
-              type="button"
-              onClick={() => setTab(t.key)}
-              className={`rounded-xl px-4 py-2 text-sm font-medium transition-colors ${
-                tab === t.key ? "bg-admin-50 text-admin-600" : "text-admin-body hover:bg-admin-fill"
-              }`}
-            >
-              {t.label}
-            </button>
-          ))}
-        </div>
+      <div className="flex flex-wrap gap-6 border-b border-admin-border">
+        {PROFILE_TABS.map((t) => (
+          <button
+            key={t.key}
+            type="button"
+            onClick={() => setTab(t.key)}
+            className={`relative -mb-px border-b-2 pb-3 text-sm transition-colors ${
+              tab === t.key
+                ? "border-admin-500 font-semibold text-admin-600"
+                : "border-transparent font-medium text-admin-body hover:text-admin-ink"
+            }`}
+          >
+            {t.label}
+          </button>
+        ))}
       </div>
 
       {tab === "overview" && <OverviewTab {...tabProps} />}

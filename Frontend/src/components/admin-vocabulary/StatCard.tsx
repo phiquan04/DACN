@@ -4,7 +4,9 @@ export type StatTone = "neutral" | "success" | "pending" | "danger" | "info";
 
 // Fill/ink pairs straight from CLAUDE.md's admin "Status colors" table, plus
 // a lavender "neutral" pair for plain counts that carry no status meaning.
-const TONE_COLORS: Record<StatTone, { fill: string; ink: string }> = {
+// Exported so other admin components (e.g. the activity feed on the user
+// detail page) can color their own icon tiles from the same palette.
+export const TONE_COLORS: Record<StatTone, { fill: string; ink: string }> = {
   neutral: { fill: "#E8EFFF", ink: "#5E6BC4" },
   success: { fill: "#E4F5F1", ink: "#15988E" },
   pending: { fill: "#FFF3D9", ink: "#B47A1B" },
@@ -14,7 +16,7 @@ const TONE_COLORS: Record<StatTone, { fill: string; ink: string }> = {
 
 interface Props {
   label: string;
-  value: number;
+  value: number | string;
   icon: ReactNode;
   /** Icon tile color — pick the tone matching this stat's status meaning
    * (see CLAUDE.md admin "Status colors"), not for visual variety. */
@@ -41,7 +43,9 @@ export default function StatCard({ label, value, icon, tone = "neutral", hint }:
         )}
       </div>
       <p className="mt-4 text-sm font-medium text-admin-body">{label}</p>
-      <p className="mt-1 text-[28px] font-bold leading-tight text-admin-ink">{value.toLocaleString("vi-VN")}</p>
+      <p className="mt-1 text-[28px] font-bold leading-tight text-admin-ink">
+        {typeof value === "number" ? value.toLocaleString("vi-VN") : value}
+      </p>
     </div>
   );
 }

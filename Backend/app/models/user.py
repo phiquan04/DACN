@@ -1,4 +1,4 @@
-from sqlalchemy import Column, String, Integer, Boolean, DateTime, ForeignKey
+from sqlalchemy import Column, String, Integer, Boolean, DateTime, ForeignKey, Text
 from sqlalchemy.orm import relationship
 
 from .base import BaseModel
@@ -30,6 +30,7 @@ class User(BaseModel):
     last_login_at = Column(DateTime, nullable=True)
     locked_reason = Column(String(255), nullable=True)
     locked_at = Column(DateTime, nullable=True)
+    admin_note = Column(Text, nullable=True)  # internal, admin-only annotation — never shown to the user themself
 
     conversations = relationship('Conversation', backref='user', lazy=True, cascade='all, delete-orphan')
 

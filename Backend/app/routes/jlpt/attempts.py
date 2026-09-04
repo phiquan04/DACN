@@ -24,6 +24,7 @@ from app.schemas.jlpt import (
     AttemptHistoryItem, JlptLevel, LevelAverage, PublishedExamSummary,
     SubmitAttemptIn, SubmitAttemptOut, TakeExamOut,
 )
+from app.services.audit_log import log_event
 from app.services.jlpt_scoring import build_score_breakdown, raw_section_counts
 
 router = APIRouter(tags=["jlpt-attempts"])
@@ -178,6 +179,13 @@ def submit_attempt(
     total = len(exam.questions)
     attempt.score = score
     attempt.total_questions = total
+
+    log_event(
+        db, subject_user_id=current_user.id, action="jlpt.test_completed",
+        description=f"Hoàn thành bài kiểm tra JLPT {exam.level} — {score}/{total} câu đúng",
+        actor_user_id=current_user.id, actor_role="user",
+        extra_data={"exam_id": exam.id, "score": score, "total": total},
+    )
 
     db.commit()
     db.refresh(attempt)

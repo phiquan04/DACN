@@ -22,6 +22,7 @@ from app.schemas.chat import (
     UpdateSituationContextRequest,
 )
 from app.services import chat_ai
+from app.services.audit_log import log_event
 from app.services.grammar_service import grade_text
 
 router = APIRouter()
@@ -62,6 +63,15 @@ def start_conversation(
         situation_context=situation_context,
     )
     db.add(conversation)
+    db.flush()  # assign conversation.id before the audit-log write below
+
+    if user_id is not None:
+        log_event(
+            db, subject_user_id=user_id, action="chat.conversation_started",
+            description=f"Luyện hội thoại với AI: {scenario.title}" if scenario else "Luyện hội thoại tự do với AI",
+            actor_user_id=user_id, actor_role="user",
+        )
+
     db.commit()
     db.refresh(conversation)
 

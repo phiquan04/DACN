@@ -4,13 +4,14 @@ and lock/unlock an account. Separate from routes/user.py (a user managing
 their own profile)."""
 import secrets
 from datetime import datetime
-from typing import Optional
+from typing import List, Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy import func, or_
 from sqlalchemy.orm import Session, joinedload
 
 from app.dependencies import UserResponse, require_admin
+from app.models.audit_log import AuditLog
 from app.models.chat import Conversation, Message
 from app.models.database import get_db
 from app.models.dictionary import SearchHistory
@@ -21,10 +22,11 @@ from app.models.transcription import TranscriptionSession
 from app.models.user import Role, User
 from app.models.vocabulary import VocabularyItemProgress, VocabularyReviewLog
 from app.schemas.user_admin import (
-    AdminPasswordResetResponse, AdminUserConversationStats, AdminUserCreateRequest, AdminUserDetail,
-    AdminUserJlptStats, AdminUserLearningStats, AdminUserListeningDictionaryStats, AdminUserListPage,
-    AdminUserLockRequest, AdminUserSummary, AdminUserUpdateRequest, AdminUserVocabularyStats,
+    AdminActivityEntry, AdminPasswordResetResponse, AdminUserConversationStats, AdminUserCreateRequest,
+    AdminUserDetail, AdminUserJlptStats, AdminUserLearningStats, AdminUserListeningDictionaryStats,
+    AdminUserListPage, AdminUserLockRequest, AdminUserSummary, AdminUserUpdateRequest, AdminUserVocabularyStats,
 )
+from app.services.audit_log import log_event
 from app.services.xp_leveling import level_info
 from app.utils.auth import hash_password
 
@@ -52,7 +54,17 @@ def _summary(user: User) -> AdminUserSummary:
     )
 
 
-def _detail(user: User) -> AdminUserDetail:
+def _xp_percentile_top(db: Session, user: User) -> int:
+    """This user's rank among all users by vocab_xp, expressed as "top N%"
+    (lower = more XP than peers). Used for the "Top N% học viên" line on the
+    profile header — recomputed on every fetch rather than stored, since XP
+    changes constantly and the ranking is cheap to derive."""
+    total = db.query(func.count(User.id)).scalar() or 1
+    higher = db.query(func.count(User.id)).filter(User.vocab_xp > user.vocab_xp).scalar() or 0
+    return max(1, round((higher + 1) / total * 100))
+
+
+def _detail(db: Session, user: User) -> AdminUserDetail:
     info = user.information
     _, level_floor, level_ceil = level_info(user.vocab_xp)
     return AdminUserDetail(
@@ -68,12 +80,14 @@ def _detail(user: User) -> AdminUserDetail:
         level_xp_floor=level_floor, level_xp_ceil=level_ceil,
         daily_vocab_goal=user.daily_vocab_goal,
         profile_updated_at=info.updated_at if info else None,
+        xp_percentile_top=_xp_percentile_top(db, user),
+        admin_note=user.admin_note,
     )
 
 
 @router.post("", response_model=AdminUserDetail, status_code=201)
 def create_user(
-    payload: AdminUserCreateRequest, db: Session = Depends(get_db), _admin: UserResponse = Depends(require_admin),
+    payload: AdminUserCreateRequest, db: Session = Depends(get_db), admin: UserResponse = Depends(require_admin),
 ):
     if db.query(User).filter(User.email == payload.email).first():
         raise HTTPException(status_code=400, detail="Email đã được sử dụng")
@@ -93,9 +107,15 @@ def create_user(
     if payload.first_name or payload.last_name:
         db.add(UserInformation(user_id=user.id, first_name=payload.first_name, last_name=payload.last_name))
 
+    log_event(
+        db, subject_user_id=user.id, action="admin.user_created",
+        description=f"Tài khoản được tạo bởi quản trị viên @{admin.username}",
+        actor_user_id=admin.id, actor_role="admin",
+    )
+
     db.commit()
     db.refresh(user)
-    return _detail(user)
+    return _detail(db, user)
 
 
 @router.get("", response_model=AdminUserListPage)
@@ -145,7 +165,7 @@ def get_user(user_id: int, db: Session = Depends(get_db), _admin: UserResponse =
     ).first()
     if not user:
         raise HTTPException(status_code=404, detail="Không tìm thấy người dùng")
-    return _detail(user)
+    return _detail(db, user)
 
 
 @router.patch("/{user_id}", response_model=AdminUserDetail)
@@ -172,6 +192,9 @@ def update_user(
     if "daily_vocab_goal" in data:
         user.daily_vocab_goal = data["daily_vocab_goal"]
 
+    if "admin_note" in data:
+        user.admin_note = data["admin_note"]
+
     profile_data = {k: v for k, v in data.items() if k in PROFILE_FIELDS}
     if profile_data:
         info = user.information
@@ -181,19 +204,41 @@ def update_user(
         for field, value in profile_data.items():
             setattr(info, field, value)
 
+    if data:
+        # A note-only save gets its own log line ("Ghi chú nội bộ được cập
+        # nhật") instead of the generic "Thông tin tài khoản được cập nhật"
+        # message, since it isn't a profile edit.
+        if set(data.keys()) == {"admin_note"}:
+            log_event(
+                db, subject_user_id=user.id, action="admin.note_updated",
+                description=f"Ghi chú nội bộ được cập nhật bởi quản trị viên @{admin.username}",
+                actor_user_id=admin.id, actor_role="admin",
+            )
+        else:
+            log_event(
+                db, subject_user_id=user.id, action="admin.user_updated",
+                description=f"Thông tin tài khoản được cập nhật bởi quản trị viên @{admin.username}",
+                actor_user_id=admin.id, actor_role="admin", extra_data={"fields": sorted(data.keys())},
+            )
+
     db.commit()
     db.refresh(user)
-    return _detail(user)
+    return _detail(db, user)
 
 
 @router.post("/{user_id}/reset-password", response_model=AdminPasswordResetResponse)
-def reset_password(user_id: int, db: Session = Depends(get_db), _admin: UserResponse = Depends(require_admin)):
+def reset_password(user_id: int, db: Session = Depends(get_db), admin: UserResponse = Depends(require_admin)):
     user = db.query(User).filter(User.id == user_id).first()
     if not user:
         raise HTTPException(status_code=404, detail="Không tìm thấy người dùng")
 
     temporary_password = secrets.token_urlsafe(9)
     user.password_hash = hash_password(temporary_password)
+    log_event(
+        db, subject_user_id=user.id, action="admin.password_reset",
+        description=f"Mật khẩu được đặt lại bởi quản trị viên @{admin.username}",
+        actor_user_id=admin.id, actor_role="admin",
+    )
     db.commit()
     return AdminPasswordResetResponse(temporary_password=temporary_password)
 
@@ -215,9 +260,14 @@ def lock_user(
     user.is_active = False
     user.locked_reason = payload.reason
     user.locked_at = datetime.utcnow()
+    log_event(
+        db, subject_user_id=user.id, action="admin.user_locked",
+        description=f"Tài khoản bị khóa bởi quản trị viên @{admin.username}: {payload.reason}",
+        actor_user_id=admin.id, actor_role="admin", extra_data={"reason": payload.reason},
+    )
     db.commit()
     db.refresh(user)
-    return _detail(user)
+    return _detail(db, user)
 
 
 @router.get("/{user_id}/learning-stats", response_model=AdminUserLearningStats)
@@ -234,11 +284,17 @@ def get_user_learning_stats(user_id: int, db: Session = Depends(get_db), _admin:
     total_reviews = db.query(func.count(VocabularyReviewLog.id)).filter(
         VocabularyReviewLog.user_id == user_id,
     ).scalar() or 0
+    today_start = datetime.combine(datetime.utcnow().date(), datetime.min.time())
+    studied_today = db.query(func.count(func.distinct(VocabularyReviewLog.item_id))).filter(
+        VocabularyReviewLog.user_id == user_id,
+        VocabularyReviewLog.reviewed_at >= today_start,
+    ).scalar() or 0
     vocabulary = AdminUserVocabularyStats(
         learned=vocab_by_status.get("learned", 0),
         reviewing=vocab_by_status.get("reviewing", 0),
         new=vocab_by_status.get("new", 0),
         total_reviews=total_reviews,
+        studied_today=studied_today,
     )
 
     attempts_total = db.query(func.count(JlptTestAttempt.id)).filter(
@@ -301,8 +357,36 @@ def get_user_learning_stats(user_id: int, db: Session = Depends(get_db), _admin:
     )
 
 
+@router.get("/{user_id}/activity", response_model=List[AdminActivityEntry])
+def get_user_activity(
+    user_id: int, limit: int = Query(6, ge=1, le=50),
+    db: Session = Depends(get_db), _admin: UserResponse = Depends(require_admin),
+):
+    """Recent audit-log entries for this user — both admin actions on their
+    account and their own learning activity (login, daily goal, achievements,
+    AI conversations, JLPT tests). Feeds "Hoạt động gần đây" on the overview
+    tab today, and will back the dedicated audit log tab later."""
+    if not db.query(User.id).filter(User.id == user_id).first():
+        raise HTTPException(status_code=404, detail="Không tìm thấy người dùng")
+
+    rows = (
+        db.query(AuditLog)
+        .filter(AuditLog.subject_user_id == user_id)
+        .order_by(AuditLog.created_at.desc())
+        .limit(limit)
+        .all()
+    )
+    return [
+        AdminActivityEntry(
+            id=r.id, action=r.action, description=r.description,
+            actor_role=r.actor_role, created_at=r.created_at,
+        )
+        for r in rows
+    ]
+
+
 @router.patch("/{user_id}/unlock", response_model=AdminUserDetail)
-def unlock_user(user_id: int, db: Session = Depends(get_db), _admin: UserResponse = Depends(require_admin)):
+def unlock_user(user_id: int, db: Session = Depends(get_db), admin: UserResponse = Depends(require_admin)):
     user = db.query(User).options(joinedload(User.role), joinedload(User.information)).filter(
         User.id == user_id,
     ).first()
@@ -312,6 +396,11 @@ def unlock_user(user_id: int, db: Session = Depends(get_db), _admin: UserRespons
     user.is_active = True
     user.locked_reason = None
     user.locked_at = None
+    log_event(
+        db, subject_user_id=user.id, action="admin.user_unlocked",
+        description=f"Tài khoản được mở khóa bởi quản trị viên @{admin.username}",
+        actor_user_id=admin.id, actor_role="admin",
+    )
     db.commit()
     db.refresh(user)
-    return _detail(user)
+    return _detail(db, user)

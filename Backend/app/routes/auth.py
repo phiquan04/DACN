@@ -7,6 +7,7 @@ from pydantic import BaseModel, EmailStr, Field
 from app.models import User, Role
 from app.models.database import get_db
 from app.dependencies import UserResponse, get_current_user, to_user_response
+from app.services.audit_log import log_event
 from app.utils.auth import (
     hash_password,
     verify_password,
@@ -130,6 +131,10 @@ def sign_in(user_data: UserSignIn, db: Session = Depends(get_db)):
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=detail)
 
     user.last_login_at = datetime.utcnow()
+    log_event(
+        db, subject_user_id=user.id, action="auth.login", description="Đăng nhập vào hệ thống",
+        actor_user_id=user.id, actor_role=user.role.code if user.role else "user",
+    )
     db.commit()
 
     access_token = create_access_token(

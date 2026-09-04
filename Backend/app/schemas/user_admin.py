@@ -43,6 +43,8 @@ class AdminUserDetail(AdminUserSummary):
     level_xp_ceil: int = 100  # total XP needed to reach the next level
     daily_vocab_goal: Optional[int] = None
     profile_updated_at: Optional[datetime] = None  # UserInformation.updated_at — last profile edit, real timestamp (not a full audit trail)
+    xp_percentile_top: int = 100  # this user is in the top N% of all users by vocab_xp (lower = more XP than peers)
+    admin_note: Optional[str] = None  # internal note, admin-only
 
 
 class AdminUserLockRequest(BaseModel):
@@ -73,6 +75,7 @@ class AdminUserUpdateRequest(BaseModel):
     current_jlpt_level: Optional[str] = None
     target_jlpt_level: Optional[str] = None
     daily_vocab_goal: Optional[int] = None
+    admin_note: Optional[str] = None
 
 
 class AdminPasswordResetResponse(BaseModel):
@@ -84,6 +87,7 @@ class AdminUserVocabularyStats(BaseModel):
     reviewing: int = 0
     new: int = 0
     total_reviews: int = 0
+    studied_today: int = 0  # distinct words reviewed today (UTC) — used for the daily-goal progress bar
 
 
 class AdminUserJlptStats(BaseModel):
@@ -112,3 +116,13 @@ class AdminUserLearningStats(BaseModel):
     jlpt: AdminUserJlptStats
     conversation: AdminUserConversationStats
     listening_dictionary: AdminUserListeningDictionaryStats
+
+
+class AdminActivityEntry(BaseModel):
+    """One row of the audit log — a real, persisted event (see
+    app/models/audit_log.py), not a value derived from other tables."""
+    id: int
+    action: str
+    description: str
+    actor_role: Optional[str] = None
+    created_at: datetime

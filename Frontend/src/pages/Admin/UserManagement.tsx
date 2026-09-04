@@ -205,6 +205,15 @@ export default function UserManagement() {
     }
   };
 
+  // Inline saves made directly from the detail view (role dropdown, admin
+  // note) — same effect as handleUpdate but without going through the edit
+  // modal's local form state.
+  const handleQuickUpdate = async (payload: UpdateUserPayload) => {
+    if (!selectedId) return;
+    await updateUser(selectedId, payload);
+    await Promise.all([refreshDetail(), loadList(), loadStats()]);
+  };
+
   const handleResetPassword = async (): Promise<string> => {
     if (!resetPasswordTarget) throw new Error("no target");
     const res = await resetUserPassword(resetPasswordTarget.id);
@@ -351,6 +360,7 @@ export default function UserManagement() {
             onRequestLock={() => setLockTarget({ id: detail.id, username: detail.username })}
             unlocking={savingId === detail.id}
             onUnlock={() => handleUnlock(detail.id)}
+            onQuickUpdate={handleQuickUpdate}
           />
         )}
         {modals}

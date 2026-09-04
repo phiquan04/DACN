@@ -40,6 +40,8 @@ export interface AdminUserDetail extends AdminUserSummary {
   level_xp_ceil: number;
   daily_vocab_goal?: number | null;
   profile_updated_at?: string | null;
+  xp_percentile_top: number;
+  admin_note?: string | null;
 }
 
 export type UserRoleFilter = "admin" | "user" | "";
@@ -97,6 +99,7 @@ export interface UpdateUserPayload {
   current_jlpt_level?: string | null;
   target_jlpt_level?: string | null;
   daily_vocab_goal?: number | null;
+  admin_note?: string | null;
 }
 
 export async function updateUser(id: number, payload: UpdateUserPayload): Promise<AdminUserDetail> {
@@ -134,6 +137,7 @@ export interface AdminUserVocabularyStats {
   reviewing: number;
   new: number;
   total_reviews: number;
+  studied_today: number;
 }
 
 export interface AdminUserJlptStats {
@@ -166,4 +170,19 @@ export interface AdminUserLearningStats {
 
 export async function fetchUserLearningStats(id: number): Promise<AdminUserLearningStats> {
   return request(`/api/admin/users/${id}/learning-stats`, { headers: authHeaders(getToken()) });
+}
+
+// One row of the audit log — a real, persisted event (admin action on this
+// account, or the user's own learning activity), not a value derived from
+// other tables' timestamps.
+export interface AdminActivityEntry {
+  id: number;
+  action: string;
+  description: string;
+  actor_role?: string | null;
+  created_at: string;
+}
+
+export async function fetchUserActivity(id: number, limit = 6): Promise<AdminActivityEntry[]> {
+  return request(`/api/admin/users/${id}/activity?limit=${limit}`, { headers: authHeaders(getToken()) });
 }
