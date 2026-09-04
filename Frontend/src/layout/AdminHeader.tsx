@@ -16,10 +16,10 @@ const AdminHeader: React.FC = () => {
   };
 
   return (
-    <header className="sticky top-0 flex w-full items-center justify-between gap-4 border-b border-gray-200 bg-white px-4 py-4 z-99999 lg:px-8">
+    <header className="sticky top-0 flex h-16 w-full items-center justify-between gap-4 border-b border-admin-border bg-white px-5 z-99999 lg:px-7">
       <div className="flex items-center gap-3 min-w-0">
         <button
-          className="flex h-10 w-10 items-center justify-center rounded-lg text-gray-500 hover:bg-gray-100"
+          className="flex h-10 w-10 items-center justify-center rounded-lg text-admin-body hover:bg-admin-fill"
           onClick={handleToggle}
           aria-label="Ẩn/hiện thanh điều hướng"
         >
@@ -35,10 +35,10 @@ const AdminHeader: React.FC = () => {
         </button>
 
         <div className="min-w-0">
-          <h1 className="truncate text-xl font-bold text-gray-900 lg:text-2xl">
+          <h1 className="truncate text-lg font-semibold text-admin-ink lg:text-xl">
             {title || "Trang quản trị"}
           </h1>
-          {subtitle && <p className="truncate text-sm text-gray-500">{subtitle}</p>}
+          {subtitle && <p className="truncate text-sm text-admin-meta">{subtitle}</p>}
         </div>
       </div>
 

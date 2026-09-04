@@ -16,31 +16,41 @@ type NavItem = {
   subItems?: SubItem[];
 };
 
-const navItems: NavItem[] = [
-  { icon: <GridIcon />, name: "Tổng quan", path: "/admin" },
-  { icon: <GroupIcon />, name: "Quản lý người dùng", path: "/admin/users" },
+type NavGroup = {
+  label: string;
+  items: NavItem[];
+};
+
+const navGroups: NavGroup[] = [
   {
-    icon: <DocsIcon />,
-    name: "Ngân hàng đề JLPT",
-    path: "/admin/jlpt-content",
-    subItems: [
-      { name: "Cấu trúc đề", path: "/admin/jlpt-content/structure", icon: <TableIcon /> },
-      { name: "Import đề", path: "/admin/jlpt-content/import", icon: <UploadIcon /> },
-      { name: "Duyệt đề", path: "/admin/jlpt-content/review", icon: <CheckLineIcon /> },
+    label: "Quản lý",
+    items: [
+      { icon: <GridIcon />, name: "Tổng quan", path: "/admin" },
+      { icon: <GroupIcon />, name: "Quản lý người dùng", path: "/admin/users" },
+      {
+        icon: <DocsIcon />,
+        name: "Ngân hàng đề JLPT",
+        path: "/admin/jlpt-content",
+        subItems: [
+          { name: "Cấu trúc đề", path: "/admin/jlpt-content/structure", icon: <TableIcon /> },
+          { name: "Import đề", path: "/admin/jlpt-content/import", icon: <UploadIcon /> },
+          { name: "Duyệt đề", path: "/admin/jlpt-content/review", icon: <CheckLineIcon /> },
+        ],
+      },
+      {
+        icon: <ListIcon />,
+        name: "Kho từ vựng",
+        path: "/admin/vocabulary-content",
+        subItems: [
+          { name: "Giáo trình & Danh mục", path: "/admin/vocabulary-content/lookups", icon: <FolderIcon /> },
+          { name: "Import bộ từ vựng", path: "/admin/vocabulary-content/import", icon: <UploadIcon /> },
+          { name: "Duyệt bộ từ vựng", path: "/admin/vocabulary-content/review", icon: <CheckLineIcon /> },
+        ],
+      },
+      { icon: <ChatIcon />, name: "Kịch bản chat", path: "/admin/chat-scenarios" },
+      { icon: <VideoIcon />, name: "Bản dịch video", path: "/admin/video-transcripts" },
     ],
   },
-  {
-    icon: <ListIcon />,
-    name: "Kho từ vựng",
-    path: "/admin/vocabulary-content",
-    subItems: [
-      { name: "Giáo trình & Danh mục", path: "/admin/vocabulary-content/lookups", icon: <FolderIcon /> },
-      { name: "Import bộ từ vựng", path: "/admin/vocabulary-content/import", icon: <UploadIcon /> },
-      { name: "Duyệt bộ từ vựng", path: "/admin/vocabulary-content/review", icon: <CheckLineIcon /> },
-    ],
-  },
-  { icon: <ChatIcon />, name: "Kịch bản chat", path: "/admin/chat-scenarios" },
-  { icon: <VideoIcon />, name: "Bản dịch video", path: "/admin/video-transcripts" },
 ];
 
 const SettingsIcon = () => (
@@ -67,6 +77,8 @@ const LogoutIcon = () => (
   </svg>
 );
 
+const allNavItems = navGroups.flatMap((group) => group.items);
+
 const AdminSidebar: React.FC = () => {
   const { isExpanded, isMobileOpen, isHovered, setIsHovered } = useSidebar();
   const location = useLocation();
@@ -77,11 +89,11 @@ const AdminSidebar: React.FC = () => {
     nav.subItems ? nav.subItems.some((s) => isActive(s.path)) : isActive(nav.path);
 
   const [openDropdown, setOpenDropdown] = useState<string | null>(
-    () => navItems.find((nav) => nav.subItems && isParentActive(nav))?.name ?? null
+    () => allNavItems.find((nav) => nav.subItems && isParentActive(nav))?.name ?? null
   );
 
   useEffect(() => {
-    const activeParent = navItems.find((nav) => nav.subItems && isParentActive(nav));
+    const activeParent = allNavItems.find((nav) => nav.subItems && isParentActive(nav));
     setOpenDropdown(activeParent ? activeParent.name : null);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [location.pathname]);
@@ -93,127 +105,126 @@ const AdminSidebar: React.FC = () => {
     navigate("/signin");
   };
 
+  const navRowClass = (active: boolean) =>
+    `flex items-center gap-3 rounded-[10px] px-3 py-2.5 text-sm font-medium transition-colors ${
+      showLabel ? "" : "lg:justify-center"
+    } ${active ? "bg-admin-50 text-admin-600 font-semibold" : "text-admin-body hover:bg-admin-fill hover:text-admin-900"}`;
+
+  const navIconClass = (active: boolean) => `shrink-0 [&>svg]:size-5 ${active ? "text-admin-500" : "text-admin-meta"}`;
+
   return (
     <aside
-      className={`fixed mt-16 flex flex-col lg:mt-0 top-0 left-0 h-screen bg-brand-900 text-white transition-all duration-300 ease-in-out z-50
-        ${isExpanded || isMobileOpen ? "w-[290px]" : isHovered ? "w-[290px]" : "w-[90px]"}
+      className={`fixed mt-16 flex flex-col lg:mt-0 top-0 left-0 h-screen border-r border-admin-border bg-white text-admin-body transition-all duration-300 ease-in-out z-50
+        ${isExpanded || isMobileOpen ? "w-[264px]" : isHovered ? "w-[264px]" : "w-[78px]"}
         ${isMobileOpen ? "translate-x-0" : "-translate-x-full"}
         lg:translate-x-0`}
       onMouseEnter={() => !isExpanded && setIsHovered(true)}
       onMouseLeave={() => setIsHovered(false)}
     >
       <div
-        className={`flex items-center gap-3 px-5 py-6 border-b border-white/10 ${
+        className={`flex h-16 shrink-0 items-center gap-3 px-5 border-b border-admin-border ${
           showLabel ? "justify-start" : "lg:justify-center"
         }`}
       >
         <Link to="/admin" className="flex items-center gap-3 shrink-0">
-          <Logo size={36} onDark />
+          <Logo size={28} />
           {showLabel && (
             <span className="flex flex-col leading-tight">
-              <span className="text-base font-bold">Manabi AI</span>
-              <span className="text-xs text-white/40">Trang quản trị</span>
+              <span className="text-base font-bold text-admin-ink">Manabi</span>
+              <span className="text-[11px] font-semibold uppercase tracking-[1px] text-admin-meta">Trang quản trị</span>
             </span>
           )}
         </Link>
       </div>
 
-      <nav className="flex-1 overflow-y-auto px-3 py-6 no-scrollbar">
-        <ul className="flex flex-col gap-1.5">
-          {navItems.map((nav) =>
-            nav.subItems ? (
-              <li key={nav.name}>
-                <button
-                  type="button"
-                  onClick={() => setOpenDropdown((prev) => (prev === nav.name ? null : nav.name))}
-                  className={`flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors ${
-                    showLabel ? "" : "lg:justify-center"
-                  } ${
-                    isParentActive(nav)
-                      ? "bg-brand-500 text-white"
-                      : "text-white/60 hover:bg-white/8 hover:text-white"
-                  }`}
-                >
-                  <span className="shrink-0 [&>svg]:size-5">{nav.icon}</span>
-                  {showLabel && <span className="flex-1 truncate text-left">{nav.name}</span>}
-                  {showLabel && (
-                    <ChevronDownIcon
-                      className={`h-4 w-4 shrink-0 transition-transform duration-200 ${
-                        openDropdown === nav.name ? "rotate-180" : ""
-                      }`}
-                    />
-                  )}
-                </button>
-                {showLabel && (
-                  <ul
-                    className={`ml-9 mt-1 flex flex-col gap-1 overflow-hidden transition-all duration-200 ${
-                      openDropdown === nav.name ? "max-h-40 opacity-100" : "max-h-0 opacity-0"
-                    }`}
-                  >
-                    {nav.subItems.map((sub) => (
-                      <li key={sub.path}>
-                        <Link
-                          to={sub.path}
-                          className={`flex items-center gap-2 rounded-lg px-3 py-2 text-sm transition-colors ${
-                            isActive(sub.path)
-                              ? "bg-brand-500 text-white font-medium"
-                              : "text-white/50 hover:bg-white/8 hover:text-white"
+      <nav className="flex-1 overflow-y-auto px-3 py-5 no-scrollbar">
+        <div className="flex flex-col gap-5">
+          {navGroups.map((group) => (
+            <div key={group.label}>
+              {showLabel && (
+                <p className="mb-2 px-3 text-[11px] font-semibold uppercase tracking-[1.2px] text-admin-meta">
+                  {group.label}
+                </p>
+              )}
+              <ul className="flex flex-col gap-1">
+                {group.items.map((nav) =>
+                  nav.subItems ? (
+                    <li key={nav.name}>
+                      <button
+                        type="button"
+                        onClick={() => setOpenDropdown((prev) => (prev === nav.name ? null : nav.name))}
+                        className={`w-full ${navRowClass(isParentActive(nav))}`}
+                      >
+                        <span className={navIconClass(isParentActive(nav))}>{nav.icon}</span>
+                        {showLabel && <span className="flex-1 truncate text-left">{nav.name}</span>}
+                        {showLabel && (
+                          <ChevronDownIcon
+                            className={`h-4 w-4 shrink-0 transition-transform duration-200 ${
+                              openDropdown === nav.name ? "rotate-180" : ""
+                            }`}
+                          />
+                        )}
+                      </button>
+                      {showLabel && (
+                        <ul
+                          className={`ml-9 mt-1 flex flex-col gap-1 overflow-hidden transition-all duration-200 ${
+                            openDropdown === nav.name ? "max-h-40 opacity-100" : "max-h-0 opacity-0"
                           }`}
                         >
-                          <span className="shrink-0 [&>svg]:size-4">{sub.icon}</span>
-                          {sub.name}
-                        </Link>
-                      </li>
-                    ))}
-                  </ul>
+                          {nav.subItems.map((sub) => (
+                            <li key={sub.path}>
+                              <Link
+                                to={sub.path}
+                                className={`flex items-center gap-2 rounded-lg px-3 py-2 text-sm transition-colors ${
+                                  isActive(sub.path)
+                                    ? "bg-admin-50 text-admin-600 font-medium"
+                                    : "text-admin-meta hover:bg-admin-fill hover:text-admin-900"
+                                }`}
+                              >
+                                <span className="shrink-0 [&>svg]:size-4">{sub.icon}</span>
+                                {sub.name}
+                              </Link>
+                            </li>
+                          ))}
+                        </ul>
+                      )}
+                    </li>
+                  ) : (
+                    <li key={nav.name}>
+                      <Link to={nav.path} className={navRowClass(isActive(nav.path))}>
+                        <span className={navIconClass(isActive(nav.path))}>{nav.icon}</span>
+                        {showLabel && <span className="truncate">{nav.name}</span>}
+                      </Link>
+                    </li>
+                  )
                 )}
-              </li>
-            ) : (
-              <li key={nav.name}>
-                <Link
-                  to={nav.path}
-                  className={`flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors ${
-                    showLabel ? "" : "lg:justify-center"
-                  } ${
-                    isActive(nav.path)
-                      ? "bg-brand-500 text-white"
-                      : "text-white/60 hover:bg-white/8 hover:text-white"
-                  }`}
-                >
-                  <span className="shrink-0 [&>svg]:size-5">{nav.icon}</span>
-                  {showLabel && <span className="truncate">{nav.name}</span>}
+              </ul>
+            </div>
+          ))}
+
+          <div>
+            {showLabel && (
+              <p className="mb-2 px-3 text-[11px] font-semibold uppercase tracking-[1.2px] text-admin-meta">
+                Hệ thống
+              </p>
+            )}
+            <ul className="flex flex-col gap-1">
+              <li>
+                <Link to="/admin/settings" className={navRowClass(isActive("/admin/settings"))}>
+                  <span className={navIconClass(isActive("/admin/settings"))}>
+                    <SettingsIcon />
+                  </span>
+                  {showLabel && <span className="truncate">Cài đặt</span>}
                 </Link>
               </li>
-            )
-          )}
-          <li>
-            <Link
-              to="/admin/settings"
-              className={`flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors ${
-                showLabel ? "" : "lg:justify-center"
-              } ${
-                isActive("/admin/settings")
-                  ? "bg-brand-500 text-white"
-                  : "text-white/60 hover:bg-white/8 hover:text-white"
-              }`}
-            >
-              <span className="shrink-0 [&>svg]:size-5">
-                <SettingsIcon />
-              </span>
-              {showLabel && <span className="truncate">Cài đặt</span>}
-            </Link>
-          </li>
-        </ul>
+            </ul>
+          </div>
+        </div>
       </nav>
 
-      <div className="border-t border-white/10 px-3 py-4">
-        <button
-          onClick={handleLogout}
-          className={`flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium text-white/60 transition-colors hover:bg-white/8 hover:text-white ${
-            showLabel ? "" : "lg:justify-center"
-          }`}
-        >
-          <span className="shrink-0 [&>svg]:size-5">
+      <div className="border-t border-admin-border px-3 py-4">
+        <button onClick={handleLogout} className={`w-full ${navRowClass(false)}`}>
+          <span className={navIconClass(false)}>
             <LogoutIcon />
           </span>
           {showLabel && <span>Đăng xuất</span>}

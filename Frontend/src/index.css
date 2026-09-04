@@ -190,6 +190,29 @@ layer(base);
 
   --color-theme-purple-500: #7a5af8;
 
+  /* Admin console ("soft enterprise dashboard") — see CLAUDE.md Admin surface.
+     Cooler, denser palette than the learner app's warm brand-* scale; never
+     mixed with brand-* on /admin/* screens. */
+  --color-admin-bg: #f6f8fc;
+  --color-admin-fill: #f3f6fa;
+  --color-admin-border: #e1e8f2;
+  --color-admin-border-input: #dce5f1;
+
+  --color-admin-50: #e8efff;
+  --color-admin-200: #b8c9f2;
+  --color-admin-500: #315dce;
+  --color-admin-600: #244db5;
+  --color-admin-900: #142b52;
+
+  --color-lavender-500: #5e6bc4;
+
+  --color-admin-ink: #122b52;
+  --color-admin-body: #536b8d;
+  --color-admin-meta: #8294af;
+
+  --color-admin-count-bg: #eef2f7;
+  --color-admin-count-ink: #64748b;
+
   --shadow-theme-md: 0px 4px 8px -2px rgba(16, 24, 40, 0.1),
     0px 2px 4px -2px rgba(16, 24, 40, 0.06);
   --shadow-theme-lg: 0px 12px 16px -4px rgba(16, 24, 40, 0.08),
