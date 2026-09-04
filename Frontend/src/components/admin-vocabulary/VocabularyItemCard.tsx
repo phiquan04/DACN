@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { VocabularyItem, VocabularyItemPatch } from "../../services/vocabularyApi";
-import { CheckIcon, TrashIcon } from "../admin-jlpt/icons";
+import { TrashIcon } from "../admin-jlpt/icons";
+import { CheckIcon } from "../../icons/custom";
 import { ChevronDownIcon } from "../../icons";
 
 interface Props {

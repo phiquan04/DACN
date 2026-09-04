@@ -4,7 +4,7 @@ import { AudioIcon, CopyIcon, TrashBinIcon } from "../../../icons";
 import { speakSentence, type GrammarHistoryDetail } from "../../../services/grammarApi";
 import DiffText from "./DiffText";
 import ExplanationList from "./ExplanationList";
-import { CheckIcon, ClockIcon } from "./icons";
+import { CheckIcon, ClockIcon } from "../../../icons/custom";
 
 interface HistoryDetailModalProps {
   detail: GrammarHistoryDetail | null;

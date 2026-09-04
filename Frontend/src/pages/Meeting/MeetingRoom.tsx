@@ -1,5 +1,6 @@
 import { useLocation, useParams } from "react-router-dom";
 import { useFullscreenLayout } from "./hooks/useFullscreenLayout";
+import Spinner from "../../components/ui/spinner/Spinner";
 import { useZegoRoom } from "./hooks/useZegoRoom";
 
 export default function MeetingRoom() {
@@ -22,7 +23,7 @@ export default function MeetingRoom() {
     <div className="w-full h-screen bg-gray-900">
       {status === "loading" && (
         <div className="flex flex-col items-center justify-center h-full gap-3">
-          <div className="w-10 h-10 border-4 border-blue-500 border-t-transparent rounded-full animate-spin" />
+          <Spinner size="lg" className="border-blue-500 border-t-transparent" />
           <p className="text-gray-400 text-sm">Đang kết nối phòng học...</p>
         </div>
       )}

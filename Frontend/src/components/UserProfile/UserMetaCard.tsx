@@ -5,6 +5,7 @@ import { uploadAvatar, deleteAvatar } from "../../services/api";
 import type { StudyOverview } from "../../services/vocabularyLearningApi";
 import { BoltIcon, DocsIcon, MailIcon, PencilIcon, ShootingStarIcon, TaskIcon, TrashBinIcon } from "../../icons";
 import { GlobeIcon } from "../../icons/custom";
+import Spinner from "../ui/spinner/Spinner";
 
 const JLPT_LEVELS = ["N5", "N4", "N3", "N2", "N1"];
 
@@ -132,7 +133,7 @@ export default function UserMetaCard({
           )}
           {uploading && (
             <div className="absolute inset-0 flex items-center justify-center bg-black/40">
-              <div className="h-5 w-5 animate-spin rounded-full border-2 border-white border-t-transparent" />
+              <Spinner size="sm" className="border-white border-t-transparent" />
             </div>
           )}
           <input

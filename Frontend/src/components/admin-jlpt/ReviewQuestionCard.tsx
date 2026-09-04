@@ -1,7 +1,8 @@
 import { useRef, useState } from "react";
 import { QuestionPatch, QuestionReview } from "../../services/jlptApi";
 import FormattedText from "../jlpt/FormattedText";
-import { AlertIcon, CheckIcon, TrashIcon } from "./icons";
+import { AlertIcon, TrashIcon } from "./icons";
+import { CheckIcon } from "../../icons/custom";
 
 interface MondaiOption {
   id: number;

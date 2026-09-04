@@ -1,5 +1,7 @@
 import { useRef, useState } from "react";
-import { MicIcon, SendIcon, StopIcon } from "./icons";
+import { MicIcon, StopIcon } from "./icons";
+import { SendIcon } from "../../../icons/custom";
+import Spinner from "../../../components/ui/spinner/Spinner";
 
 interface Props {
   onSend: (text: string) => void;
@@ -78,7 +80,7 @@ export default function ChatInput({
             className="flex h-[42px] w-[42px] shrink-0 items-center justify-center rounded-lg bg-gradient-to-r from-brand-500 to-brand-600 text-white transition-colors hover:from-brand-600 hover:to-brand-700 disabled:opacity-40"
           >
             {isLoading ? (
-              <span className="h-4 w-4 animate-spin rounded-full border-2 border-white/40 border-t-white" />
+              <Spinner size="xs" className="border-white/40 border-t-white" />
             ) : (
               <SendIcon className="h-5 w-5" />
             )}

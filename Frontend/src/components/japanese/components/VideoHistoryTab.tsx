@@ -10,7 +10,8 @@ import {
 } from "../../../services/videoLearnApi";
 import { useVideoHistory } from "../hooks/useVideoHistory";
 import type { InitialSession } from "../JapaneseVideoTranscript";
-import { ArrowRightIcon, CheckIcon, ClockIcon, PlayIcon } from "./icons";
+import { PlayIcon } from "./icons";
+import { ArrowRightIcon, CheckIcon, ClockIcon } from "../../../icons/custom";
 
 const STATUS_TABS: { value: VideoHistoryStatus; label: string }[] = [
   { value: "all", label: "Tất cả" },

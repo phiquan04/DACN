@@ -1,6 +1,8 @@
 // 2px-stroke SVG icons not covered by the generated icon set (index.ts,
-// sourced from .svg assets) — used for account/profile field labels across
-// both the self-service profile page and the admin user pages.
+// sourced from .svg assets). Also the shared home for icons that were
+// duplicated verbatim across per-feature `components/icons.tsx` files
+// (Grammar, Chatbot, Pronunciation, admin-jlpt, japanese/VideoLearn) —
+// consolidate any new cross-feature duplicate here instead of copy-pasting.
 
 export const PhoneIcon = ({ className = "h-4 w-4" }: { className?: string }) => (
   <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -34,6 +36,49 @@ export const PencilIcon = ({ className = "h-4 w-4" }: { className?: string }) =>
       strokeLinejoin="round"
       strokeWidth={2}
       d="M16.862 4.487a1.85 1.85 0 112.615 2.615L7.5 18.978l-4 1 1-4L16.862 4.487z"
+    />
+  </svg>
+);
+
+export const CheckIcon = ({ className = "h-4 w-4" }: { className?: string }) => (
+  <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor">
+    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+  </svg>
+);
+
+export const ClockIcon = ({ className = "h-4 w-4" }: { className?: string }) => (
+  <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor">
+    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l2.5 2.5M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+  </svg>
+);
+
+export const ArrowRightIcon = ({ className = "h-4 w-4" }: { className?: string }) => (
+  <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor">
+    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13.5 6.5l5.5 5.5-5.5 5.5M18.5 12H5" />
+  </svg>
+);
+
+export const ChevronRightIcon = ({ className = "h-4 w-4" }: { className?: string }) => (
+  <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor">
+    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 6l6 6-6 6" />
+  </svg>
+);
+
+export const SendIcon = ({ className = "h-4 w-4" }: { className?: string }) => (
+  <svg className={className} fill="currentColor" viewBox="0 0 24 24">
+    <path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z" />
+  </svg>
+);
+
+export const RefreshIcon = ({ className = "h-4 w-4" }: { className?: string }) => (
+  <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor">
+    <polyline points="1 4 1 10 7 10" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" />
+    <polyline points="23 20 23 14 17 14" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" />
+    <path
+      strokeWidth={2}
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      d="M20.49 9A9 9 0 0 0 5.64 5.64L1 10m22 4l-4.64 4.36A9 9 0 0 1 3.51 15"
     />
   </svg>
 );

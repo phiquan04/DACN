@@ -1,6 +1,6 @@
 import type { ChatMessage as ChatMsg } from "../../../services/chatApi";
 import FeedbackCard from "./FeedbackCard";
-import { CheckIcon } from "./icons";
+import { CheckIcon } from "../../../icons/custom";
 
 interface Props {
   message: ChatMsg;

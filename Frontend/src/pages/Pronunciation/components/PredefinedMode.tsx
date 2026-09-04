@@ -5,7 +5,8 @@ import { useAudioRecording } from "../hooks/useAudioRecording";
 import AiTutorCard from "./AiTutorCard";
 import AudioAnalysisCard from "./AudioAnalysisCard";
 import ScoreCard from "./ScoreCard";
-import { ChevronRightIcon, MicIcon, SpeakerIcon } from "./icons";
+import { MicIcon, SpeakerIcon } from "./icons";
+import { ChevronRightIcon } from "../../../icons/custom";
 import type { HistoryWord } from "../pronunciationUtils";
 
 /** Component cho chế độ từ có sẵn — thiết kế theo mẫu "Speech Lab" */

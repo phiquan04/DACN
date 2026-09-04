@@ -1,6 +1,7 @@
 import { useEffect, useRef } from "react";
 import { useSiteHelpChat } from "../../context/SiteHelpChatContext";
-import { CloseIcon, RefreshIcon, RobotIcon, SendIcon } from "./icons";
+import { CloseIcon, RobotIcon } from "./icons";
+import { RefreshIcon, SendIcon } from "../../icons/custom";
 
 function TypingDots() {
   return (

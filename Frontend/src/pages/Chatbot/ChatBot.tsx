@@ -6,7 +6,8 @@ import ConversationHistoryList from "./components/ConversationHistoryList";
 import ChatMessage from "./components/ChatMessage";
 import ChatInput from "./components/ChatInput";
 import SituationModal from "./components/SituationModal";
-import { AlertIcon, RefreshIcon } from "./components/icons";
+import { AlertIcon } from "./components/icons";
+import { RefreshIcon } from "../../icons/custom";
 import { useChatConversation } from "./hooks/useChatConversation";
 import { useConversationHistory } from "./hooks/useConversationHistory";
 

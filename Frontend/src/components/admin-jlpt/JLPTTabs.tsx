@@ -1,5 +1,5 @@
 import { Link, useLocation } from "react-router";
-import { ChevronRightIcon } from "./icons";
+import { ChevronRightIcon } from "../../icons/custom";
 
 const TABS = [
   { path: "/admin/jlpt-content/structure", label: "Cấu trúc đề" },
