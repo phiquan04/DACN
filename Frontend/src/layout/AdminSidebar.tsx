@@ -110,7 +110,7 @@ const AdminSidebar: React.FC = () => {
       showLabel ? "" : "lg:justify-center"
     } ${active ? "bg-admin-50 text-admin-600 font-semibold" : "text-admin-body hover:bg-admin-fill hover:text-admin-900"}`;
 
-  const navIconClass = (active: boolean) => `shrink-0 [&>svg]:size-5 ${active ? "text-admin-500" : "text-admin-meta"}`;
+  const navIconClass = (active: boolean) => `shrink-0 [&>svg]:size-5 ${active ? "text-admin-500" : "text-admin-body"}`;
 
   return (
     <aside
@@ -178,7 +178,7 @@ const AdminSidebar: React.FC = () => {
                                 className={`flex items-center gap-2 rounded-lg px-3 py-2 text-sm transition-colors ${
                                   isActive(sub.path)
                                     ? "bg-admin-50 text-admin-600 font-medium"
-                                    : "text-admin-meta hover:bg-admin-fill hover:text-admin-900"
+                                    : "text-admin-body hover:bg-admin-fill hover:text-admin-900"
                                 }`}
                               >
                                 <span className="shrink-0 [&>svg]:size-4">{sub.icon}</span>

@@ -7,16 +7,23 @@ from datetime import datetime
 from typing import Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Query
-from sqlalchemy import or_
+from sqlalchemy import func, or_
 from sqlalchemy.orm import Session, joinedload
 
 from app.dependencies import UserResponse, require_admin
+from app.models.chat import Conversation, Message
 from app.models.database import get_db
+from app.models.dictionary import SearchHistory
+from app.models.grammar import GrammarCorrection
+from app.models.jlpt import JlptTestAttempt
 from app.models.profile import UserInformation
+from app.models.transcription import TranscriptionSession
 from app.models.user import Role, User
+from app.models.vocabulary import VocabularyItemProgress, VocabularyReviewLog
 from app.schemas.user_admin import (
-    AdminPasswordResetResponse, AdminUserCreateRequest, AdminUserDetail, AdminUserListPage, AdminUserLockRequest,
-    AdminUserSummary, AdminUserUpdateRequest,
+    AdminPasswordResetResponse, AdminUserConversationStats, AdminUserCreateRequest, AdminUserDetail,
+    AdminUserJlptStats, AdminUserLearningStats, AdminUserListeningDictionaryStats, AdminUserListPage,
+    AdminUserLockRequest, AdminUserSummary, AdminUserUpdateRequest, AdminUserVocabularyStats,
 )
 from app.services.xp_leveling import level_info
 from app.utils.auth import hash_password
@@ -32,6 +39,7 @@ PROFILE_FIELDS = {
 
 def _summary(user: User) -> AdminUserSummary:
     info = user.information
+    level, _, _ = level_info(user.vocab_xp)
     return AdminUserSummary(
         id=user.id, username=user.username, email=user.email,
         role=user.role.code if user.role else "user",
@@ -40,12 +48,13 @@ def _summary(user: User) -> AdminUserSummary:
         first_name=info.first_name if info else None, last_name=info.last_name if info else None,
         avatar_url=info.avatar_url if info else None,
         current_jlpt_level=info.current_jlpt_level if info else None,
+        vocab_xp=user.vocab_xp, level=level, streak_days=info.streak_days if info else 0,
     )
 
 
 def _detail(user: User) -> AdminUserDetail:
     info = user.information
-    level, level_floor, level_ceil = level_info(user.vocab_xp)
+    _, level_floor, level_ceil = level_info(user.vocab_xp)
     return AdminUserDetail(
         **_summary(user).model_dump(),
         phone=info.phone if info else None,
@@ -54,10 +63,9 @@ def _detail(user: User) -> AdminUserDetail:
         date_of_birth=info.date_of_birth if info else None,
         gender=info.gender if info else None,
         target_jlpt_level=info.target_jlpt_level if info else None,
-        streak_days=info.streak_days if info else 0,
         last_activity_at=info.last_activity_at if info else None,
         total_study_minutes=info.total_study_minutes if info else 0,
-        vocab_xp=user.vocab_xp, level=level, level_xp_floor=level_floor, level_xp_ceil=level_ceil,
+        level_xp_floor=level_floor, level_xp_ceil=level_ceil,
         daily_vocab_goal=user.daily_vocab_goal,
         profile_updated_at=info.updated_at if info else None,
     )
@@ -95,6 +103,7 @@ def list_users(
     search: Optional[str] = None,
     role: Optional[str] = None,
     status_filter: Optional[str] = Query(None, alias="status"),  # 'active' | 'locked'
+    jlpt_level: Optional[str] = None,  # 'N1'..'N5'
     page: int = 1,
     db: Session = Depends(get_db),
     _admin: UserResponse = Depends(require_admin),
@@ -116,6 +125,8 @@ def list_users(
         query = query.filter(User.is_active.is_(False))
     elif status_filter == "active":
         query = query.filter(User.is_active.is_(True))
+    if jlpt_level:
+        query = query.filter(User.information.has(current_jlpt_level=jlpt_level))
 
     total = query.count()
     users = (
@@ -207,6 +218,87 @@ def lock_user(
     db.commit()
     db.refresh(user)
     return _detail(user)
+
+
+@router.get("/{user_id}/learning-stats", response_model=AdminUserLearningStats)
+def get_user_learning_stats(user_id: int, db: Session = Depends(get_db), _admin: UserResponse = Depends(require_admin)):
+    if not db.query(User.id).filter(User.id == user_id).first():
+        raise HTTPException(status_code=404, detail="Không tìm thấy người dùng")
+
+    vocab_by_status = dict(
+        db.query(VocabularyItemProgress.status, func.count(VocabularyItemProgress.id))
+        .filter(VocabularyItemProgress.user_id == user_id)
+        .group_by(VocabularyItemProgress.status)
+        .all()
+    )
+    total_reviews = db.query(func.count(VocabularyReviewLog.id)).filter(
+        VocabularyReviewLog.user_id == user_id,
+    ).scalar() or 0
+    vocabulary = AdminUserVocabularyStats(
+        learned=vocab_by_status.get("learned", 0),
+        reviewing=vocab_by_status.get("reviewing", 0),
+        new=vocab_by_status.get("new", 0),
+        total_reviews=total_reviews,
+    )
+
+    attempts_total = db.query(func.count(JlptTestAttempt.id)).filter(
+        JlptTestAttempt.user_id == user_id,
+    ).scalar() or 0
+    completed_row = (
+        db.query(func.count(JlptTestAttempt.id), func.avg(JlptTestAttempt.score), func.max(JlptTestAttempt.score))
+        .filter(JlptTestAttempt.user_id == user_id, JlptTestAttempt.status == "completed")
+        .one()
+    )
+    last_attempt_at = db.query(func.max(JlptTestAttempt.submitted_at)).filter(
+        JlptTestAttempt.user_id == user_id, JlptTestAttempt.status == "completed",
+    ).scalar()
+    jlpt = AdminUserJlptStats(
+        attempts=attempts_total,
+        completed=completed_row[0] or 0,
+        average_score=round(completed_row[1], 1) if completed_row[1] is not None else None,
+        best_score=completed_row[2],
+        last_attempt_at=last_attempt_at,
+    )
+
+    conversations_count = db.query(func.count(Conversation.id)).filter(
+        Conversation.user_id == user_id,
+    ).scalar() or 0
+    messages_sent = (
+        db.query(func.count(Message.id))
+        .join(Conversation, Message.conversation_id == Conversation.id)
+        .filter(Conversation.user_id == user_id, Message.role == "user")
+        .scalar() or 0
+    )
+    grammar_row = (
+        db.query(func.count(GrammarCorrection.id), func.avg(GrammarCorrection.error_count))
+        .filter(GrammarCorrection.user_id == user_id)
+        .one()
+    )
+    conversation = AdminUserConversationStats(
+        conversations=conversations_count,
+        messages_sent=messages_sent,
+        grammar_checks=grammar_row[0] or 0,
+        average_errors=round(grammar_row[1], 1) if grammar_row[1] is not None else None,
+    )
+
+    transcription_total = db.query(func.count(TranscriptionSession.id)).filter(
+        TranscriptionSession.user_id == user_id,
+    ).scalar() or 0
+    transcription_completed = db.query(func.count(TranscriptionSession.id)).filter(
+        TranscriptionSession.user_id == user_id, TranscriptionSession.status == "completed",
+    ).scalar() or 0
+    dictionary_searches = db.query(func.count(SearchHistory.id)).filter(
+        SearchHistory.user_id == user_id,
+    ).scalar() or 0
+    listening_dictionary = AdminUserListeningDictionaryStats(
+        transcription_sessions=transcription_total,
+        transcription_completed=transcription_completed,
+        dictionary_searches=dictionary_searches,
+    )
+
+    return AdminUserLearningStats(
+        vocabulary=vocabulary, jlpt=jlpt, conversation=conversation, listening_dictionary=listening_dictionary,
+    )
 
 
 @router.patch("/{user_id}/unlock", response_model=AdminUserDetail)

@@ -23,3 +23,26 @@ export function formatApiDate(iso: string | null | undefined, fallback = "—"):
   const d = parseApiDate(iso);
   return d ? d.toLocaleDateString("vi-VN") : fallback;
 }
+
+/** Short relative timestamp for table rows ("2 phút trước", "Hôm nay, 08:42",
+ * "3 ngày trước") — falls back to a plain date once it's more than a week old. */
+export function formatRelativeTime(iso: string | null | undefined, fallback = "—"): string {
+  const d = parseApiDate(iso);
+  if (!d) return fallback;
+
+  const diffMs = Date.now() - d.getTime();
+  const diffMin = Math.floor(diffMs / 60000);
+  if (diffMin < 1) return "Vừa xong";
+  if (diffMin < 60) return `${diffMin} phút trước`;
+
+  const diffHour = Math.floor(diffMin / 60);
+  const isToday = d.toDateString() === new Date().toDateString();
+  if (isToday) {
+    if (diffHour < 24) return `${diffHour} giờ trước`;
+    return `Hôm nay, ${d.toLocaleTimeString("vi-VN", { hour: "2-digit", minute: "2-digit" })}`;
+  }
+
+  const diffDay = Math.floor(diffHour / 24);
+  if (diffDay < 7) return `${diffDay} ngày trước`;
+  return d.toLocaleDateString("vi-VN");
+}

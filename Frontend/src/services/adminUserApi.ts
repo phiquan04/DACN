@@ -15,6 +15,9 @@ export interface AdminUserSummary {
   last_name?: string | null;
   avatar_url?: string | null;
   current_jlpt_level?: string | null;
+  vocab_xp: number;
+  level: number;
+  streak_days: number;
 }
 
 export interface AdminUserListPage {
@@ -31,11 +34,8 @@ export interface AdminUserDetail extends AdminUserSummary {
   date_of_birth?: string | null;
   gender?: string | null;
   target_jlpt_level?: string | null;
-  streak_days: number;
   last_activity_at?: string | null;
   total_study_minutes: number;
-  vocab_xp: number;
-  level: number;
   level_xp_floor: number;
   level_xp_ceil: number;
   daily_vocab_goal?: number | null;
@@ -44,11 +44,13 @@ export interface AdminUserDetail extends AdminUserSummary {
 
 export type UserRoleFilter = "admin" | "user" | "";
 export type UserStatusFilter = "active" | "locked" | "";
+export type JlptLevelFilter = "N1" | "N2" | "N3" | "N4" | "N5" | "";
 
 export interface FetchUsersParams {
   search?: string;
   role?: UserRoleFilter;
   status?: UserStatusFilter;
+  jlptLevel?: JlptLevelFilter;
   page?: number;
 }
 
@@ -57,6 +59,7 @@ export async function fetchUsers(params: FetchUsersParams = {}): Promise<AdminUs
   if (params.search) qs.set("search", params.search);
   if (params.role) qs.set("role", params.role);
   if (params.status) qs.set("status", params.status);
+  if (params.jlptLevel) qs.set("jlpt_level", params.jlptLevel);
   qs.set("page", String(params.page ?? 1));
   return request(`/api/admin/users?${qs.toString()}`, { headers: authHeaders(getToken()) });
 }
@@ -124,4 +127,43 @@ export async function unlockUser(id: number): Promise<AdminUserDetail> {
     method: "PATCH",
     headers: authHeaders(getToken()),
   });
+}
+
+export interface AdminUserVocabularyStats {
+  learned: number;
+  reviewing: number;
+  new: number;
+  total_reviews: number;
+}
+
+export interface AdminUserJlptStats {
+  attempts: number;
+  completed: number;
+  average_score?: number | null;
+  best_score?: number | null;
+  last_attempt_at?: string | null;
+}
+
+export interface AdminUserConversationStats {
+  conversations: number;
+  messages_sent: number;
+  grammar_checks: number;
+  average_errors?: number | null;
+}
+
+export interface AdminUserListeningDictionaryStats {
+  transcription_sessions: number;
+  transcription_completed: number;
+  dictionary_searches: number;
+}
+
+export interface AdminUserLearningStats {
+  vocabulary: AdminUserVocabularyStats;
+  jlpt: AdminUserJlptStats;
+  conversation: AdminUserConversationStats;
+  listening_dictionary: AdminUserListeningDictionaryStats;
+}
+
+export async function fetchUserLearningStats(id: number): Promise<AdminUserLearningStats> {
+  return request(`/api/admin/users/${id}/learning-stats`, { headers: authHeaders(getToken()) });
 }

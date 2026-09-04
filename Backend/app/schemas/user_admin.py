@@ -18,6 +18,9 @@ class AdminUserSummary(BaseModel):
     last_name: Optional[str] = None
     avatar_url: Optional[str] = None
     current_jlpt_level: Optional[str] = None
+    vocab_xp: int = 0
+    level: int = 1
+    streak_days: int = 0
 
 
 class AdminUserListPage(BaseModel):
@@ -34,11 +37,8 @@ class AdminUserDetail(AdminUserSummary):
     date_of_birth: Optional[date] = None
     gender: Optional[str] = None
     target_jlpt_level: Optional[str] = None
-    streak_days: int = 0
     last_activity_at: Optional[datetime] = None
     total_study_minutes: int = 0
-    vocab_xp: int = 0
-    level: int = 1
     level_xp_floor: int = 0  # total XP at which the current level started
     level_xp_ceil: int = 100  # total XP needed to reach the next level
     daily_vocab_goal: Optional[int] = None
@@ -77,3 +77,38 @@ class AdminUserUpdateRequest(BaseModel):
 
 class AdminPasswordResetResponse(BaseModel):
     temporary_password: str
+
+
+class AdminUserVocabularyStats(BaseModel):
+    learned: int = 0
+    reviewing: int = 0
+    new: int = 0
+    total_reviews: int = 0
+
+
+class AdminUserJlptStats(BaseModel):
+    attempts: int = 0
+    completed: int = 0
+    average_score: Optional[float] = None
+    best_score: Optional[int] = None
+    last_attempt_at: Optional[datetime] = None
+
+
+class AdminUserConversationStats(BaseModel):
+    conversations: int = 0
+    messages_sent: int = 0
+    grammar_checks: int = 0
+    average_errors: Optional[float] = None
+
+
+class AdminUserListeningDictionaryStats(BaseModel):
+    transcription_sessions: int = 0
+    transcription_completed: int = 0
+    dictionary_searches: int = 0
+
+
+class AdminUserLearningStats(BaseModel):
+    vocabulary: AdminUserVocabularyStats
+    jlpt: AdminUserJlptStats
+    conversation: AdminUserConversationStats
+    listening_dictionary: AdminUserListeningDictionaryStats
