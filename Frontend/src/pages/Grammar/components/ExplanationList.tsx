@@ -1,5 +1,5 @@
 import type { GrammarErrorExplanation } from "../../../services/grammarApi";
-import { ArrowRightIcon } from "./icons";
+import { ArrowRightIcon } from "../../../icons/custom";
 
 /** Renders the per-error explanation the LLM generated for a grammar correction (why it was wrong, why it was fixed that way). */
 export default function ExplanationList({ errors }: { errors: GrammarErrorExplanation[] }) {

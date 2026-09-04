@@ -25,12 +25,6 @@ export const WarnIcon = ({ className = "w-4 h-4" }: { className?: string }) => (
   </svg>
 );
 
-export const ChevronRightIcon = ({ className = "w-4 h-4" }: { className?: string }) => (
-  <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor">
-    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-  </svg>
-);
-
 export const BoltIcon = ({ className = "w-4 h-4" }: { className?: string }) => (
   <svg className={className} fill="currentColor" viewBox="0 0 24 24">
     <path d="M13 10V3L4 14h7v7l9-11h-7z" />

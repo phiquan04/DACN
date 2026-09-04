@@ -17,7 +17,8 @@ import {
 } from "../../services/jlptApi";
 import NewQuestionForm from "./NewQuestionForm";
 import ReviewQuestionCard from "./ReviewQuestionCard";
-import { AlertIcon, CheckIcon, TrashIcon } from "./icons";
+import { AlertIcon, TrashIcon } from "./icons";
+import { CheckIcon } from "../../icons/custom";
 import { ChevronLeftIcon } from "../../icons";
 
 function StatusBadge({ status }: { status: string }) {

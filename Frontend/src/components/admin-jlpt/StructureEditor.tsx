@@ -12,7 +12,8 @@ import {
   fetchStructureSummaries,
   saveStructure,
 } from "../../services/jlptApi";
-import { AlertIcon, CheckIcon, PlusIcon, TrashIcon } from "./icons";
+import { AlertIcon, PlusIcon, TrashIcon } from "./icons";
+import { CheckIcon } from "../../icons/custom";
 
 const SECTION_TYPES: SectionType[] = ["kotoba", "dokkai", "choukai"];
 

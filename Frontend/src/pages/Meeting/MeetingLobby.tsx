@@ -1,4 +1,5 @@
 import { useMeetingLobby } from "./hooks/useMeetingLobby";
+import Spinner from "../../components/ui/spinner/Spinner";
 
 export default function MeetingLobby() {
   const { roomID, setRoomID, mode, setMode, userProfile, loading, getFullName, handleStart } = useMeetingLobby();
@@ -6,7 +7,7 @@ export default function MeetingLobby() {
   if (loading) {
     return (
       <div className="flex h-full items-center justify-center">
-        <div className="w-8 h-8 border-4 border-blue-500 border-t-transparent rounded-full animate-spin" />
+        <Spinner size="md" className="border-blue-500 border-t-transparent" />
       </div>
     );
   }

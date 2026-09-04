@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import Spinner from "../../ui/spinner/Spinner";
 
 export default function ProcessingState({ videoTitle }: { videoTitle: string }) {
   const steps = [
@@ -16,7 +17,7 @@ export default function ProcessingState({ videoTitle }: { videoTitle: string }) 
 
   return (
     <div className="flex flex-col items-center justify-center gap-6 py-16">
-      <div className="h-10 w-10 animate-spin rounded-full border-4 border-gray-200 border-t-red-500" />
+      <Spinner size="lg" className="border-gray-200 border-t-red-500" />
       <div className="text-center">
         <p className="text-sm font-medium text-gray-500 dark:text-gray-400 mb-1 line-clamp-1 max-w-xs">
           {videoTitle}

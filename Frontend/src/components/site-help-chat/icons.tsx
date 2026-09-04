@@ -1,5 +1,6 @@
 // 2px-stroke SVG icons for the site-help chat widget (per CLAUDE.md design
-// system: no emoji / Unicode glyphs as icons in new code).
+// system: no emoji / Unicode glyphs as icons in new code). Icons shared with
+// other features live in src/icons/custom.tsx instead of being redefined here.
 
 export const RobotIcon = ({ className = "w-5 h-5" }: { className?: string }) => (
   <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -16,25 +17,6 @@ export const RobotIcon = ({ className = "w-5 h-5" }: { className?: string }) => 
 export const CloseIcon = ({ className = "w-5 h-5" }: { className?: string }) => (
   <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor">
     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18 18 6M6 6l12 12" />
-  </svg>
-);
-
-export const SendIcon = ({ className = "w-5 h-5" }: { className?: string }) => (
-  <svg className={className} fill="currentColor" viewBox="0 0 24 24">
-    <path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z" />
-  </svg>
-);
-
-export const RefreshIcon = ({ className = "w-5 h-5" }: { className?: string }) => (
-  <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor">
-    <path
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      strokeWidth={2}
-      d="M20.49 9A9 9 0 0 0 5.64 5.64L1 10m22 4l-4.64 4.36A9 9 0 0 1 3.51 15"
-    />
-    <polyline points="1 4 1 10 7 10" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" />
-    <polyline points="23 20 23 14 17 14" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" />
   </svg>
 );
 

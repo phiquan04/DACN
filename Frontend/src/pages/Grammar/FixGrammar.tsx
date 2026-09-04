@@ -9,7 +9,7 @@ import DiffText from "./components/DiffText";
 import ExplanationList from "./components/ExplanationList";
 import ErrorStatsCard from "./components/ErrorStatsCard";
 import HistoryTab from "./components/HistoryTab";
-import { CheckIcon } from "./components/icons";
+import { CheckIcon } from "../../icons/custom";
 
 type Tab = "check" | "history";
 

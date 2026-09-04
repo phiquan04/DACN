@@ -1,7 +1,8 @@
 import Pagination from "../../../components/ui/pagination";
 import type { ConversationHistoryItem } from "../../../services/chatApi";
 import { parseApiDate } from "../../../utils/datetime";
-import { ChatBubbleIcon, ClockIcon } from "./icons";
+import { ChatBubbleIcon } from "./icons";
+import { ClockIcon } from "../../../icons/custom";
 
 function formatDateTime(iso: string) {
   const d = parseApiDate(iso);

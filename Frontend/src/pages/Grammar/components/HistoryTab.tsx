@@ -3,7 +3,7 @@ import { getStoredUser } from "../../../services/authApi";
 import type { GrammarHistoryItem, GrammarHistoryStatus } from "../../../services/grammarApi";
 import { useGrammarHistory } from "../hooks/useGrammarHistory";
 import HistoryDetailModal from "./HistoryDetailModal";
-import { ArrowRightIcon, CheckIcon, ClockIcon } from "./icons";
+import { ArrowRightIcon, CheckIcon, ClockIcon } from "../../../icons/custom";
 
 const STATUS_TABS: { value: GrammarHistoryStatus; label: string }[] = [
   { value: "all", label: "Tất cả" },
