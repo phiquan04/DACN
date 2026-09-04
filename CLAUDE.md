@@ -6,6 +6,19 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 Manabi AI — a Japanese-learning platform. Backend: FastAPI (Python) serving ML-backed features (BERT grammar correction, faster-whisper pronunciation scoring, gTTS, JMdict dictionary lookup, an LLM chatbot via OpenRouter). Frontend: React 19 + Vite + TypeScript + TailwindCSS (based on the TailAdmin template).
 
+**The frontend is two distinct surfaces, not one app with an extra route group:**
+
+| | **Learner app** (`/`) | **Admin console** (`/admin/*`) |
+|---|---|---|
+| Audience | Students, hour-long study sessions | Staff, short task-focused visits |
+| Shell | `AppLayout` / `AppHeader` / `AppSidebar` | `AdminLayout` / `AdminHeader` / `AdminSidebar` |
+| Pages | `pages/Dictionary`, `Grammar`, `Pronunciation`, `Chatbot`, `Meeting`, `PracticeTest`, `VideoLearn` | `pages/Admin/*` |
+| Feel | Calm, warm, low-contrast, roomy | Dense, cool, high information per screen |
+| Sidebar | **Light** — white, brand-100 active row | **Light** — white, lavender `#E8EFFF` active row |
+| Palette | warm washi + aiiro `brand-*` | cool blue-grey + `admin-*` blue |
+
+Every design rule below is written per surface. When a rule appears in only one of the two sections, it applies **only** to that surface.
+
 ## Running the project
 
 Two ways to run locally; prefer Hybrid for day-to-day coding since the backend Docker image is ~5.3GB (TensorFlow/PyTorch/faster-whisper) and rebuilding it on every code change is slow.
@@ -52,23 +65,27 @@ Requires `Backend/.env` (gitignored) with `DATABASE_URL`, `OPENROUTER_API_KEY` (
 
 ### Frontend (`Frontend/src/`)
 
-- `App.tsx` — all routing (`react-router` v7), with every page lazy-loaded via `React.lazy`. Three route groups: `AppLayout` (main dashboard shell — dictionary, grammar fix, pronunciation, meeting, chatbot, JLPT practice, video), `AdminLayout` (`/admin/*`), and standalone auth pages (`/signin`, `/signup`).
+- `App.tsx` — all routing (`react-router` v7), with every page lazy-loaded via `React.lazy`. Three route groups: `AppLayout` (learner shell), `AdminLayout` (`/admin/*`), and standalone auth pages (`/signin`, `/signup`).
 - `services/` — API client split by feature: `httpClient.ts` (shared `request<T>()` fetch wrapper, `ApiError`, `authHeaders`/`jsonHeaders`, the pluggable global `errorReporter` wired to the toast system), `authApi.ts`, `userApi.ts`, `chatApi.ts`, `ttsApi.ts`, `dictionaryApi.ts` (one file per backend feature area, each with its own request/response TypeScript interfaces). `api.ts` is now a re-export barrel (`export * from "./xApi"`) kept only so existing `import { ... } from "services/api"` call sites keep working — import new code directly from the feature-specific file instead of adding to the barrel.
-- `context/` — React contexts for cross-cutting UI state: `ThemeContext`, `SidebarContext`, `ToastContext`, and `PageHeaderContext` (see below).
-- `layout/` — `AppLayout`/`AppHeader`/`AppSidebar` for the main shell, `AdminLayout`/`AdminHeader`/`AdminSidebar` for admin.
-- `pages/` — one directory per feature, matching the route groups in `App.tsx` (`Dictionary`, `Grammar`, `Pronunciation`, `Chatbot`, `Meeting`, `PracticeTest`, `VideoLearn`, `Admin`, `AuthPages`, `OtherPage`).
+- `context/` — React contexts for cross-cutting UI state: `ThemeContext`, `SidebarContext`, `ToastContext`, and `PageHeaderContext`.
+- `layout/` — `AppLayout`/`AppHeader`/`AppSidebar` (learner), `AdminLayout`/`AdminHeader`/`AdminSidebar` (admin). **Never share a shell component between the two surfaces** — if a piece is genuinely common, extract a presentational component and let each shell style it.
+- `pages/` — one directory per feature, matching the route groups in `App.tsx`.
 
-**Page titles belong in the navbar, not inline in the page body.** Pages call `usePageHeader().setPageHeader(title, subtitle?)` (from `context/PageHeaderContext.tsx`) to set the title shown in the top navbar, rather than rendering an `<h1>`/heading inside the page content.
+**Page titles belong in the navbar, not inline in the page body** — both surfaces. Pages call `usePageHeader().setPageHeader(title, subtitle?)` (from `context/PageHeaderContext.tsx`) instead of rendering an `<h1>` inside the page content.
 
-## Design system & UI conventions
+---
+
+# Design system
 
 TailwindCSS only (TailAdmin base) — no CSS modules, no styled-components. Every surface must render correctly in both light and dark mode: any `bg-`/`text-`/`border-` utility needs its `dark:` counterpart.
 
-The visual direction is **"washi paper + faded indigo ink"** — warm, low-contrast, easy on the eyes for hour-long study sessions. No neon, no saturated dashboard colors, no gradient backgrounds, no dark navy blocks.
+## Shared foundations (both surfaces)
 
-### Brand color
+These are the same everywhere. Everything not listed here is surface-specific.
 
-`brand-500 = #4a6ba3` (aiiro, faded indigo ink) is the product's **primary color**. It replaced the old dark navy `#091426`, which is no longer used anywhere.
+### Brand scale
+
+`brand-500 = #4a6ba3` (aiiro, faded indigo ink) is the **learner app's** primary color. The admin console runs on its own colder blue scale (`admin-*`, primary `#315DCE`) — see the Admin surface section. The old dark navy `#091426` is no longer used anywhere.
 
 ```
 brand-50  #eff3fa    brand-400 #6f8bbe    brand-800 #2a3d5c
@@ -77,59 +94,173 @@ brand-200 #c3d1e9    brand-600 #3d5987
 brand-300 #9db1d6    brand-700 #324a70
 ```
 
-- **Solid brand-500** only for real primary actions: the main button on a screen, the current page in pagination, a submit button. `hover:bg-brand-600`, disabled `bg-brand-200`.
-- **Light tints brand-50 / brand-100** for everything ambient: active nav rows, selected states, quiet highlights.
-- **brand-600 / brand-700** for brand-colored *text* on light fills (contrast, not decoration).
-- Never fill a large surface (sidebar, header, hero) with a dark brand shade in the learner app.
+Learner-app usage:
 
-### Color roles (keep consistent across features)
+- **brand-500** solid — real primary actions only: the main button on a screen, pagination's current page, a submit button. Hover `brand-600`, disabled `brand-200`.
+- **brand-50 / brand-100** tints — ambient: active nav rows, selected states, quiet highlights.
+- **brand-600 / brand-700** — brand-colored *text* on light fills (contrast, not decoration).
+- **brand-800 / brand-900** — dark text on tinted fills. Never as a large surface fill.
 
-- `brand-*` — primary actions, active nav, pagination current page
-- `teal-*` — anything AI-generated (corrections, suggestions, AI chat)
+### Semantic roles (identical on both surfaces)
+
+- `teal-*` — anything AI-generated (corrections, suggestions, AI chat). Never use teal for navigation or chrome; it would dilute the "this came from the model" signal.
 - `rose-*` — user errors / detected mistakes (never for destructive buttons)
-- `emerald-*` — success, "no errors found"
+- `emerald-*` — success, "no errors found", approved
 - `amber-*` — pending review (admin queues)
-- `gray-*` — text hierarchy: `gray-800` primary, `gray-500` secondary, `gray-400` meta. The gray ramp is **warm** (paper-toned), not blue-grey.
 
-### Surfaces
-
-Page background is warm paper `#f7f6f2`, not white; cards are white on top of it. Dark mode uses warm charcoals (`#16181a` page, `#212428` card) — never pure black.
-
-### Sidebar & navigation
-
-**The learner sidebar is light.** White surface, hairline right border, dark text — no dark fill.
-
-- Active row: **`bg-brand-100 text-brand-700 font-semibold`** (`dark:bg-brand-500/20 dark:text-brand-200`), 8px radius, icon inherits the text color. **Not** a solid `bg-brand-500` block and **not** a dark navy block.
-- Hover row: `bg-brand-50` (`dark:bg-white/5`).
-- Rest row: `text-gray-500`, `font-medium`.
-- No shadow on nav rows.
-
-The **admin** sidebar keeps its dark indigo (`brand-800`) treatment with teal active rows — that contrast is intentional to separate the admin surface from the learner surface.
-
-### Cards & lists
-
-`rounded-xl border border-gray-200 bg-white shadow-sm` + `dark:border-gray-700 dark:bg-gray-900`. List rows are compact one-per-line horizontal cards, spaced with `flex flex-col gap-2.5` (not `space-y-*`). Hover state = border turns `teal-500` + soft shadow, **no scale/translate**.
+Each surface renders these roles in its own temperature: the learner app uses the warm washi values in `tokens/colors.css`, the admin console the cooler status pairs in `tokens/admin.css`. Same meaning, different values — never swap the meanings.
 
 ### Japanese text
 
 Always `lang="ja"` on elements containing Japanese so the browser picks correct CJK glyphs. Long sentences `truncate` on one line with a `title` attribute; full text lives in the detail modal, never wrapped in the row. Reading passages use relaxed leading (`leading-relaxed`).
 
+### Buttons, inputs, focus
+
+`rounded-lg` (8px); inputs 44px tall (also the minimum tap target). Focus = `border-brand-400` plus a 3px translucent brand ring. Never remove the focus ring.
+
+### Icons
+
+2px-stroke SVG from the shared icon set, 20px in nav / 16px inline, inheriting `currentColor`. No icon font, no second icon library, no emoji, no Unicode glyphs (`→`, `✓`) as icons.
+
+### Motion
+
+150ms color transitions, 200ms background, 300ms sidebar collapse, all `ease-in-out`. No bounces, no entrance animations. Card hover never scales or translates.
+
+### Copy
+
+Vietnamese UI, Japanese content, no third language in chrome. Second person informal-polite (*bạn*); the product never says "tôi"/"we". Sentence case everywhere except uppercase 10px table headers. Buttons 1–4 words. Vietnamese thousands separator (`1.482`).
+
+---
+
+## Learner surface (`/`)
+
+**Direction: washi paper + faded indigo ink.** Warm, low-contrast, easy on the eyes for hour-long study sessions. No neon, no saturated dashboard colors, no gradient backgrounds, **no dark blocks anywhere** — not the sidebar, not the header, not a hero.
+
+### Surfaces
+
+- Page background: warm paper `#f7f6f2` (not white). Cards are white on top of it.
+- Dark mode: warm charcoals — `#16181a` page, `#212428` card. Never pure black.
+- Gray ramp is **warm** (paper-toned), not blue-grey: `gray-800` primary text, `gray-500` secondary, `gray-400` meta.
+
+### Sidebar & navigation — light
+
+White surface, hairline right border, dark text.
+
+- Active row: `bg-brand-100 text-brand-700 font-semibold` (`dark:bg-brand-500/20 dark:text-brand-200`), 8px radius, icon inherits the text color. **Not** a solid `bg-brand-500` block, **not** a dark navy block.
+- Hover row: `bg-brand-50` (`dark:bg-white/5`).
+- Rest row: `text-gray-500 font-medium`.
+- No shadow on nav rows.
+
+### Cards & lists
+
+`rounded-xl border border-gray-200 bg-white shadow-sm` + `dark:border-gray-700 dark:bg-gray-900`. List rows are compact one-per-line horizontal cards, spaced with `flex flex-col gap-2.5` (not `space-y-*`). Hover = border turns `teal-500` + soft shadow.
+
 ### Filter chips
 
 `rounded-full px-4 py-1.5 text-xs`; active = `bg-gray-900 text-white` (inverted in dark mode), inactive = bordered, hover border `teal-400`.
 
-### Buttons, inputs, focus
+### Floating help assistant
 
-Buttons and inputs are `rounded-lg` (8px), inputs are 44px tall (also the minimum tap target). Focus = `border-brand-400` plus a 3px translucent brand ring; never remove the focus ring.
+One per app, mounted at the shell level (not inside a page body). Launcher FAB bottom-right, 56px, `bg-brand-500`; the panel opens **above** the FAB so it never covers it or the page's own bottom-right controls. It answers *how do I use this website* questions only — Japanese conversation practice lives on the **Luyện hội thoại AI** screen, never in the floating panel.
 
-### Icons
+### Spacing & density
 
-2px-stroke SVG from the shared icon set, 20px in nav / 16px inline. Icons inherit `currentColor`. No emoji, no Unicode glyphs (`→`, `✓`) as icons in new code.
+Roomy: 24px page padding, 16–24px between blocks. A learner screen shows fewer things, larger.
 
-### Motion
+---
 
-150ms color transitions, 200ms background, 300ms sidebar collapse, all `ease-in-out`. No bounces, no entrance animations.
+## Admin surface (`/admin/*`)
 
-### Page titles
+**Direction: soft enterprise dashboard.** Clean, light, professional. A cool background that is *not* strongly blue, one decisive Manabi blue for primary actions, lavender for icons and active state, and teal/amber/rose reserved for status. Lots of white space, no heavy borders, medium card radius — never "cute".
 
-Go through `usePageHeader()` (see above), never an inline `<h1>`.
+Tokens live in `tokens/admin.css`. Put `data-surface="admin"` on the admin shell root and the shared semantic aliases (`--bg-page`, `--text-primary`, `--action-primary`, `--nav-*`, …) resolve to the admin values below. The learner app's warm `brand-*` scale is **not** used on this surface.
+
+### Surfaces
+
+| Role | Hex |
+|---|---|
+| Page background (xanh xám rất nhạt) | `#F6F8FC` |
+| Sidebar | `#FFFFFF` |
+| Card | `#FFFFFF` |
+| Input fill | `#F3F6FA` |
+| Active menu row (lavender nhạt) | `#E8EFFF` |
+
+The **cool page background against white cards** is the main "you are in the admin console" cue — not a dark chrome block. There are no dark fills on this surface: the admin sidebar and header are white, exactly like the cards, separated only by hairline borders.
+
+### Admin blue (`admin-*`)
+
+```
+admin-50  #E8EFFF   ← primary tint / active menu
+admin-200 #B8C9F2   ← active border
+admin-500 #315DCE   ← primary  (Manabi blue)
+admin-600 #244DB5   ← primary hover
+admin-900 #142B52   ← navy text
+lavender-500 #5E6BC4 ← logo mark, icon tiles
+```
+
+**Only Manabi blue marks a primary action** — the main button on a screen, a submit, the current page in pagination. Lavender, teal, amber and rose exist to rank information and encode status; they never become an action color. Disabled primary = `admin-200`.
+
+### Text ramp (cool slate)
+
+| Role | Hex |
+|---|---|
+| Page / card title | `#122B52` |
+| Section subtitle | `#29466F` |
+| Body | `#536B8D` |
+| Meta, secondary | `#8294AF` |
+| Disabled | `#B5C1D2` |
+| On primary | `#FFFFFF` |
+
+### Status colors (fill / ink)
+
+Status is what admins actually read; keep it boring and consistent.
+
+| Trạng thái | Fill | Ink |
+|---|---|---|
+| Thành công / đã duyệt | `#E4F5F1` | `#15988E` |
+| Đang chờ duyệt | `#FFF3D9` | `#B47A1B` |
+| Cần chỉnh sửa | `#FBE9ED` | `#C26678` |
+| Thông tin | `#E6F1FC` | `#4B91D2` |
+| Lỗi / thất bại | `#FDEBEC` | `#C94D5C` |
+| Nháp / trung tính | `#EEF2F7` | `#64748B` |
+
+Badges are pill-shaped, fill + ink from one row above, with a 6px dot in the ink color. Never encode status with admin blue, and never use a status color as a navigation accent.
+
+### Typography
+
+Inter or Plus Jakarta Sans across the whole console.
+
+- Page title: 28–32px / 500–600
+- Section title: 16–18px / 600
+- Body: 14px / 400
+- Small label: 11–12px, uppercase, `letter-spacing: 1.2px`
+- Dashboard numbers: 24–28px / 700, in the title navy
+
+### Borders, radius, shadow
+
+- Border: `#E1E8F2` · input border `#DCE5F1` · active/focus border `#B8C9F2`
+- Radius: card 14–16px · button 9–10px · input 9px · small avatar & icon tile 10–12px (this **overrides** the shared 8px rule on the admin surface)
+- Card shadow: `0 4px 16px rgba(35, 67, 110, 0.05)` — that soft, and no more
+- Primary button shadow: `0 5px 12px rgba(49, 93, 206, 0.22)`
+- Focus: `#B8C9F2` border plus `0 0 0 3px rgba(49, 93, 206, 0.18)`
+
+### Sidebar & navigation — light
+
+White surface, hairline right border, 20px icons inheriting `currentColor`.
+
+- Active row: `bg-[#E8EFFF] text-admin-600 font-semibold`, 10px radius, icon in `admin-500`. No solid blue block, no dark block.
+- Hover row: `#F3F6FA`. Rest row: `#536B8D`, `font-medium`.
+- Section labels ("WORKSPACE", "HỆ THỐNG"): 11px uppercase, 1.2px tracking, `#8294AF`.
+- Counts sit in a right-aligned `#EEF2F7` / `#64748B` pill.
+- No shadow on nav rows.
+
+### Data & density
+
+- Tables, not cards, for anything with more than three columns. 11px uppercase headers, 44px rows, zebra off, hairline row borders.
+- Compact spacing: 32px page padding, 16–20px between blocks, 24px card padding.
+- Stat cards: lavender/teal/amber icon tile top-left, delta chip top-right, label, then the big number.
+- Charts and stat chips use **cool greys plus one Manabi blue**. No decorative purple/orange ramp.
+
+### Destructive actions
+
+Confirm in a modal with the object name in the body text. The confirm button is solid `#C94D5C`; the rose *fill* still means "cần chỉnh sửa" on read-only surfaces, so keep destructive rose confined to buttons and confirmation dialogs.

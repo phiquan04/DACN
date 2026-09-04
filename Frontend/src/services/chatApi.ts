@@ -64,12 +64,19 @@ export interface ConversationDetail {
   messages: MessageDetail[];
 }
 
+export interface ScenarioContextField {
+  key: string;
+  label: string;
+  placeholder?: string | null;
+}
+
 export interface ChatScenario {
   id: number;
   title: string;
   description: string | null;
   level: string | null;
   icon: string | null;
+  context_fields: ScenarioContextField[];
 }
 
 export interface StartConversationResponse {
