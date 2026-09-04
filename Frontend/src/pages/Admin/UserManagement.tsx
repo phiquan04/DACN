@@ -275,9 +275,9 @@ export default function UserManagement() {
       <div className="space-y-5">
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
           <StatCard label="Tổng người dùng" value={stats?.total ?? 0} icon={<GroupIcon />} />
-          <StatCard label="Đang hoạt động" value={stats?.active ?? 0} icon={<CheckCircleIcon />} tone="emerald" />
-          <StatCard label="Đã khóa" value={stats?.locked ?? 0} icon={<OutlineLockIcon />} tone="rose" />
-          <StatCard label="Quản trị viên" value={stats?.admins ?? 0} icon={<UserCircleIcon />} tone="brand" />
+          <StatCard label="Đang hoạt động" value={stats?.active ?? 0} icon={<CheckCircleIcon />} tone="success" />
+          <StatCard label="Đã khóa" value={stats?.locked ?? 0} icon={<OutlineLockIcon />} tone="danger" />
+          <StatCard label="Quản trị viên" value={stats?.admins ?? 0} icon={<UserCircleIcon />} />
         </div>
 
         <div className="flex flex-wrap items-center gap-3 rounded-xl border border-gray-200 bg-white p-3 shadow-sm dark:border-gray-700 dark:bg-gray-900">

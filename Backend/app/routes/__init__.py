@@ -15,6 +15,7 @@ from .pronunciation import router as pronunciation_router
 from .dictionary import router as dictionary_router
 from .user import router as user_router
 from .admin_users import router as admin_users_router
+from .admin_dashboard import router as admin_dashboard_router
 from .scenarios import router as scenarios_router
 from .admin_scenarios import router as admin_scenarios_router
 from .meeting import router as meeting_router
@@ -37,6 +38,7 @@ def register_routers(app):
     app.include_router(dictionary_router, prefix="/api")
     app.include_router(user_router, prefix="/api")
     app.include_router(admin_users_router, prefix="/api")
+    app.include_router(admin_dashboard_router, prefix="/api")
     app.include_router(scenarios_router, prefix="/api")
     app.include_router(admin_scenarios_router, prefix="/api")
     app.include_router(meeting_router, prefix="/api")

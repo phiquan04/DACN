@@ -317,8 +317,8 @@ export default function ReviewVocabularySets({ focusSetId }: { focusSetId?: numb
     <div className="space-y-5">
       <div className="grid gap-4 sm:grid-cols-3">
         <StatCard label="Tổng số bộ từ vựng" value={sets.length} icon={<BoxCubeIcon />} />
-        <StatCard label="Đang mở" value={sets.length - lockedCount} icon={<UnlockIcon />} tone="emerald" />
-        <StatCard label="Đang khóa" value={lockedCount} icon={<LockIcon />} tone="rose" />
+        <StatCard label="Đang mở" value={sets.length - lockedCount} icon={<UnlockIcon />} tone="success" />
+        <StatCard label="Đang khóa" value={lockedCount} icon={<LockIcon />} tone="danger" />
       </div>
 
       <div className="flex items-center gap-1 border-b border-gray-200 dark:border-gray-700">

@@ -1,35 +1,47 @@
 import { ReactNode } from "react";
 
-export type StatTone = "teal" | "rose" | "emerald" | "brand" | "amber";
+export type StatTone = "neutral" | "success" | "pending" | "danger" | "info";
 
-const TONE_STYLES: Record<StatTone, string> = {
-  teal: "bg-teal-100 text-teal-600 dark:bg-teal-500/15 dark:text-teal-400",
-  rose: "bg-rose-100 text-rose-600 dark:bg-rose-500/15 dark:text-rose-400",
-  emerald: "bg-emerald-100 text-emerald-600 dark:bg-emerald-500/15 dark:text-emerald-400",
-  brand: "bg-brand-100 text-brand-600 dark:bg-brand-500/15 dark:text-brand-400",
-  amber: "bg-amber-100 text-amber-600 dark:bg-amber-500/15 dark:text-amber-400",
+// Fill/ink pairs straight from CLAUDE.md's admin "Status colors" table, plus
+// a lavender "neutral" pair for plain counts that carry no status meaning.
+const TONE_COLORS: Record<StatTone, { fill: string; ink: string }> = {
+  neutral: { fill: "#E8EFFF", ink: "#5E6BC4" },
+  success: { fill: "#E4F5F1", ink: "#15988E" },
+  pending: { fill: "#FFF3D9", ink: "#B47A1B" },
+  danger: { fill: "#FDEBEC", ink: "#C94D5C" },
+  info: { fill: "#E6F1FC", ink: "#4B91D2" },
 };
 
 interface Props {
   label: string;
   value: number;
   icon: ReactNode;
-  /** Overrides the default teal icon circle — use to make a stat's meaning
-   * obvious at a glance (e.g. a "locked" count in rose, an "active" count
-   * in emerald), not tied to the brand color roles used elsewhere. */
+  /** Icon tile color — pick the tone matching this stat's status meaning
+   * (see CLAUDE.md admin "Status colors"), not for visual variety. */
   tone?: StatTone;
+  /** Short context chip in the top-right corner, e.g. "+12 trong 7 ngày qua". */
+  hint?: ReactNode;
 }
 
-export default function StatCard({ label, value, icon, tone = "teal" }: Props) {
+export default function StatCard({ label, value, icon, tone = "neutral", hint }: Props) {
+  const { fill, ink } = TONE_COLORS[tone];
   return (
-    <div className="flex items-center gap-4 rounded-xl border border-gray-200 bg-white p-5 shadow-sm dark:border-gray-700 dark:bg-gray-900">
-      <div className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-full [&>svg]:h-5 [&>svg]:w-5 ${TONE_STYLES[tone]}`}>
-        {icon}
+    <div className="rounded-2xl border border-admin-border bg-white p-6 shadow-[0_4px_16px_rgba(35,67,110,0.05)]">
+      <div className="flex items-start justify-between gap-2">
+        <span
+          className="flex h-11 w-11 shrink-0 items-center justify-center rounded-[12px] [&>svg]:h-5 [&>svg]:w-5"
+          style={{ backgroundColor: fill, color: ink }}
+        >
+          {icon}
+        </span>
+        {hint && (
+          <span className="shrink-0 rounded-full bg-admin-fill px-2.5 py-1 text-[11px] font-medium text-admin-body">
+            {hint}
+          </span>
+        )}
       </div>
-      <div>
-        <p className="text-xs font-medium text-gray-500 dark:text-gray-400">{label}</p>
-        <p className="mt-0.5 text-3xl font-bold text-gray-800 dark:text-white/90">{value}</p>
-      </div>
+      <p className="mt-4 text-sm font-medium text-admin-body">{label}</p>
+      <p className="mt-1 text-[28px] font-bold leading-tight text-admin-ink">{value.toLocaleString("vi-VN")}</p>
     </div>
   );
 }
