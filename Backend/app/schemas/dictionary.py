@@ -84,6 +84,14 @@ class ReadingRequest(BaseModel):
     text: str
 
 
+class TranslateSentenceRequest(BaseModel):
+    text: str
+
+
+class TranslateSentenceResponse(BaseModel):
+    translation: str
+
+
 class ImageItem(BaseModel):
     id: int
     image_url: str

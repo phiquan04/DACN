@@ -25,7 +25,14 @@ export interface SignInRequest {
 export interface AuthResponse {
   user: User;
   access_token: string;
+  refresh_token: string;
   token_type: string;
+}
+
+function storeSession(response: AuthResponse): void {
+  localStorage.setItem("access_token", response.access_token);
+  localStorage.setItem("refresh_token", response.refresh_token);
+  localStorage.setItem("user", JSON.stringify(response.user));
 }
 
 export async function signUp(data: SignUpRequest): Promise<AuthResponse> {
@@ -34,8 +41,7 @@ export async function signUp(data: SignUpRequest): Promise<AuthResponse> {
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(data),
   });
-  localStorage.setItem("access_token", response.access_token);
-  localStorage.setItem("user", JSON.stringify(response.user));
+  storeSession(response);
   return response;
 }
 
@@ -45,8 +51,7 @@ export async function signIn(data: SignInRequest): Promise<AuthResponse> {
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(data),
   });
-  localStorage.setItem("access_token", response.access_token);
-  localStorage.setItem("user", JSON.stringify(response.user));
+  storeSession(response);
   return response;
 }
 
@@ -54,21 +59,19 @@ export async function getCurrentUser(): Promise<User | null> {
   const token = getToken();
   if (!token) return null;
 
-  // An expired/invalid token isn't an application error worth a toast —
-  // it just means the user is signed out, so this bypasses the shared
-  // request() helper and its global error reporting.
-  const res = await fetch(`${BASE_URL}/api/auth/me`, {
-    method: "GET",
-    headers: { Authorization: `Bearer ${token}` },
-  });
-
-  if (!res.ok) {
-    localStorage.removeItem("access_token");
-    localStorage.removeItem("user");
+  try {
+    // Routed through the shared request() helper (silent: no toast) so a
+    // merely-expired access token gets transparently refreshed via the
+    // stored refresh token instead of signing the user out — see
+    // services/httpClient.ts's doRequest.
+    return await request<User>("/api/auth/me", {
+      method: "GET",
+      headers: { Authorization: `Bearer ${token}` },
+      silent: true,
+    });
+  } catch {
     return null;
   }
-
-  return res.json();
 }
 
 export function logout(): void {
@@ -85,6 +88,7 @@ export function logout(): void {
     }).catch(() => {});
   }
   localStorage.removeItem("access_token");
+  localStorage.removeItem("refresh_token");
   localStorage.removeItem("user");
 }
 

@@ -94,7 +94,7 @@ export default function YouTubeSearchPanel({
         <button
           type="submit"
           disabled={searching}
-          className="rounded-lg bg-red-500 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-red-600 disabled:opacity-50"
+          className="rounded-lg bg-gradient-to-r from-brand-500 to-brand-600 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-red-600 disabled:opacity-50"
         >
           {searching ? "…" : "Tìm"}
         </button>

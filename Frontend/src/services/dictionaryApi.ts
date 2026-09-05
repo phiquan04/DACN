@@ -51,6 +51,15 @@ export async function lookupWord(word: string): Promise<DictionaryResult> {
   });
 }
 
+export async function translateSentence(text: string): Promise<string> {
+  const res = await request<{ translation: string }>(`/api/dictionary/translate-sentence`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ text }),
+  });
+  return res.translation;
+}
+
 /** strokes: one array of [x, y] points per stroke, in drawing order. */
 export async function recognizeHandwriting(strokes: number[][][]): Promise<string[]> {
   const res = await request<{ candidates: string[] }>(`/api/dictionary/handwriting/recognize`, {

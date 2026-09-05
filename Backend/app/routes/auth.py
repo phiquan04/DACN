@@ -9,6 +9,7 @@ from app.models.database import get_db
 from app.dependencies import UserResponse, get_current_user, to_user_response
 from app.services.audit_log import log_event
 from app.services.email_verification import confirm_verification_code, send_verification_code
+from app.services.welcome_email import send_welcome_email
 from app.utils.auth import (
     hash_password,
     verify_password,
@@ -68,6 +69,7 @@ class RefreshRequest(BaseModel):
 
 class RefreshResponse(BaseModel):
     access_token: str
+    refresh_token: str
     token_type: str = "bearer"
 
 class EmailVerificationConfirmRequest(BaseModel):
@@ -116,14 +118,13 @@ def sign_up(user_data: UserSignUp, db: Session = Depends(get_db)):
     # already have.
     user_response = to_user_response(new_user)
 
-    # Best-effort: get a verification code into their inbox right away. A mail
-    # failure must not fail the signup itself — the account already exists and
-    # they can request a new code from their profile page.
-    ok, _ = send_verification_code(db, new_user)
-    if ok:
-        db.commit()
-    else:
-        db.rollback()
+    # No verification code is sent here — the learner requests one explicitly
+    # from the profile page's "Gửi mã xác minh" button (see
+    # EmailVerificationCard.tsx and POST /auth/verify-email/send below).
+
+    # Best-effort welcome email — no DB writes involved, so a failure here
+    # can't affect the transaction above.
+    send_welcome_email(new_user)
 
     # Create access + refresh tokens
     access_token = create_access_token(
@@ -190,10 +191,16 @@ def refresh_access_token(req: RefreshRequest, db: Session = Depends(get_db)):
     if not user.is_active:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="User account is inactive")
 
+    # Rotate the refresh token on every use (sliding expiration): as long as
+    # the frontend calls /auth/refresh at least once within
+    # REFRESH_TOKEN_EXPIRE_DAYS, the session keeps extending itself and the
+    # user is never asked to sign in again — only real inactivity longer than
+    # that window, or an explicit logout, ends it.
     access_token = create_access_token(
         user_id=user.id, username=user.username, role=user.role.code if user.role else "user"
     )
-    return RefreshResponse(access_token=access_token, token_type="bearer")
+    new_refresh_token = create_refresh_token(user_id=user.id)
+    return RefreshResponse(access_token=access_token, refresh_token=new_refresh_token, token_type="bearer")
 
 @router.get("/me", response_model=UserResponse)
 def get_me(current_user: UserResponse = Depends(get_current_user)):

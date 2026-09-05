@@ -31,7 +31,43 @@ export function setUnauthorizedHandler(handler: UnauthorizedHandler | null): voi
   unauthorizedHandler = handler;
 }
 
-const AUTH_ENDPOINTS_WITHOUT_SESSION = ["/api/auth/signin", "/api/auth/signup"];
+const ACCESS_TOKEN_KEY = "access_token";
+const REFRESH_TOKEN_KEY = "refresh_token";
+
+// Endpoints where a 401 means "wrong credentials"/"no session yet", not an
+// expired session — refreshing or bouncing to sign-in would be wrong here.
+const AUTH_ENDPOINTS_WITHOUT_SESSION = ["/api/auth/signin", "/api/auth/signup", "/api/auth/refresh"];
+
+// De-dupes concurrent refresh attempts: if several requests 401 around the
+// same time (e.g. a page firing off multiple API calls right after the
+// access token expires), they all await the same in-flight /auth/refresh
+// call instead of racing to rotate the refresh token multiple times.
+let refreshPromise: Promise<string | null> | null = null;
+
+async function refreshAccessToken(): Promise<string | null> {
+  const refreshToken = localStorage.getItem(REFRESH_TOKEN_KEY);
+  if (!refreshToken) return null;
+
+  if (!refreshPromise) {
+    refreshPromise = fetch(`${BASE_URL}/api/auth/refresh`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ refresh_token: refreshToken }),
+    })
+      .then(async (res) => {
+        if (!res.ok) return null;
+        const data = await res.json();
+        localStorage.setItem(ACCESS_TOKEN_KEY, data.access_token);
+        localStorage.setItem(REFRESH_TOKEN_KEY, data.refresh_token);
+        return data.access_token as string;
+      })
+      .catch(() => null)
+      .finally(() => {
+        refreshPromise = null;
+      });
+  }
+  return refreshPromise;
+}
 
 interface RequestOptions extends RequestInit {
   /** Skip the global error reporter — use for best-effort/background calls. */
@@ -45,6 +81,15 @@ interface RequestOptions extends RequestInit {
  */
 export async function request<T>(path: string, options: RequestOptions = {}): Promise<T> {
   const { silent, ...init } = options;
+  return doRequest<T>(path, init, silent, /* allowRefresh */ true);
+}
+
+async function doRequest<T>(
+  path: string,
+  init: RequestInit,
+  silent: boolean | undefined,
+  allowRefresh: boolean
+): Promise<T> {
   let res: Response;
   try {
     res = await fetch(`${BASE_URL}${path}`, init);
@@ -65,10 +110,26 @@ export async function request<T>(path: string, options: RequestOptions = {}): Pr
 
     const isSessionExpiry =
       res.status === 401 && !AUTH_ENDPOINTS_WITHOUT_SESSION.some((p) => path.startsWith(p));
+
+    if (isSessionExpiry && allowRefresh) {
+      // The access token (30 min) expired but the refresh token (30 days,
+      // rotated on every use — see Backend/app/routes/auth.py) may still be
+      // good: get a new access token and retry this call once before
+      // treating it as a real session expiry.
+      const newAccessToken = await refreshAccessToken();
+      if (newAccessToken) {
+        const retryInit: RequestInit = {
+          ...init,
+          headers: { ...(init.headers as Record<string, string> | undefined), Authorization: `Bearer ${newAccessToken}` },
+        };
+        return doRequest<T>(path, retryInit, silent, /* allowRefresh */ false);
+      }
+    }
+
     if (isSessionExpiry) {
-      // A stale/expired token isn't a per-request error worth a toast —
-      // hand off to the session handler (clears the token, redirects to
-      // sign-in) instead of reporting it like a normal failure.
+      // Both tokens are gone — hand off to the session handler (clears
+      // storage, redirects to sign-in) instead of reporting it like a
+      // normal failure.
       unauthorizedHandler?.();
     } else if (!silent) {
       errorReporter?.(message);

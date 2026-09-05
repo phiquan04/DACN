@@ -12,7 +12,11 @@ class Config:
 
     ALGORITHM = "HS256"
     ACCESS_TOKEN_EXPIRE_MINUTES = 30
-    REFRESH_TOKEN_EXPIRE_DAYS = 7
+    # Rotated on every /auth/refresh call (see app/routes/auth.py), so an
+    # account that's used at least once every 30 days never has to sign in
+    # again — only a stretch of inactivity longer than this, or an explicit
+    # logout, ends the session.
+    REFRESH_TOKEN_EXPIRE_DAYS = 30
     DEBUG = False
 
 class DevelopmentConfig(Config):

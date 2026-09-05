@@ -1,10 +1,11 @@
-from datetime import date
+from datetime import date, time
 
 from fastapi import APIRouter, Depends, UploadFile, File, HTTPException
 from sqlalchemy.orm import Session
 from pydantic import BaseModel, Field
-from typing import Optional
+from typing import List, Optional
 from app.models.database import get_db, UserInformation
+from app.models.reminder import ReminderTime
 from app.models.user import User
 from app.dependencies import get_current_user, UserResponse
 from app.utils.auth import hash_password, verify_password
@@ -13,6 +14,7 @@ from app.utils.cloudinary import upload_image
 router = APIRouter(prefix="/user", tags=["user"])
 
 MAX_AVATAR_BYTES = 5 * 1024 * 1024  # 5 MB, same cap as dictionary community images
+MAX_REMINDER_TIMES = 5  # study-reminder slots a learner can register per day
 
 
 class UserProfileUpdate(BaseModel):
@@ -140,3 +142,61 @@ def delete_avatar(
         db.commit()
 
     return {"avatar_url": None}
+
+
+class ReminderSettingsUpdate(BaseModel):
+    enabled: bool
+    times: List[time] = Field(default_factory=list, max_length=MAX_REMINDER_TIMES)
+
+
+class ReminderSettingsResponse(BaseModel):
+    enabled: bool
+    times: List[time]
+
+
+def _reminder_settings_response(db: Session, user_id: int, enabled: bool) -> ReminderSettingsResponse:
+    times = (
+        db.query(ReminderTime.time_of_day)
+        .filter(ReminderTime.user_id == user_id)
+        .order_by(ReminderTime.time_of_day)
+        .all()
+    )
+    return ReminderSettingsResponse(enabled=enabled, times=[t[0] for t in times])
+
+
+@router.get("/reminder-settings", response_model=ReminderSettingsResponse)
+def get_reminder_settings(
+    current_user: UserResponse = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    user = db.query(User).filter(User.id == current_user.id).first()
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+    return _reminder_settings_response(db, user.id, user.reminder_emails_enabled)
+
+
+@router.put("/reminder-settings", response_model=ReminderSettingsResponse)
+def update_reminder_settings(
+    data: ReminderSettingsUpdate,
+    current_user: UserResponse = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """Replaces the learner's whole set of reminder times with `data.times`
+    (at most 5) and flips the opt-in flag. A full replace (rather than
+    incremental add/remove) keeps this endpoint idempotent and matches how
+    the profile page's time-slot editor submits the form."""
+    user = db.query(User).filter(User.id == current_user.id).first()
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+
+    if len(set(data.times)) != len(data.times):
+        raise HTTPException(status_code=400, detail="Các mốc giờ nhắc nhở không được trùng nhau")
+
+    user.reminder_emails_enabled = data.enabled
+
+    db.query(ReminderTime).filter(ReminderTime.user_id == user.id).delete()
+    for t in data.times:
+        db.add(ReminderTime(user_id=user.id, time_of_day=t))
+
+    db.commit()
+    return _reminder_settings_response(db, user.id, user.reminder_emails_enabled)

@@ -28,6 +28,7 @@ _synonym_cache: dict = {}
 _meaning_search_cache: dict = {}
 _reading_cache: dict = {}
 _example_cache: dict = {}
+_sentence_translation_cache: dict = {}
 
 
 async def call_ai(prompt: str) -> str:
@@ -197,6 +198,30 @@ async def get_sentence_reading(text: str) -> str:
 
     _reading_cache[cache_key] = reading
     return reading
+
+
+async def translate_japanese_sentence(text: str) -> str:
+    """One-shot Japanese -> Vietnamese translation for whatever the learner
+    highlights on a page (see components/site-help-chat/SelectionMeaningPopup.tsx).
+    Separate from get_sentence_reading (which only transliterates to
+    hiragana) and from translate_batch (English -> Vietnamese only)."""
+    cache_key = f"ja_vi:{text}"
+    if cache_key in _sentence_translation_cache:
+        return _sentence_translation_cache[cache_key]
+
+    prompt = (
+        "Dịch câu hoặc cụm từ tiếng Nhật sau đây sang tiếng Việt tự nhiên, dễ hiểu. "
+        f'Chỉ trả về đúng bản dịch, không giải thích, không dấu ngoặc kép: "{text}"'
+    )
+    try:
+        response = await call_ai(prompt)
+    except Exception as e:
+        print(f"Sentence translation error for '{text}': {e}", flush=True)
+        response = ""
+
+    translation = response.strip().strip('"').strip() if response else ""
+    _sentence_translation_cache[cache_key] = translation
+    return translation
 
 
 async def get_examples(word: str, db: Session) -> list:
