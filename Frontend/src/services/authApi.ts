@@ -6,6 +6,7 @@ export interface User {
   email: string;
   is_active: boolean;
   role: string;
+  email_verified: boolean;
 }
 
 export interface SignUpRequest {
@@ -71,8 +72,67 @@ export async function getCurrentUser(): Promise<User | null> {
 }
 
 export function logout(): void {
+  // Best-effort: tell the backend to mark the account offline immediately
+  // (see /auth/logout) instead of waiting for the heartbeat timeout to
+  // expire. `keepalive` lets the request outlive the page navigation that
+  // usually follows a logout click, without making the caller await it.
+  const token = getToken();
+  if (token) {
+    fetch(`${BASE_URL}/api/auth/logout`, {
+      method: "POST",
+      headers: { Authorization: `Bearer ${token}` },
+      keepalive: true,
+    }).catch(() => {});
+  }
   localStorage.removeItem("access_token");
   localStorage.removeItem("user");
+}
+
+// Called every ~60s by useOnlineHeartbeat while the app is open, so the
+// admin console can tell this account is online right now (see
+// admin_users.py's _account_status). Silently no-ops on failure — a missed
+// heartbeat just means the account falls back to "inactive" a bit sooner,
+// not worth surfacing as an error toast.
+export async function heartbeat(): Promise<void> {
+  const token = getToken();
+  if (!token) return;
+  try {
+    await fetch(`${BASE_URL}/api/auth/heartbeat`, {
+      method: "POST",
+      headers: { Authorization: `Bearer ${token}` },
+    });
+  } catch {
+    // ignore — network hiccups shouldn't interrupt the study session
+  }
+}
+
+export interface EmailVerificationResponse {
+  email_verified: boolean;
+  message: string;
+}
+
+// Emails the signed-in user a fresh 6-digit code. The backend rate-limits
+// resends, so a 400 here is usually "wait N seconds" — surfaced to the user
+// as-is rather than swallowed.
+export async function sendEmailVerification(): Promise<EmailVerificationResponse> {
+  return request<EmailVerificationResponse>("/api/auth/verify-email/send", {
+    method: "POST",
+    headers: { Authorization: `Bearer ${getToken()}` },
+  });
+}
+
+export async function confirmEmailVerification(code: string): Promise<EmailVerificationResponse> {
+  const response = await request<EmailVerificationResponse>("/api/auth/verify-email/confirm", {
+    method: "POST",
+    headers: { Authorization: `Bearer ${getToken()}`, "Content-Type": "application/json" },
+    body: JSON.stringify({ code }),
+  });
+  // Keep the cached user in sync so the banner disappears without a reload.
+  const stored = getStoredUser();
+  if (stored) {
+    localStorage.setItem("user", JSON.stringify({ ...stored, email_verified: response.email_verified }));
+  }
+  return response;
 }
 
 export function getToken(): string | null {

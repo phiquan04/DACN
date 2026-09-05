@@ -20,6 +20,7 @@ class UserResponse(BaseModel):
     email: str
     is_active: bool
     role: str
+    email_verified: bool = False
 
     class Config:
         from_attributes = True
@@ -32,6 +33,7 @@ def to_user_response(user: User) -> UserResponse:
         email=user.email,
         is_active=user.is_active,
         role=user.role.code if user.role else "user",
+        email_verified=bool(user.email_verified),
     )
 
 

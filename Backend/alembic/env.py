@@ -35,6 +35,7 @@ if config.config_file_name is not None:
 from app.models.base import Base  # noqa: E402
 from app.models import (  # noqa: E402,F401
     user, chat, grammar, transcription, dictionary, profile, jlpt, vocabulary, notification,
+    audit_log, email_verification,
 )
 
 target_metadata = Base.metadata

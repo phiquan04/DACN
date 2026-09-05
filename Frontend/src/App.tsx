@@ -4,6 +4,7 @@ import { ScrollToTop } from "./components/common/ScrollToTop";
 import PageLoader from "./components/common/PageLoader";
 import AppLayout from "./layout/AppLayout";
 import AdminLayout from "./layout/AdminLayout";
+import { useOnlineHeartbeat } from "./hooks/useOnlineHeartbeat";
 
 const AdminHome = lazy(() => import("./pages/Admin/AdminHome"));
 const AdminUserManagement = lazy(() => import("./pages/Admin/UserManagement"));
@@ -32,6 +33,8 @@ const JapaneseWatch = lazy(() => import("./pages/VideoLearn/JapaneseWatch"));
 const VocabularyLearningPage = lazy(() => import("./pages/VocabularyLearning/VocabularyLearningPage"));
 
 export default function App() {
+  useOnlineHeartbeat();
+
   return (
     <>
       <Router>

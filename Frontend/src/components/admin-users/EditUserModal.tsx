@@ -2,7 +2,7 @@ import { useState } from "react";
 import { Modal } from "../ui/modal";
 import { AdminUserDetail, UpdateUserPayload } from "../../services/adminUserApi";
 import { GlobeIcon, PhoneIcon } from "../../icons/custom";
-import { CalenderIcon, DocsIcon, GroupIcon, TaskIcon, UserCircleIcon, UserIcon } from "../../icons";
+import { CalenderIcon, GroupIcon, UserCircleIcon, UserIcon } from "../../icons";
 
 interface Props {
   user: AdminUserDetail;
@@ -25,9 +25,6 @@ export default function EditUserModal({ user, isSelf, saving, onConfirm, onClose
   const [city, setCity] = useState(user.city ?? "");
   const [dateOfBirth, setDateOfBirth] = useState(user.date_of_birth ?? "");
   const [gender, setGender] = useState(user.gender ?? "");
-  const [currentLevel, setCurrentLevel] = useState(user.current_jlpt_level ?? "");
-  const [targetLevel, setTargetLevel] = useState(user.target_jlpt_level ?? "");
-  const [dailyGoal, setDailyGoal] = useState(user.daily_vocab_goal != null ? String(user.daily_vocab_goal) : "");
 
   const handleSubmit = () => {
     const payload: UpdateUserPayload = {
@@ -38,9 +35,6 @@ export default function EditUserModal({ user, isSelf, saving, onConfirm, onClose
       city: city.trim() || null,
       date_of_birth: dateOfBirth || null,
       gender: gender || null,
-      current_jlpt_level: currentLevel || null,
-      target_jlpt_level: targetLevel || null,
-      daily_vocab_goal: dailyGoal.trim() ? Number(dailyGoal) : null,
     };
     if (!isSelf) payload.role = role;
     onConfirm(payload);
@@ -125,52 +119,6 @@ export default function EditUserModal({ user, isSelf, saving, onConfirm, onClose
                 <GlobeIcon /> Thành phố
               </label>
               <input value={city} onChange={(e) => setCity(e.target.value)} className={inputClass} />
-            </div>
-          </div>
-        </div>
-
-        <div>
-          <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-gray-400 dark:text-gray-500">
-            Học tập & mục tiêu
-          </p>
-          <div className="grid gap-3 sm:grid-cols-3">
-            <div>
-              <label className={labelClass}>
-                <DocsIcon /> Trình độ hiện tại
-              </label>
-              <select value={currentLevel} onChange={(e) => setCurrentLevel(e.target.value)} className={inputClass}>
-                <option value="">—</option>
-                {["N5", "N4", "N3", "N2", "N1"].map((l) => (
-                  <option key={l} value={l}>
-                    {l}
-                  </option>
-                ))}
-              </select>
-            </div>
-            <div>
-              <label className={labelClass}>
-                <DocsIcon /> Trình độ mục tiêu
-              </label>
-              <select value={targetLevel} onChange={(e) => setTargetLevel(e.target.value)} className={inputClass}>
-                <option value="">—</option>
-                {["N5", "N4", "N3", "N2", "N1"].map((l) => (
-                  <option key={l} value={l}>
-                    {l}
-                  </option>
-                ))}
-              </select>
-            </div>
-            <div>
-              <label className={labelClass}>
-                <TaskIcon /> Mục tiêu từ/ngày
-              </label>
-              <input
-                type="number"
-                min={1}
-                value={dailyGoal}
-                onChange={(e) => setDailyGoal(e.target.value)}
-                className={inputClass}
-              />
             </div>
           </div>
         </div>

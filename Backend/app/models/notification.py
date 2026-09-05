@@ -11,7 +11,7 @@ class Notification(BaseModel):
     __tablename__ = 'notifications'
 
     user_id = Column(Integer, ForeignKey('users.id'), nullable=False)
-    type = Column(String(30), nullable=False)  # 'level_up' | 'achievement'
+    type = Column(String(30), nullable=False)  # 'level_up' | 'achievement' | 'email_verified'
     title = Column(String(255), nullable=False)
     message = Column(Text, nullable=True)
     link = Column(String(255), nullable=True)  # frontend route to open on click

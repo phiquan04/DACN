@@ -5,6 +5,7 @@ import UserAddressCard from "../components/UserProfile/UserAddressCard";
 import LevelProgressCard from "../components/UserProfile/LevelProgressCard";
 import ActivityHeatmapCard from "../components/UserProfile/ActivityHeatmapCard";
 import SecurityCard from "../components/UserProfile/SecurityCard";
+import EmailVerificationCard from "../components/UserProfile/EmailVerificationCard";
 import SettingsCard from "../components/UserProfile/SettingsCard";
 import PageMeta from "../components/common/PageMeta";
 import { getUserProfile, updateUserProfile, type UserProfile, type UserProfileUpdate } from "../services/api";
@@ -69,6 +70,8 @@ export default function UserProfiles() {
         </div>
       ) : profile ? (
         <div className="space-y-6">
+          <EmailVerificationCard />
+
           <UserMetaCard
             profile={profile}
             overview={overview}

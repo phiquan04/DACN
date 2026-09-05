@@ -1,4 +1,5 @@
 import { AngleLeftIcon, AngleRightIcon } from "../../icons";
+import { ADMIN_PRIMARY_GRADIENT } from "../../utils/adminStyles";
 
 function pageList(current: number, total: number): (number | "...")[] {
   if (total <= 7) return Array.from({ length: total }, (_, i) => i + 1);
@@ -29,13 +30,13 @@ export default function Pagination({ page, totalPages, onChange }: Props) {
         type="button"
         onClick={() => onChange(Math.max(1, page - 1))}
         disabled={page <= 1}
-        className="flex h-8 w-8 items-center justify-center rounded-lg border border-gray-200 text-gray-500 hover:bg-gray-50 disabled:opacity-40 dark:border-gray-700 dark:text-gray-400 dark:hover:bg-gray-800"
+        className="flex h-8 w-8 items-center justify-center rounded-lg border border-admin-border text-admin-body hover:bg-admin-fill disabled:opacity-40"
       >
         <AngleLeftIcon className="h-4 w-4" />
       </button>
       {pageList(page, totalPages).map((p, i) =>
         p === "..." ? (
-          <span key={`ellipsis-${i}`} className="px-1 text-xs text-gray-400 dark:text-gray-500">
+          <span key={`ellipsis-${i}`} className="px-1 text-xs text-admin-meta">
             …
           </span>
         ) : (
@@ -44,9 +45,7 @@ export default function Pagination({ page, totalPages, onChange }: Props) {
             type="button"
             onClick={() => onChange(p)}
             className={`flex h-8 w-8 items-center justify-center rounded-lg text-xs font-medium ${
-              p === page
-                ? "bg-brand-500 text-white"
-                : "text-gray-600 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-gray-800"
+              p === page ? `text-white ${ADMIN_PRIMARY_GRADIENT}` : "text-admin-body hover:bg-admin-fill"
             }`}
           >
             {p}
@@ -57,7 +56,7 @@ export default function Pagination({ page, totalPages, onChange }: Props) {
         type="button"
         onClick={() => onChange(Math.min(totalPages, page + 1))}
         disabled={page >= totalPages}
-        className="flex h-8 w-8 items-center justify-center rounded-lg border border-gray-200 text-gray-500 hover:bg-gray-50 disabled:opacity-40 dark:border-gray-700 dark:text-gray-400 dark:hover:bg-gray-800"
+        className="flex h-8 w-8 items-center justify-center rounded-lg border border-admin-border text-admin-body hover:bg-admin-fill disabled:opacity-40"
       >
         <AngleRightIcon className="h-4 w-4" />
       </button>

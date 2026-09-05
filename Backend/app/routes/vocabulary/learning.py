@@ -26,6 +26,7 @@ from app.schemas.vocabulary import (
     ReviewSubmitRequest, ReviewSubmitResponse, StudyBatchRequest, StudyOverviewOut,
     UpdateDailyGoalRequest, VocabularyLearningItemOut, VocabularySetLearningDetailOut, VocabularySetProgressOut,
 )
+from app.services.audit_log import has_logged_today, log_event
 from app.services.chat_ai import call_openrouter, require_api_key
 from app.services.xp_leveling import level_info as _level_info, xp_threshold as _xp_threshold
 
@@ -118,6 +119,18 @@ def _check_and_notify_achievements(db: Session, user_id: int, level: int) -> Non
             user_id=user_id, type='achievement', title=f'Đạt huy hiệu: {name}',
             message=description, link='/vocabulary', related_code=code,
         ))
+        log_event(
+            db, subject_user_id=user_id, action='vocab.achievement_unlocked',
+            description=f'Đạt huy hiệu: {name}', actor_user_id=user_id, actor_role='user',
+            extra_data={'code': code},
+        )
+
+
+def _studied_today_count(db: Session, user_id: int, today) -> int:
+    day_start = datetime.combine(today, datetime.min.time())
+    return db.query(func.count(func.distinct(VocabularyReviewLog.item_id))).filter(
+        VocabularyReviewLog.user_id == user_id, VocabularyReviewLog.reviewed_at >= day_start,
+    ).scalar() or 0
 
 
 def _published_set_query(db: Session):
@@ -485,6 +498,17 @@ def submit_review(
     # most reviews (a plain 'again'/'hard' grade) never do.
     if just_learned or leveled_up:
         _check_and_notify_achievements(db, current_user.id, new_level)
+
+    today = now.date()
+    daily_goal = user.daily_vocab_goal if user.daily_vocab_goal else DAILY_GOAL_WORDS
+    if _studied_today_count(db, current_user.id, today) >= daily_goal and not has_logged_today(
+        db, subject_user_id=current_user.id, action='vocab.daily_goal_met', today=today,
+    ):
+        log_event(
+            db, subject_user_id=current_user.id, action='vocab.daily_goal_met',
+            description=f'Hoàn thành mục tiêu {daily_goal} từ vựng hôm nay',
+            actor_user_id=current_user.id, actor_role='user',
+        )
 
     db.commit()
     db.refresh(progress)

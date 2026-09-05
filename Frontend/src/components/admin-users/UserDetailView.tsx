@@ -1,63 +1,31 @@
-import { ReactNode } from "react";
-import { AdminUserDetail } from "../../services/adminUserApi";
+import { useEffect, useState } from "react";
+import {
+  AdminActivityEntry,
+  AdminUserDetail,
+  AdminUserLearningStats,
+  UpdateUserPayload,
+  fetchUserActivity,
+  fetchUserLearningStats,
+} from "../../services/adminUserApi";
 import { formatApiDate, formatApiDateTime } from "../../utils/datetime";
 import { LockIcon, UnlockIcon } from "../admin-jlpt/icons";
-import { GlobeIcon, KeyIcon, PhoneIcon } from "../../icons/custom";
+import { ChevronLeftIcon, ShootingStarIcon } from "../../icons";
+import { AccountStatusBadge, EmailVerifiedBadge, JlptLevelBadge } from "./badges";
+import UserAvatar from "./UserAvatar";
 import {
-  BoltIcon,
-  CalenderIcon,
-  ChevronLeftIcon,
-  DocsIcon,
-  GroupIcon,
-  MailIcon,
-  PencilIcon,
-  ShootingStarIcon,
-  TaskIcon,
-  UserCircleIcon,
-  UserIcon,
-} from "../../icons";
+  ConversationTab,
+  JlptTab,
+  ListeningTab,
+  OverviewTab,
+  PersonalInfoTab,
+  PROFILE_TABS,
+  ProfileTabKey,
+  VocabularyTab,
+} from "./ProfileTabs";
 
 function displayName(u: AdminUserDetail): string {
   const full = [u.first_name, u.last_name].filter(Boolean).join(" ").trim();
   return full || u.username;
-}
-
-const GENDER_LABELS: Record<string, string> = { male: "Nam", female: "Nữ", other: "Khác" };
-
-function InfoField({ icon, label, value }: { icon: ReactNode; label: string; value: string }) {
-  return (
-    <div>
-      <p className="flex items-center gap-1.5 text-xs font-medium text-gray-500 dark:text-gray-400">
-        <span className="[&>svg]:h-3.5 [&>svg]:w-3.5">{icon}</span>
-        {label}
-      </p>
-      <p className="mt-0.5 text-sm text-gray-800 dark:text-white/90">{value || "—"}</p>
-    </div>
-  );
-}
-
-function StatMini({ icon, label, value }: { icon: ReactNode; label: string; value: string }) {
-  return (
-    <div className="rounded-xl border border-gray-200 bg-white p-4 shadow-sm dark:border-gray-700 dark:bg-gray-900">
-      <p className="flex items-center gap-1.5 text-xs font-medium text-gray-500 dark:text-gray-400">
-        <span className="[&>svg]:h-3.5 [&>svg]:w-3.5">{icon}</span>
-        {label}
-      </p>
-      <p className="mt-1 text-lg font-bold text-gray-800 dark:text-white/90">{value}</p>
-    </div>
-  );
-}
-
-function SectionCard({ title, action, children }: { title: string; action?: ReactNode; children: ReactNode }) {
-  return (
-    <div className="rounded-xl border border-gray-200 bg-white p-5 shadow-sm dark:border-gray-700 dark:bg-gray-900">
-      <div className="mb-3 flex items-center justify-between">
-        <h4 className="text-sm font-semibold text-gray-800 dark:text-white/90">{title}</h4>
-        {action}
-      </div>
-      {children}
-    </div>
-  );
 }
 
 interface Props {
@@ -69,6 +37,7 @@ interface Props {
   onRequestLock: () => void;
   unlocking: boolean;
   onUnlock: () => void;
+  onQuickUpdate: (payload: UpdateUserPayload) => Promise<void>;
 }
 
 export default function UserDetailView({
@@ -80,223 +49,143 @@ export default function UserDetailView({
   onRequestLock,
   unlocking,
   onUnlock,
+  onQuickUpdate,
 }: Props) {
-  const xpSpan = Math.max(1, user.level_xp_ceil - user.level_xp_floor);
-  const xpProgress = Math.min(100, Math.max(0, ((user.vocab_xp - user.level_xp_floor) / xpSpan) * 100));
-  const jlptLabel =
-    user.current_jlpt_level || user.target_jlpt_level
-      ? `${user.current_jlpt_level ?? "—"} → ${user.target_jlpt_level ?? "—"}`
-      : "—";
+  const [tab, setTab] = useState<ProfileTabKey>("overview");
+  const [stats, setStats] = useState<AdminUserLearningStats | null>(null);
+  const [loadingStats, setLoadingStats] = useState(true);
+  const [activity, setActivity] = useState<AdminActivityEntry[]>([]);
+  const [loadingActivity, setLoadingActivity] = useState(true);
+
+  useEffect(() => {
+    let cancelled = false;
+    setLoadingStats(true);
+    fetchUserLearningStats(user.id)
+      .then((res) => {
+        if (!cancelled) setStats(res);
+      })
+      .finally(() => {
+        if (!cancelled) setLoadingStats(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [user.id]);
+
+  useEffect(() => {
+    let cancelled = false;
+    setLoadingActivity(true);
+    fetchUserActivity(user.id)
+      .then((res) => {
+        if (!cancelled) setActivity(res);
+      })
+      .finally(() => {
+        if (!cancelled) setLoadingActivity(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [user.id]);
+
+  const tabProps = {
+    user, stats, loadingStats, activity, loadingActivity, onRequestEdit, onRequestResetPassword,
+    isSelf, onRequestLock, onUnlock, unlocking, onQuickUpdate,
+  };
 
   return (
-    <div className="space-y-4">
+    <div className="flex flex-col gap-5">
       <button
         type="button"
         onClick={onBack}
-        className="flex items-center gap-1 text-sm font-medium text-gray-500 hover:text-gray-800 dark:hover:text-white"
+        className="flex items-center gap-1 text-sm font-medium text-admin-body hover:text-admin-ink"
       >
         <ChevronLeftIcon className="h-4 w-4" /> Quay lại danh sách
       </button>
 
-      <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-gray-200 bg-white p-4 shadow-sm dark:border-gray-700 dark:bg-gray-900">
-        <div className="flex items-center gap-3">
-          {user.avatar_url ? (
-            <img src={user.avatar_url} alt="" className="h-20 w-16 shrink-0 rounded-xl border border-gray-200 object-cover dark:border-gray-700" />
-          ) : (
-            <UserCircleIcon className="h-20 w-16 shrink-0 text-gray-300 dark:text-gray-600" />
-          )}
+      <div className="flex flex-wrap items-stretch gap-6 rounded-2xl border border-admin-border bg-white p-8 shadow-[0_4px_16px_rgba(35,67,110,0.05)]">
+        <div className="flex flex-1 items-center gap-6">
+          <UserAvatar id={user.id} name={displayName(user)} username={user.username} avatarUrl={user.avatar_url} size={104} />
           <div>
-            <div className="flex items-center gap-2">
-              <h3 className="text-base font-semibold text-gray-800 dark:text-white/90">{displayName(user)}</h3>
-              <span
-                className={`rounded-full px-2.5 py-0.5 text-[10px] font-semibold uppercase ${
-                  user.role === "admin"
-                    ? "bg-brand-100 text-brand-700 dark:bg-brand-500/20 dark:text-brand-300"
-                    : "bg-gray-200 text-gray-600 dark:bg-gray-700 dark:text-gray-300"
-                }`}
-              >
+            <div className="flex flex-wrap items-center gap-3">
+              <h3 className="text-2xl font-bold text-admin-ink">{displayName(user)}</h3>
+              <AccountStatusBadge status={user.account_status} />
+              <EmailVerifiedBadge verified={user.email_verified} />
+            </div>
+            <p className="mt-1.5 text-base text-admin-meta">
+              {user.email} · Tham gia từ {formatApiDate(user.created_at)}
+            </p>
+            <div className="mt-3 flex flex-wrap items-center gap-2.5">
+              <span className="inline-flex items-center rounded-[6px] bg-[#EDE7FA] px-3 py-1.5 text-sm font-semibold text-[#5B21B6]">
                 {user.role === "admin" ? "Quản trị viên" : "Học viên"}
               </span>
+              {user.current_jlpt_level && <JlptLevelBadge level={user.current_jlpt_level} />}
               {user.is_active ? (
-                <span className="rounded-full bg-emerald-100 px-2.5 py-0.5 text-[10px] font-semibold uppercase text-emerald-700 dark:bg-emerald-500/20 dark:text-emerald-300">
-                  Đang hoạt động
-                </span>
+                !isSelf && (
+                  <button
+                    type="button"
+                    onClick={onRequestLock}
+                    className="inline-flex items-center gap-1.5 rounded-[6px] bg-[#FDEBEC] px-3 py-1.5 text-sm font-semibold text-[#C94D5C] hover:bg-[#F9D8DE]"
+                  >
+                    <LockIcon className="h-4 w-4" /> Khóa
+                  </button>
+                )
               ) : (
-                <span className="rounded-full bg-rose-100 px-2.5 py-0.5 text-[10px] font-semibold uppercase text-rose-700 dark:bg-rose-500/20 dark:text-rose-300">
-                  Đã khóa
-                </span>
+                <button
+                  type="button"
+                  onClick={onUnlock}
+                  disabled={unlocking}
+                  className="inline-flex items-center gap-1.5 rounded-[6px] bg-[#E4F5F1] px-3 py-1.5 text-sm font-semibold text-[#15988E] hover:bg-[#D2EEE7] disabled:opacity-50"
+                >
+                  <UnlockIcon className="h-4 w-4" /> {unlocking ? "Đang mở khóa..." : "Mở khóa"}
+                </button>
               )}
             </div>
-            <p className="mt-0.5 text-xs text-gray-500 dark:text-gray-400">
-              @{user.username} · ID #{user.id}
-            </p>
           </div>
         </div>
-        <div className="flex items-center gap-2">
-          <button
-            type="button"
-            onClick={onRequestEdit}
-            className="flex items-center gap-1.5 rounded-lg border border-gray-200 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 dark:border-gray-700 dark:text-gray-300 dark:hover:bg-gray-800"
-          >
-            <PencilIcon className="h-4 w-4" /> Sửa
-          </button>
-          <button
-            type="button"
-            onClick={onRequestResetPassword}
-            className="flex items-center gap-1.5 rounded-lg border border-gray-200 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 dark:border-gray-700 dark:text-gray-300 dark:hover:bg-gray-800"
-          >
-            <KeyIcon className="h-4 w-4" /> Đặt lại mật khẩu
-          </button>
-          {user.is_active ? (
-            isSelf ? (
-              <span className="text-xs text-gray-400 dark:text-gray-500">Không thể tự khóa tài khoản của mình</span>
-            ) : (
-              <button
-                type="button"
-                onClick={onRequestLock}
-                className="flex items-center gap-1.5 rounded-lg bg-rose-600 px-4 py-2 text-sm font-medium text-white hover:bg-rose-700"
-              >
-                <LockIcon className="h-4 w-4" /> Khóa tài khoản
-              </button>
-            )
-          ) : (
-            <button
-              type="button"
-              onClick={onUnlock}
-              disabled={unlocking}
-              className="flex items-center gap-1.5 rounded-lg bg-emerald-600 px-4 py-2 text-sm font-medium text-white hover:bg-emerald-700 disabled:opacity-50"
-            >
-              <UnlockIcon className="h-4 w-4" /> {unlocking ? "Đang mở khóa..." : "Mở khóa"}
-            </button>
-          )}
+
+        <div className="hidden self-stretch border-l border-admin-border sm:block" />
+
+        <div className="flex shrink-0 items-center pl-2 sm:pl-10">
+          <div className="text-left">
+            <p className="text-[11px] font-semibold uppercase tracking-[1.2px] text-admin-meta">Tổng XP</p>
+            <p className="mt-1 text-3xl font-bold leading-tight text-admin-ink">{user.vocab_xp.toLocaleString("vi-VN")}</p>
+            <p className="mt-1.5 flex items-center justify-end gap-1 text-xs font-semibold text-[#B47A1B]">
+              <ShootingStarIcon className="h-3.5 w-3.5" /> Top {user.xp_percentile_top}% học viên
+            </p>
+          </div>
         </div>
       </div>
 
       {!user.is_active && (
-        <div className="rounded-xl border border-rose-200 bg-rose-50 p-4 text-sm text-rose-700 dark:border-rose-500/30 dark:bg-rose-500/10 dark:text-rose-300">
+        <div className="rounded-2xl border border-[#F3C6CC] bg-[#FDEBEC] p-4 text-sm text-[#C94D5C]">
           <p className="font-medium">Lý do khóa: {user.locked_reason || "Không có ghi chú"}</p>
           <p className="mt-0.5 text-xs opacity-80">Khóa lúc: {formatApiDateTime(user.locked_at)}</p>
         </div>
       )}
 
-      <div className="grid gap-3 sm:grid-cols-3 lg:grid-cols-5">
-        <StatMini icon={<ShootingStarIcon />} label="Cấp độ" value={`Lv. ${user.level}`} />
-        <StatMini icon={<BoltIcon />} label="XP tích lũy" value={String(user.vocab_xp)} />
-        <StatMini icon={<CalenderIcon />} label="Chuỗi ngày học" value={`${user.streak_days} ngày`} />
-        <StatMini
-          icon={<TaskIcon />}
-          label="Mục tiêu/ngày"
-          value={user.daily_vocab_goal != null ? `${user.daily_vocab_goal} từ` : "—"}
-        />
-        <StatMini icon={<DocsIcon />} label="JLPT" value={jlptLabel} />
+      <div className="flex flex-wrap gap-6 border-b border-admin-border">
+        {PROFILE_TABS.map((t) => (
+          <button
+            key={t.key}
+            type="button"
+            onClick={() => setTab(t.key)}
+            className={`relative -mb-px border-b-2 pb-3 text-sm transition-colors ${
+              tab === t.key
+                ? "border-admin-500 font-semibold text-admin-600"
+                : "border-transparent font-medium text-admin-body hover:text-admin-ink"
+            }`}
+          >
+            {t.label}
+          </button>
+        ))}
       </div>
 
-      <div className="rounded-xl border border-gray-200 bg-white p-4 shadow-sm dark:border-gray-700 dark:bg-gray-900">
-        <div className="mb-1.5 flex items-baseline justify-between">
-          <span className="text-sm font-medium text-gray-700 dark:text-gray-300">Tiến độ tới cấp Lv. {user.level + 1}</span>
-          <span className="text-xs text-gray-400 dark:text-gray-500">
-            {user.vocab_xp - user.level_xp_floor}/{xpSpan} XP
-          </span>
-        </div>
-        <div className="h-2 w-full overflow-hidden rounded-full bg-gray-100 dark:bg-gray-800">
-          <div className="h-full rounded-full bg-brand-500" style={{ width: `${xpProgress}%` }} />
-        </div>
-      </div>
-
-      <div className="grid gap-5 lg:grid-cols-3">
-        <div className="space-y-5 lg:col-span-2">
-          <SectionCard title="Thông tin cá nhân">
-            <div className="grid grid-cols-2 gap-4 sm:grid-cols-3">
-              <InfoField icon={<UserIcon />} label="Họ" value={user.first_name ?? ""} />
-              <InfoField icon={<UserIcon />} label="Tên" value={user.last_name ?? ""} />
-              <InfoField icon={<PhoneIcon />} label="Số điện thoại" value={user.phone ?? ""} />
-              <InfoField icon={<CalenderIcon />} label="Ngày sinh" value={formatApiDate(user.date_of_birth)} />
-              <InfoField
-                icon={<UserCircleIcon />}
-                label="Giới tính"
-                value={user.gender ? GENDER_LABELS[user.gender] ?? user.gender : ""}
-              />
-              <InfoField icon={<GlobeIcon />} label="Quốc gia" value={user.country ?? ""} />
-              <InfoField icon={<GlobeIcon />} label="Thành phố" value={user.city ?? ""} />
-              <InfoField icon={<MailIcon />} label="Email" value={user.email} />
-            </div>
-          </SectionCard>
-
-          <SectionCard title="Học tập & mục tiêu">
-            <div className="grid gap-3 sm:grid-cols-3">
-              <div className="rounded-lg bg-gray-50 p-3 dark:bg-gray-800/60">
-                <p className="flex items-center gap-1.5 text-xs text-gray-500 dark:text-gray-400">
-                  <DocsIcon className="h-3.5 w-3.5" /> Trình độ JLPT hiện tại → mục tiêu
-                </p>
-                <p className="mt-1 text-base font-semibold text-gray-800 dark:text-white/90">{jlptLabel}</p>
-              </div>
-              <div className="rounded-lg bg-gray-50 p-3 dark:bg-gray-800/60">
-                <p className="flex items-center gap-1.5 text-xs text-gray-500 dark:text-gray-400">
-                  <TaskIcon className="h-3.5 w-3.5" /> Mục tiêu từ vựng mỗi ngày
-                </p>
-                <p className="mt-1 text-base font-semibold text-gray-800 dark:text-white/90">
-                  {user.daily_vocab_goal != null ? `${user.daily_vocab_goal} từ/ngày` : "—"}
-                </p>
-              </div>
-              <div className="rounded-lg bg-gray-50 p-3 dark:bg-gray-800/60">
-                <p className="flex items-center gap-1.5 text-xs text-gray-500 dark:text-gray-400">
-                  <CalenderIcon className="h-3.5 w-3.5" /> Hoạt động gần nhất
-                </p>
-                <p className="mt-1 truncate text-base font-semibold text-gray-800 dark:text-white/90">
-                  {formatApiDateTime(user.last_activity_at)}
-                </p>
-              </div>
-            </div>
-            <div className="mt-3 flex items-start gap-2 rounded-lg border border-gray-100 bg-gray-50 p-3 text-xs text-gray-500 dark:border-gray-800 dark:bg-gray-800/60 dark:text-gray-400">
-              <ShootingStarIcon className="mt-0.5 h-3.5 w-3.5 shrink-0" />
-              Tổng phút học chưa hiển thị — chờ backend ghi dữ liệu thật vào total_study_minutes.
-            </div>
-          </SectionCard>
-        </div>
-
-        <div className="space-y-5">
-          <SectionCard title="Tài khoản">
-            <div className="space-y-3">
-              <InfoField icon={<TaskIcon />} label="ID" value={`#${user.id}`} />
-              <InfoField icon={<UserIcon />} label="Username" value={`@${user.username}`} />
-              <InfoField icon={<GroupIcon />} label="Vai trò (role code)" value={user.role} />
-              <InfoField icon={<CalenderIcon />} label="Ngày tạo" value={formatApiDateTime(user.created_at)} />
-              <InfoField
-                icon={<PencilIcon />}
-                label="Cập nhật hồ sơ gần nhất"
-                value={formatApiDateTime(user.profile_updated_at)}
-              />
-              <InfoField icon={<KeyIcon />} label="Mật khẩu" value="••••••••" />
-            </div>
-          </SectionCard>
-
-          <SectionCard title="Hoạt động gần đây">
-            <ul className="space-y-3">
-              <li className="flex gap-2.5">
-                <BoltIcon className="mt-0.5 h-4 w-4 shrink-0 text-amber-500" />
-                <div>
-                  <p className="text-sm text-gray-800 dark:text-white/90">Đăng nhập gần nhất</p>
-                  <p className="text-xs text-gray-400 dark:text-gray-500">{formatApiDateTime(user.last_login_at)}</p>
-                </div>
-              </li>
-              <li className="flex gap-2.5">
-                <PencilIcon className="mt-0.5 h-4 w-4 shrink-0 text-brand-500" />
-                <div>
-                  <p className="text-sm text-gray-800 dark:text-white/90">Cập nhật hồ sơ gần nhất</p>
-                  <p className="text-xs text-gray-400 dark:text-gray-500">{formatApiDateTime(user.profile_updated_at)}</p>
-                </div>
-              </li>
-              <li className="flex gap-2.5">
-                <CalenderIcon className="mt-0.5 h-4 w-4 shrink-0 text-emerald-500" />
-                <div>
-                  <p className="text-sm text-gray-800 dark:text-white/90">Tạo tài khoản</p>
-                  <p className="text-xs text-gray-400 dark:text-gray-500">{formatApiDateTime(user.created_at)}</p>
-                </div>
-              </li>
-            </ul>
-          </SectionCard>
-        </div>
-      </div>
+      {tab === "overview" && <OverviewTab {...tabProps} />}
+      {tab === "personal" && <PersonalInfoTab {...tabProps} />}
+      {tab === "vocabulary" && <VocabularyTab {...tabProps} />}
+      {tab === "jlpt" && <JlptTab {...tabProps} />}
+      {tab === "conversation" && <ConversationTab {...tabProps} />}
+      {tab === "listening" && <ListeningTab {...tabProps} />}
     </div>
   );
 }
