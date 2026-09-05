@@ -69,6 +69,7 @@ File này không nằm trong git (`.gitignore`), cần tự tạo. Các key cầ
 | `CLOUDINARY_CLOUD_NAME` / `CLOUDINARY_API_KEY` / `CLOUDINARY_API_SECRET` | Upload ảnh (avatar...) |
 | `YOUTUBE_API_KEY` | Tìm kiếm video luyện nghe |
 | `ZEGO_APP_ID` / `ZEGO_SERVER_SECRET` | App ID và server secret của ZegoCloud (dùng để backend ký token cho tính năng Meeting/họp trực tuyến) — lấy tại [zegocloud.com](https://console.zegocloud.com/) |
+| `EMAIL_HOST_USER` / `EMAIL_HOST_APP_PASSWORD` | Gửi email xác minh tài khoản qua Gmail SMTP. `EMAIL_HOST_USER` là địa chỉ Gmail gửi đi; `EMAIL_HOST_APP_PASSWORD` là **App Password 16 ký tự** (không phải mật khẩu đăng nhập Gmail) — tạo tại [myaccount.google.com/apppasswords](https://myaccount.google.com/apppasswords), yêu cầu tài khoản đã bật Xác minh 2 bước. Thiếu 2 biến này thì tính năng xác minh email báo lỗi rõ ràng, phần còn lại của app vẫn chạy bình thường. |
 | `ALLOWED_ORIGINS` | Danh sách origin frontend được phép gọi API (CORS), phân tách bởi dấu phẩy — mặc định đã gồm `http://localhost:5173,http://127.0.0.1:5173,http://localhost:5174,http://127.0.0.1:5174` |
 | `ENVIRONMENT` | `development` hoặc `production` |
 

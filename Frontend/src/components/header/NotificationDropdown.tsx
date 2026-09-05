@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { Dropdown } from "../ui/dropdown/Dropdown";
 import { DropdownItem } from "../ui/dropdown/DropdownItem";
-import { BoltIcon, CheckCircleIcon, CloseIcon, ShootingStarIcon } from "../../icons";
+import { BoltIcon, CheckCircleIcon, CloseIcon, MailIcon, ShootingStarIcon } from "../../icons";
 import {
   AppNotification,
   fetchNotifications,
@@ -35,6 +35,15 @@ function NotificationIcon({ type }: { type: string }) {
     return (
       <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-brand-100 text-brand-600 dark:bg-brand-500/20 dark:text-brand-300">
         <ShootingStarIcon className="h-5 w-5" />
+      </span>
+    );
+  }
+  // Admin-facing: a learner just confirmed their email (see
+  // Backend/app/services/email_verification.py).
+  if (type === "email_verified") {
+    return (
+      <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-teal-100 text-teal-600 dark:bg-teal-500/20 dark:text-teal-300">
+        <MailIcon className="h-5 w-5" />
       </span>
     );
   }

@@ -10,7 +10,7 @@ import {
 import { formatApiDate, formatApiDateTime } from "../../utils/datetime";
 import { LockIcon, UnlockIcon } from "../admin-jlpt/icons";
 import { ChevronLeftIcon, ShootingStarIcon } from "../../icons";
-import { AccountStatusBadge, JlptLevelBadge } from "./badges";
+import { AccountStatusBadge, EmailVerifiedBadge, JlptLevelBadge } from "./badges";
 import UserAvatar from "./UserAvatar";
 import {
   ConversationTab,
@@ -108,7 +108,8 @@ export default function UserDetailView({
           <div>
             <div className="flex flex-wrap items-center gap-3">
               <h3 className="text-2xl font-bold text-admin-ink">{displayName(user)}</h3>
-              <AccountStatusBadge isActive={user.is_active} />
+              <AccountStatusBadge status={user.account_status} />
+              <EmailVerifiedBadge verified={user.email_verified} />
             </div>
             <p className="mt-1.5 text-base text-admin-meta">
               {user.email} · Tham gia từ {formatApiDate(user.created_at)}

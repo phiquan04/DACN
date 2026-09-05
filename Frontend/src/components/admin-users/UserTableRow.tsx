@@ -63,7 +63,7 @@ export default function UserTableRow({ user, selected, onToggleSelect, onOpen, o
         {formatRelativeTime(user.last_login_at)}
       </td>
       <td className="cursor-pointer whitespace-nowrap px-4 py-3.5" onClick={onOpen}>
-        <AccountStatusBadge isActive={user.is_active} />
+        <AccountStatusBadge status={user.account_status} />
       </td>
       <td className="whitespace-nowrap px-4 py-3.5 text-right">
         <RowActionsMenu actions={actions} />

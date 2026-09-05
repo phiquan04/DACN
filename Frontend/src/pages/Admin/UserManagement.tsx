@@ -37,9 +37,16 @@ import { LockIcon } from "../../components/admin-jlpt/icons";
 interface Stats {
   total: number;
   active: number;
+  inactive: number;
   locked: number;
   admins: number;
 }
+
+const STATUS_LABELS: Record<AdminUserSummary["account_status"], string> = {
+  active: "Đang online",
+  inactive: "Ngoại tuyến",
+  locked: "Đã khóa",
+};
 
 function exportUsersCsv(items: AdminUserSummary[]) {
   const header = ["ID", "Tên", "Username", "Email", "Vai trò", "Trình độ", "XP", "Streak", "Trạng thái", "Đăng nhập gần nhất"];
@@ -52,7 +59,7 @@ function exportUsersCsv(items: AdminUserSummary[]) {
     u.current_jlpt_level ?? "",
     u.vocab_xp,
     u.streak_days,
-    u.is_active ? "Hoạt động" : "Đã khóa",
+    STATUS_LABELS[u.account_status],
     u.last_login_at ?? "",
   ]);
   const csv = [header, ...rows]
@@ -104,13 +111,17 @@ export default function UserManagement() {
   }, [setPageHeader]);
 
   const loadStats = useCallback(async () => {
-    const [all, active, locked, admins] = await Promise.all([
+    const [all, active, inactive, locked, admins] = await Promise.all([
       fetchUsers({ page: 1 }),
       fetchUsers({ status: "active", page: 1 }),
+      fetchUsers({ status: "inactive", page: 1 }),
       fetchUsers({ status: "locked", page: 1 }),
       fetchUsers({ role: "admin", page: 1 }),
     ]);
-    setStats({ total: all.total, active: active.total, locked: locked.total, admins: admins.total });
+    setStats({
+      total: all.total, active: active.total, inactive: inactive.total,
+      locked: locked.total, admins: admins.total,
+    });
   }, []);
 
   const loadList = useCallback(async () => {
@@ -390,9 +401,10 @@ export default function UserManagement() {
           </button>
         </div>
 
-        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-5">
           <StatCard label="Tổng người dùng" value={stats?.total ?? 0} icon={<GroupIcon />} tone="neutral" />
-          <StatCard label="Đang hoạt động" value={stats?.active ?? 0} icon={<CheckCircleIcon />} tone="success" />
+          <StatCard label="Đang online" value={stats?.active ?? 0} icon={<CheckCircleIcon />} tone="success" />
+          <StatCard label="Ngoại tuyến" value={stats?.inactive ?? 0} icon={<UserCircleIcon />} tone="pending" />
           <StatCard label="Đã khóa" value={stats?.locked ?? 0} icon={<OutlineLockIcon />} tone="danger" />
           <StatCard label="Quản trị viên" value={stats?.admins ?? 0} icon={<UserCircleIcon />} tone="info" />
         </div>
@@ -416,7 +428,8 @@ export default function UserManagement() {
                 className="rounded-[9px] border border-admin-border-input bg-white px-3.5 py-2.5 text-sm text-admin-body outline-none focus:border-admin-200 focus:ring-3 focus:ring-admin-500/18"
               >
                 <option value="">Tất cả trạng thái</option>
-                <option value="active">Đang hoạt động</option>
+                <option value="active">Đang online</option>
+                <option value="inactive">Ngoại tuyến</option>
                 <option value="locked">Đã khóa</option>
               </select>
               <select

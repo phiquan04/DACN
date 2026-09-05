@@ -8,6 +8,7 @@ from app.models import User, Role
 from app.models.database import get_db
 from app.dependencies import UserResponse, get_current_user, to_user_response
 from app.services.audit_log import log_event
+from app.services.email_verification import confirm_verification_code, send_verification_code
 from app.utils.auth import (
     hash_password,
     verify_password,
@@ -69,6 +70,13 @@ class RefreshResponse(BaseModel):
     access_token: str
     token_type: str = "bearer"
 
+class EmailVerificationConfirmRequest(BaseModel):
+    code: str = Field(..., min_length=6, max_length=6, pattern=r'^\d{6}$')
+
+class EmailVerificationResponse(BaseModel):
+    email_verified: bool
+    message: str
+
 # Routes
 @router.post("/signup", response_model=SignUpResponse, status_code=status.HTTP_201_CREATED)
 def sign_up(user_data: UserSignUp, db: Session = Depends(get_db)):
@@ -102,14 +110,29 @@ def sign_up(user_data: UserSignUp, db: Session = Depends(get_db)):
     db.commit()
     db.refresh(new_user)
 
+    # Snapshot what the response needs before the email attempt below: a failed
+    # send ends in a rollback, which expires every object in the session, and
+    # re-reading `new_user` afterwards would issue extra queries for values we
+    # already have.
+    user_response = to_user_response(new_user)
+
+    # Best-effort: get a verification code into their inbox right away. A mail
+    # failure must not fail the signup itself — the account already exists and
+    # they can request a new code from their profile page.
+    ok, _ = send_verification_code(db, new_user)
+    if ok:
+        db.commit()
+    else:
+        db.rollback()
+
     # Create access + refresh tokens
     access_token = create_access_token(
-        user_id=new_user.id, username=new_user.username, role=new_user.role.code if new_user.role else "user"
+        user_id=user_response.id, username=user_response.username, role=user_response.role
     )
-    refresh_token = create_refresh_token(user_id=new_user.id)
+    refresh_token = create_refresh_token(user_id=user_response.id)
 
     return SignUpResponse(
-        user=to_user_response(new_user),
+        user=user_response,
         access_token=access_token,
         refresh_token=refresh_token,
         token_type="bearer"
@@ -130,7 +153,9 @@ def sign_in(user_data: UserSignIn, db: Session = Depends(get_db)):
         detail = f"Tài khoản đã bị khóa: {user.locked_reason}" if user.locked_reason else "Tài khoản đã bị khóa"
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=detail)
 
-    user.last_login_at = datetime.utcnow()
+    now = datetime.utcnow()
+    user.last_login_at = now
+    user.last_seen_at = now  # marks them online immediately; kept warm by /auth/heartbeat while the app stays open
     log_event(
         db, subject_user_id=user.id, action="auth.login", description="Đăng nhập vào hệ thống",
         actor_user_id=user.id, actor_role=user.role.code if user.role else "user",
@@ -173,3 +198,70 @@ def refresh_access_token(req: RefreshRequest, db: Session = Depends(get_db)):
 @router.get("/me", response_model=UserResponse)
 def get_me(current_user: UserResponse = Depends(get_current_user)):
     return current_user
+
+
+@router.post("/heartbeat", status_code=status.HTTP_204_NO_CONTENT)
+def heartbeat(current_user: UserResponse = Depends(get_current_user), db: Session = Depends(get_db)):
+    """Called every ~60s by the frontend while the app is open (see
+    hooks/useOnlineHeartbeat.ts) so the admin console can tell who is online
+    right now (see admin_users.py's _account_status). If the tab is closed or
+    the connection drops, heartbeats simply stop and the account falls back
+    to 'inactive' once ONLINE_THRESHOLD_MINUTES passes — no explicit
+    disconnect signal needed."""
+    user = db.query(User).filter(User.id == current_user.id).first()
+    if user:
+        user.last_seen_at = datetime.utcnow()
+        db.commit()
+
+
+@router.post("/logout", status_code=status.HTTP_204_NO_CONTENT)
+def sign_out(current_user: UserResponse = Depends(get_current_user), db: Session = Depends(get_db)):
+    """Marks the account offline immediately on an explicit logout, instead
+    of waiting for the heartbeat timeout to expire."""
+    user = db.query(User).filter(User.id == current_user.id).first()
+    if user:
+        user.last_seen_at = None
+        db.commit()
+
+
+@router.post("/verify-email/send", response_model=EmailVerificationResponse)
+def send_email_verification(
+    current_user: UserResponse = Depends(get_current_user), db: Session = Depends(get_db),
+):
+    """Email the signed-in user a fresh 6-digit verification code. Rate
+    limited by a resend cooldown inside the service."""
+    user = db.query(User).filter(User.id == current_user.id).first()
+    if not user:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="User not found")
+
+    ok, message = send_verification_code(db, user)
+    if not ok:
+        # Nothing is persisted on failure — the pending code row (and the
+        # retirement of any previous one) is discarded with the rollback, so a
+        # send that never reached the inbox can't invalidate a code the user
+        # still has.
+        db.rollback()
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=message)
+
+    db.commit()
+    return EmailVerificationResponse(email_verified=user.email_verified, message=message)
+
+
+@router.post("/verify-email/confirm", response_model=EmailVerificationResponse)
+def confirm_email_verification(
+    req: EmailVerificationConfirmRequest,
+    current_user: UserResponse = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """Check the code the user typed in. A wrong code still commits, so the
+    per-code attempt counter can't be reset by simply retrying."""
+    user = db.query(User).filter(User.id == current_user.id).first()
+    if not user:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="User not found")
+
+    ok, message = confirm_verification_code(db, user, req.code)
+    db.commit()
+    if not ok:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=message)
+
+    return EmailVerificationResponse(email_verified=user.email_verified, message=message)

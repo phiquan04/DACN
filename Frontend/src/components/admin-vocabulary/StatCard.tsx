@@ -23,9 +23,11 @@ interface Props {
   tone?: StatTone;
   /** Short context chip in the top-right corner, e.g. "+12 trong 7 ngày qua". */
   hint?: ReactNode;
+  /** Short line below the value, e.g. "+28 từ hôm nay" or "Hiệu suất rất cao". */
+  sub?: ReactNode;
 }
 
-export default function StatCard({ label, value, icon, tone = "neutral", hint }: Props) {
+export default function StatCard({ label, value, icon, tone = "neutral", hint, sub }: Props) {
   const { fill, ink } = TONE_COLORS[tone];
   return (
     <div className="rounded-2xl border border-admin-border bg-white p-6 shadow-[0_4px_16px_rgba(35,67,110,0.05)]">
@@ -46,6 +48,7 @@ export default function StatCard({ label, value, icon, tone = "neutral", hint }:
       <p className="mt-1 text-[28px] font-bold leading-tight text-admin-ink">
         {typeof value === "number" ? value.toLocaleString("vi-VN") : value}
       </p>
+      {sub && <p className="mt-1 text-xs text-admin-meta">{sub}</p>}
     </div>
   );
 }
