@@ -319,6 +319,31 @@ export async function fetchExamToTake(examId: number): Promise<TakeExam> {
   return request(`/api/jlpt/published-exams/${examId}`);
 }
 
+export interface ExamRankingEntry {
+  rank: number;
+  user_id: number;
+  username: string;
+  avatar_url?: string | null;
+  is_verified: boolean;
+  score: number;
+  total_questions: number;
+  percent: number;
+  submitted_at?: string | null;
+  duration_minutes?: number | null;
+  is_me: boolean;
+}
+
+export interface ExamRanking {
+  entries: ExamRankingEntry[];
+  me: ExamRankingEntry | null;
+  total_attempts: number;
+  pass_total?: number | null;
+}
+
+export async function fetchExamRanking(examId: number): Promise<ExamRanking> {
+  return request(`/api/jlpt/published-exams/${examId}/ranking`, { headers: authHeaders(getToken()), silent: true });
+}
+
 export interface GradedAnswer {
   question_id: number;
   selected_choice_no?: number | null;
@@ -431,4 +456,33 @@ export async function fetchDashboard(level: JlptLevel): Promise<JlptDashboard | 
   } catch {
     return null;
   }
+}
+
+// ---------- User-facing: attempt history ----------
+
+export interface AttemptHistoryItem {
+  attempt_id: number;
+  exam_id: number;
+  exam_title: string;
+  level: string;
+  score: number;
+  total_questions: number;
+  percent: number;
+  submitted_at?: string | null;
+  is_pass?: boolean | null;
+}
+
+export interface LevelAverage {
+  level: string;
+  attempt_count: number;
+  average_percent: number;
+}
+
+export async function fetchMyAttempts(level?: JlptLevel): Promise<AttemptHistoryItem[]> {
+  const qs = level ? `?level=${level}` : "";
+  return request(`/api/jlpt/attempts/me${qs}`, { headers: authHeaders(getToken()), silent: true });
+}
+
+export async function fetchLevelAverages(): Promise<LevelAverage[]> {
+  return request(`/api/jlpt/attempts/average`, { headers: authHeaders(getToken()), silent: true });
 }

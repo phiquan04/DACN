@@ -5,7 +5,7 @@ import { KeyIcon } from "../../icons/custom";
 import { BoltIcon, EyeIcon, PencilIcon } from "../../icons";
 import { AccountStatusBadge, JlptLevelBadge, RoleBadge } from "./badges";
 import RowActionsMenu, { RowAction } from "./RowActionsMenu";
-import UserAvatar from "./UserAvatar";
+import UserAvatar from "../common/UserAvatar";
 import AdminCheckbox from "./AdminCheckbox";
 
 function displayName(u: AdminUserSummary): string {

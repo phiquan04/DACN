@@ -276,12 +276,40 @@ class AttemptHistoryItem(BaseModel):
     total_questions: int
     percent: float
     submitted_at: Optional[str] = None
+    # Whether this attempt met JLPT's real dual pass condition (see
+    # jlpt_scoring.build_score_breakdown) — None if the exam's mondai aren't
+    # mapped to sections, which shouldn't happen for a published exam.
+    is_pass: Optional[bool] = None
 
 
 class LevelAverage(BaseModel):
     level: str
     attempt_count: int
     average_percent: float
+
+
+class ExamRankingEntryOut(BaseModel):
+    rank: int
+    user_id: int
+    username: str
+    avatar_url: Optional[str] = None
+    is_verified: bool = False
+    score: int
+    total_questions: int
+    percent: float
+    submitted_at: Optional[str] = None
+    duration_minutes: Optional[int] = None
+    is_me: bool = False
+
+
+class ExamRankingOut(BaseModel):
+    entries: List[ExamRankingEntryOut] = []
+    # The current user's own best-attempt row, only set when they have a
+    # completed attempt that fell outside `entries` (already-in-top-N attempts
+    # are marked via is_me on the matching entry instead of duplicated here).
+    me: Optional[ExamRankingEntryOut] = None
+    total_attempts: int = 0
+    pass_total: Optional[int] = None
 
 
 # --- User-facing: dashboard (upcoming exam / predicted score / weak mondai) ---

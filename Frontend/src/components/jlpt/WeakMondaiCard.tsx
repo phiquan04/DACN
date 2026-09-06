@@ -4,7 +4,10 @@ export default function WeakMondaiCard({ items }: { items: WeakMondai[] }) {
   if (items.length === 0) return null;
 
   return (
-    <div className="rounded-xl border border-gray-200 bg-white p-5 shadow-sm dark:border-gray-700 dark:bg-gray-900">
+    <div
+      id="jlpt-weak-mondai"
+      className="scroll-mt-4 rounded-xl border border-gray-200 bg-white p-5 shadow-sm dark:border-gray-700 dark:bg-gray-900"
+    >
       <div className="flex items-center justify-between">
         <h3 className="text-sm font-semibold text-gray-700 dark:text-gray-200">Dạng 問題 bạn hay sai</h3>
         <span className="text-xs text-gray-400 dark:text-gray-500">30 ngày gần nhất</span>

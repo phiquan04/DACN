@@ -20,14 +20,20 @@ from app.models.database import get_db
 from app.models.jlpt import (
     JlptExam, JlptLevelStructure, JlptQuestion, JlptSection, JlptTestAttempt, JlptTestAttemptAnswer,
 )
+from app.models.profile import UserInformation
+from app.models.user import User
 from app.schemas.jlpt import (
-    AttemptHistoryItem, JlptLevel, LevelAverage, PublishedExamSummary,
-    SubmitAttemptIn, SubmitAttemptOut, TakeExamOut,
+    AttemptHistoryItem, ExamRankingEntryOut, ExamRankingOut, JlptLevel, LevelAverage,
+    PublishedExamSummary, SubmitAttemptIn, SubmitAttemptOut, TakeExamOut,
 )
 from app.services.audit_log import log_event
-from app.services.jlpt_scoring import build_score_breakdown, raw_section_counts
+from app.services.jlpt_scoring import JLPT_PASS_TOTALS, build_score_breakdown, raw_section_counts
 
 router = APIRouter(tags=["jlpt-attempts"])
+
+# How many top scorers "Bảng xếp hạng" shows before falling back to a
+# separate "vị trí của bạn" row for the current user.
+RANKING_TOP_N = 10
 
 
 @router.get("/published-exams", response_model=List[PublishedExamSummary])
@@ -132,6 +138,86 @@ def get_exam_to_take(exam_id: int, db: Session = Depends(get_db)):
     }
 
 
+@router.get("/published-exams/{exam_id}/ranking", response_model=ExamRankingOut)
+def get_exam_ranking(
+    exam_id: int,
+    db: Session = Depends(get_db),
+    current_user_id: Optional[int] = Depends(get_optional_user_id),
+):
+    exam = db.query(JlptExam).filter(JlptExam.id == exam_id, JlptExam.status == 'published').first()
+    if not exam:
+        raise HTTPException(status_code=404, detail="Không tìm thấy đề thi")
+
+    attempts = (
+        db.query(JlptTestAttempt)
+        .filter(JlptTestAttempt.exam_id == exam_id, JlptTestAttempt.status == 'completed')
+        .order_by(JlptTestAttempt.submitted_at.asc())
+        .all()
+    )
+
+    # One row per user: their highest-scoring attempt, ties broken by whoever
+    # reached that score first (attempts were pulled oldest-first above, and
+    # strict `>` here keeps the earliest attempt on an equal score).
+    best_by_user: dict = {}
+    for a in attempts:
+        current = best_by_user.get(a.user_id)
+        if current is None or (a.score or 0) > (current.score or 0):
+            best_by_user[a.user_id] = a
+
+    ranked = sorted(
+        best_by_user.values(),
+        key=lambda a: (-(a.score or 0), a.submitted_at or datetime.max),
+    )
+
+    users_by_id = {}
+    if ranked:
+        rows = (
+            db.query(User, UserInformation)
+            .outerjoin(UserInformation, UserInformation.user_id == User.id)
+            .filter(User.id.in_([a.user_id for a in ranked]))
+            .all()
+        )
+        users_by_id = {u.id: (u, info) for u, info in rows}
+
+    def duration_minutes(a: JlptTestAttempt) -> Optional[int]:
+        # created_at doubles as started_at (see JlptTestAttempt docstring).
+        if not a.submitted_at or not a.created_at:
+            return None
+        return max(0, round((a.submitted_at - a.created_at).total_seconds() / 60))
+
+    def to_entry(rank: int, a: JlptTestAttempt) -> dict:
+        user, info = users_by_id.get(a.user_id, (None, None))
+        return {
+            "rank": rank,
+            "user_id": a.user_id,
+            "username": user.username if user else "Người dùng ẩn danh",
+            "avatar_url": info.avatar_url if info else None,
+            "is_verified": bool(user.email_verified) if user else False,
+            "score": a.score or 0,
+            "total_questions": a.total_questions or 0,
+            "percent": round((a.score or 0) / a.total_questions * 100, 1) if a.total_questions else 0.0,
+            "submitted_at": a.submitted_at.isoformat() if a.submitted_at else None,
+            "duration_minutes": duration_minutes(a),
+            "is_me": a.user_id == current_user_id,
+        }
+
+    top = ranked[:RANKING_TOP_N]
+    entries = [to_entry(i + 1, a) for i, a in enumerate(top)]
+
+    me = None
+    if current_user_id and current_user_id not in {a.user_id for a in top}:
+        for idx, a in enumerate(ranked):
+            if a.user_id == current_user_id:
+                me = to_entry(idx + 1, a)
+                break
+
+    return {
+        "entries": entries, "me": me,
+        "total_attempts": len(attempts),
+        "pass_total": JLPT_PASS_TOTALS.get(exam.level),
+    }
+
+
 @router.post("/published-exams/{exam_id}/submit", response_model=SubmitAttemptOut)
 def submit_attempt(
     exam_id: int,
@@ -211,18 +297,26 @@ def list_my_attempts(
     query = (
         db.query(JlptTestAttempt)
         .join(JlptExam)
-        .options(joinedload(JlptTestAttempt.exam))
+        .options(joinedload(JlptTestAttempt.exam), selectinload(JlptTestAttempt.answers))
         .filter(JlptTestAttempt.user_id == current_user.id, JlptTestAttempt.status == 'completed')
     )
     if level:
         query = query.filter(JlptExam.level == level)
     attempts = query.order_by(JlptTestAttempt.submitted_at.desc()).all()
+
+    def is_pass(a: JlptTestAttempt) -> Optional[bool]:
+        counts = raw_section_counts(db, a.answers)
+        if not counts:
+            return None
+        return build_score_breakdown(a.exam.level, counts)["is_pass"]
+
     return [
         {
             "attempt_id": a.id, "exam_id": a.exam_id, "exam_title": a.exam.title, "level": a.exam.level,
             "score": a.score or 0, "total_questions": a.total_questions or 0,
             "percent": round((a.score or 0) / a.total_questions * 100, 1) if a.total_questions else 0.0,
             "submitted_at": a.submitted_at.isoformat() if a.submitted_at else None,
+            "is_pass": is_pass(a),
         }
         for a in attempts
     ]

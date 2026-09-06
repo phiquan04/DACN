@@ -1,7 +1,60 @@
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useSiteHelpChat } from "../../context/SiteHelpChatContext";
 import { CloseIcon, RobotIcon } from "./icons";
 import { RefreshIcon, SendIcon } from "../../icons/custom";
+
+const FAB_SIZE = 56;
+const FAB_MARGIN = 24;
+const PANEL_WIDTH = 380;
+const PANEL_HEIGHT = 560;
+const PANEL_GAP = 12;
+const VIEWPORT_MARGIN = 16;
+const STORAGE_KEY = "manabi:site-help-fab-pos";
+// A pointer move shorter than this still counts as a click, not a drag —
+// without this, a slightly shaky click would open/close nothing.
+const DRAG_THRESHOLD = 4;
+
+type Pos = { x: number; y: number };
+
+function clampToViewport(pos: Pos): Pos {
+  const maxX = Math.max(FAB_MARGIN, window.innerWidth - FAB_SIZE - FAB_MARGIN);
+  const maxY = Math.max(FAB_MARGIN, window.innerHeight - FAB_SIZE - FAB_MARGIN);
+  return {
+    x: Math.min(Math.max(pos.x, FAB_MARGIN), maxX),
+    y: Math.min(Math.max(pos.y, FAB_MARGIN), maxY),
+  };
+}
+
+function defaultPos(): Pos {
+  return clampToViewport({
+    x: window.innerWidth - FAB_SIZE - FAB_MARGIN,
+    y: window.innerHeight - FAB_SIZE - FAB_MARGIN,
+  });
+}
+
+function loadInitialPos(): Pos {
+  try {
+    const saved = localStorage.getItem(STORAGE_KEY);
+    if (saved) return clampToViewport(JSON.parse(saved));
+  } catch {
+    // ignore malformed/unavailable storage — fall back to the default corner
+  }
+  return defaultPos();
+}
+
+// Keeps the panel above the FAB when there's room, flips below it otherwise,
+// and always stays fully on-screen — wherever the FAB has been dragged to.
+function panelStyle(fab: Pos): { left: number; top: number } {
+  const left = Math.min(
+    Math.max(fab.x + FAB_SIZE / 2 - PANEL_WIDTH / 2, VIEWPORT_MARGIN),
+    Math.max(VIEWPORT_MARGIN, window.innerWidth - PANEL_WIDTH - VIEWPORT_MARGIN)
+  );
+  const fitsAbove = fab.y - PANEL_GAP - PANEL_HEIGHT >= VIEWPORT_MARGIN;
+  const top = fitsAbove
+    ? fab.y - PANEL_GAP - PANEL_HEIGHT
+    : Math.min(fab.y + FAB_SIZE + PANEL_GAP, Math.max(VIEWPORT_MARGIN, window.innerHeight - PANEL_HEIGHT - VIEWPORT_MARGIN));
+  return { left, top };
+}
 
 function TypingDots() {
   return (
@@ -27,6 +80,17 @@ export default function SiteHelpChatWidget() {
   const listRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
+  const [pos, setPos] = useState<Pos>(loadInitialPos);
+  const draggingRef = useRef(false);
+  const movedRef = useRef(false);
+  const dragOffsetRef = useRef({ x: 0, y: 0 });
+
+  useEffect(() => {
+    const onResize = () => setPos((p) => clampToViewport(p));
+    window.addEventListener("resize", onResize);
+    return () => window.removeEventListener("resize", onResize);
+  }, []);
+
   useEffect(() => {
     if (isOpen) listRef.current?.scrollTo({ top: listRef.current.scrollHeight, behavior: "smooth" });
   }, [isOpen, messages]);
@@ -50,10 +114,49 @@ export default function SiteHelpChatWidget() {
     }
   };
 
+  const handlePointerDown = (e: React.PointerEvent<HTMLButtonElement>) => {
+    draggingRef.current = true;
+    movedRef.current = false;
+    const rect = e.currentTarget.getBoundingClientRect();
+    dragOffsetRef.current = { x: e.clientX - rect.left, y: e.clientY - rect.top };
+    e.currentTarget.setPointerCapture(e.pointerId);
+  };
+
+  const handlePointerMove = (e: React.PointerEvent<HTMLButtonElement>) => {
+    if (!draggingRef.current) return;
+    const dx = e.clientX - (dragOffsetRef.current.x + pos.x);
+    const dy = e.clientY - (dragOffsetRef.current.y + pos.y);
+    if (Math.abs(dx) > DRAG_THRESHOLD || Math.abs(dy) > DRAG_THRESHOLD) movedRef.current = true;
+    const next = clampToViewport({ x: e.clientX - dragOffsetRef.current.x, y: e.clientY - dragOffsetRef.current.y });
+    setPos(next);
+    try {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(next));
+    } catch {
+      // per-viewer convenience only — fine to lose on a private/blocked browser
+    }
+  };
+
+  const handlePointerUp = () => {
+    draggingRef.current = false;
+  };
+
+  const handleClick = () => {
+    if (movedRef.current) {
+      movedRef.current = false;
+      return;
+    }
+    toggle();
+  };
+
+  const panel = panelStyle(pos);
+
   return (
     <>
       {isOpen && (
-        <div className="fixed bottom-24 right-6 z-[9999] flex h-[560px] max-h-[calc(100vh-8rem)] w-[380px] max-w-[calc(100vw-2rem)] flex-col overflow-hidden rounded-xl border border-gray-200 bg-white shadow-theme-lg dark:border-gray-700 dark:bg-gray-900">
+        <div
+          style={{ left: panel.left, top: panel.top, width: PANEL_WIDTH, height: PANEL_HEIGHT }}
+          className="fixed z-[9999] flex max-h-[calc(100vh-2rem)] max-w-[calc(100vw-2rem)] flex-col overflow-hidden rounded-xl border border-gray-200 bg-white shadow-theme-lg dark:border-gray-700 dark:bg-gray-900"
+        >
           <div className="flex h-16 shrink-0 items-center justify-between gap-2 border-b border-gray-200 px-4 dark:border-gray-700">
             <div className="flex min-w-0 items-center gap-2.5">
               <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-teal-100 text-teal-700 dark:bg-teal-500/15 dark:text-teal-300">
@@ -136,9 +239,15 @@ export default function SiteHelpChatWidget() {
 
       <button
         type="button"
-        onClick={toggle}
+        onClick={handleClick}
+        onPointerDown={handlePointerDown}
+        onPointerMove={handlePointerMove}
+        onPointerUp={handlePointerUp}
+        onPointerCancel={handlePointerUp}
         aria-label={isOpen ? "Đóng trợ lý" : "Mở trợ lý"}
-        className="fixed bottom-6 right-6 z-[9999] flex h-14 w-14 items-center justify-center rounded-full bg-brand-500 text-white shadow-theme-lg transition-colors duration-150 ease-in-out hover:bg-brand-600"
+        title="Kéo để di chuyển"
+        style={{ left: pos.x, top: pos.y, touchAction: "none" }}
+        className="fixed z-[9999] flex h-14 w-14 cursor-grab select-none items-center justify-center rounded-full bg-brand-500 text-white shadow-theme-lg transition-colors duration-150 ease-in-out hover:bg-brand-600 active:cursor-grabbing"
       >
         {isOpen ? <CloseIcon className="h-6 w-6" /> : <RobotIcon className="h-6 w-6" />}
       </button>

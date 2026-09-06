@@ -32,6 +32,9 @@ cryptography==48.0.0
 # DB migrations
 alembic==1.19.1
 
+# Scheduled jobs (reminders)
+apscheduler==3.11.3
+
 # ML bổ sung
 ctranslate2==4.7.1
 onnxruntime==1.23.2

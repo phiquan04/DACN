@@ -2,7 +2,9 @@
 // every other tile/button in the system, not a circle) with bold white
 // initials, so rows are easier to tell apart at a glance. Colors are pulled
 // from tokens already in the admin palette, picked by user id so the same
-// person always gets the same color across pages.
+// person always gets the same color across pages. Shared by the learner and
+// admin surfaces so a user without an uploaded photo never falls back to a
+// generic stock image on either one.
 const PALETTE = ["#315DCE", "#15988E", "#C94D5C", "#5E6BC4", "#B47A1B", "#4B91D2", "#142B52", "#0E7A63"];
 
 function colorFor(id: number): string {

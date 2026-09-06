@@ -53,3 +53,4 @@ def init_db(app):
     seed.backfill_user_roles()
     seed.seed_chat_scenarios()
     seed.seed_jlpt_schedules()
+    seed.seed_jlpt_level_structures()

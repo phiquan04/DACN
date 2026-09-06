@@ -11,7 +11,7 @@ import { formatApiDate, formatApiDateTime } from "../../utils/datetime";
 import { LockIcon, UnlockIcon } from "../admin-jlpt/icons";
 import { ChevronLeftIcon, ShootingStarIcon } from "../../icons";
 import { AccountStatusBadge, EmailVerifiedBadge, JlptLevelBadge } from "./badges";
-import UserAvatar from "./UserAvatar";
+import UserAvatar from "../common/UserAvatar";
 import {
   ConversationTab,
   JlptTab,

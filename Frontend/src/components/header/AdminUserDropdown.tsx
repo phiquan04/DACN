@@ -3,12 +3,14 @@ import { DropdownItem } from "../ui/dropdown/DropdownItem";
 import { Dropdown } from "../ui/dropdown/Dropdown";
 import { useNavigate } from "react-router";
 import { logout, User, getUserProfile } from "../../services/api";
+import UserAvatar from "../common/UserAvatar";
 
 export default function AdminUserDropdown() {
   const navigate = useNavigate();
   const [isOpen, setIsOpen] = useState(false);
   const [user, setUser] = useState<User | null>(null);
   const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
+  const [fullName, setFullName] = useState("");
 
   useEffect(() => {
     const storedUser = localStorage.getItem("user");
@@ -17,9 +19,8 @@ export default function AdminUserDropdown() {
       setUser(parsedUser);
       getUserProfile()
         .then(profile => {
-          if (profile.avatar_url) {
-            setAvatarUrl(profile.avatar_url);
-          }
+          setAvatarUrl(profile.avatar_url || null);
+          setFullName([profile.first_name, profile.last_name].filter(Boolean).join(" ").trim());
         })
         .catch(err => console.error("Failed to load avatar", err));
     }
@@ -53,11 +54,7 @@ export default function AdminUserDropdown() {
         className="flex items-center text-gray-700 dropdown-toggle dark:text-gray-400"
       >
         <span className="mr-3 overflow-hidden rounded-full h-11 w-11">
-          {avatarUrl ? (
-            <img src={avatarUrl} alt="User" className="w-full h-full object-cover" />
-          ) : (
-            <img src="/images/user/owner.jpg" alt="User" />
-          )}
+          <UserAvatar id={user.id} name={fullName} username={user.username} avatarUrl={avatarUrl} size={44} />
         </span>
         <span className="block mr-1 font-medium text-theme-sm">{user.username}</span>
         <svg
