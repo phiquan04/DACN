@@ -8,9 +8,10 @@ interface ImagesCardProps {
   currentUser: User | null;
   onUpload: (e: React.ChangeEvent<HTMLInputElement>) => void;
   onDelete: (image: DictionaryImageItem) => void;
+  onVote: (image: DictionaryImageItem, voteType: "up" | "down") => void;
 }
 
-export default function ImagesCard({ word, images, loading, uploading, currentUser, onUpload, onDelete }: ImagesCardProps) {
+export default function ImagesCard({ word, images, loading, uploading, currentUser, onUpload, onDelete, onVote }: ImagesCardProps) {
   return (
     <div className="rounded-2xl border border-outline-variant/60 bg-surface-container-lowest p-5 shadow-theme-xs dark:border-gray-700 dark:bg-gray-900">
       <div className="mb-4 flex flex-wrap items-center justify-between gap-2">
@@ -33,22 +34,40 @@ export default function ImagesCard({ word, images, loading, uploading, currentUs
       {!loading && images.length > 0 && (
         <div className="flex flex-wrap gap-3">
           {images.map((img) => (
-            <div key={img.id} className="group relative">
-              <img
-                src={img.image_url}
-                alt={img.caption || word}
-                title={`${img.caption || ""}${img.caption ? " — " : ""}bởi ${img.uploader_username}`}
-                className="h-40 w-40 rounded-xl object-cover border border-outline-variant/60 dark:border-gray-700"
-              />
-              {currentUser?.id === img.uploaded_by && (
+            <div key={img.id} className="w-40">
+              <div className="group relative">
+                <img
+                  src={img.image_url}
+                  alt={img.caption || word}
+                  title={`${img.caption || ""}${img.caption ? " — " : ""}bởi ${img.uploader_username}`}
+                  className="h-40 w-40 rounded-xl object-cover border border-outline-variant/60 dark:border-gray-700"
+                />
+                {currentUser?.id === img.uploaded_by && (
+                  <button
+                    onClick={() => onDelete(img)}
+                    title="Xóa ảnh"
+                    className="absolute -top-1.5 -right-1.5 hidden h-6 w-6 items-center justify-center rounded-full bg-error text-on-error text-sm group-hover:flex"
+                  >
+                    ×
+                  </button>
+                )}
+              </div>
+              <div className="mt-1.5 flex items-center gap-3 text-xs text-outline">
                 <button
-                  onClick={() => onDelete(img)}
-                  title="Xóa ảnh"
-                  className="absolute -top-1.5 -right-1.5 hidden h-6 w-6 items-center justify-center rounded-full bg-error text-on-error text-sm group-hover:flex"
+                  onClick={() => onVote(img, "up")}
+                  disabled={!currentUser}
+                  className={`hover:text-brand-600 ${img.my_vote === "up" ? "text-brand-600 font-medium" : ""}`}
                 >
-                  ×
+                  👍 {img.upvotes}
                 </button>
-              )}
+                <button
+                  onClick={() => onVote(img, "down")}
+                  disabled={!currentUser}
+                  className={`hover:text-error ${img.my_vote === "down" ? "text-error font-medium" : ""}`}
+                >
+                  👎 {img.downvotes}
+                </button>
+              </div>
             </div>
           ))}
         </div>

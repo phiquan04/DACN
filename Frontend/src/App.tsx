@@ -8,6 +8,8 @@ import { useOnlineHeartbeat } from "./hooks/useOnlineHeartbeat";
 
 const AdminHome = lazy(() => import("./pages/Admin/AdminHome"));
 const AdminUserManagement = lazy(() => import("./pages/Admin/UserManagement"));
+const AdminDictionaryModeration = lazy(() => import("./pages/Admin/DictionaryModeration"));
+const AdminJLPTOverview = lazy(() => import("./pages/Admin/JLPTContentBank/OverviewPage"));
 const AdminJLPTStructure = lazy(() => import("./pages/Admin/JLPTContentBank/StructurePage"));
 const AdminJLPTImport = lazy(() => import("./pages/Admin/JLPTContentBank/ImportPage"));
 const AdminJLPTReview = lazy(() => import("./pages/Admin/JLPTContentBank/ReviewPage"));
@@ -63,8 +65,10 @@ export default function App() {
             <Route path="/admin" element={<AdminLayout />}>
               <Route index element={<AdminHome />} />
               <Route path="users" element={<AdminUserManagement />} />
+              <Route path="dictionary-moderation" element={<AdminDictionaryModeration />} />
               <Route path="jlpt-content">
-                <Route index element={<Navigate to="structure" replace />} />
+                <Route index element={<Navigate to="overview" replace />} />
+                <Route path="overview" element={<AdminJLPTOverview />} />
                 <Route path="structure" element={<AdminJLPTStructure />} />
                 <Route path="import" element={<AdminJLPTImport />} />
                 <Route path="review" element={<AdminJLPTReview />} />

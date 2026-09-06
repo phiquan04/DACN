@@ -126,6 +126,7 @@ export interface ExamSummary {
   has_answer_key: boolean;
   question_count: number;
   reviewed_count: number;
+  created_at?: string | null;
 }
 
 export interface ChoiceItem {
@@ -485,4 +486,13 @@ export async function fetchMyAttempts(level?: JlptLevel): Promise<AttemptHistory
 
 export async function fetchLevelAverages(): Promise<LevelAverage[]> {
   return request(`/api/jlpt/attempts/average`, { headers: authHeaders(getToken()), silent: true });
+}
+
+export interface AttemptDetail {
+  exam: TakeExam;
+  result: SubmitAttemptResult;
+}
+
+export async function fetchAttemptDetail(attemptId: number): Promise<AttemptDetail> {
+  return request(`/api/jlpt/attempts/${attemptId}`, { headers: authHeaders(getToken()) });
 }

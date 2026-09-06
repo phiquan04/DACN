@@ -13,6 +13,7 @@ from .vocabulary import router as vocabulary_router
 from .auth import router as auth_router
 from .pronunciation import router as pronunciation_router
 from .dictionary import router as dictionary_router
+from .dictionary.admin_moderation import router as admin_dictionary_router
 from .user import router as user_router
 from .admin_users import router as admin_users_router
 from .admin_dashboard import router as admin_dashboard_router
@@ -36,6 +37,7 @@ def register_routers(app):
     app.include_router(vocabulary_router, prefix="/api")
     app.include_router(pronunciation_router, prefix="/api")
     app.include_router(dictionary_router, prefix="/api")
+    app.include_router(admin_dictionary_router, prefix="/api")
     app.include_router(user_router, prefix="/api")
     app.include_router(admin_users_router, prefix="/api")
     app.include_router(admin_dashboard_router, prefix="/api")

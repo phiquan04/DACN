@@ -1,6 +1,8 @@
-from typing import List, Optional
+from typing import List, Literal, Optional
 
 from pydantic import BaseModel
+
+ModerationStatus = Literal['pending', 'approved', 'flagged']
 
 
 class LookupRequest(BaseModel):
@@ -98,7 +100,15 @@ class ImageItem(BaseModel):
     caption: Optional[str] = ""
     uploaded_by: int
     uploader_username: str
+    status: ModerationStatus = 'pending'
+    upvotes: int = 0
+    downvotes: int = 0
+    my_vote: Optional[str] = None
     created_at: str
+
+
+class ImageVoteRequest(BaseModel):
+    vote_type: str  # 'up' or 'down'
 
 
 class CommentVoteRequest(BaseModel):
@@ -117,7 +127,71 @@ class CommentItem(BaseModel):
     username: str
     avatar_url: Optional[str] = None
     content: str
+    status: ModerationStatus = 'pending'
     upvotes: int
     downvotes: int
     my_vote: Optional[str] = None
     created_at: str
+
+
+# ---------- Admin moderation ----------
+
+class AdminImageItem(BaseModel):
+    id: int
+    word: str
+    image_url: str
+    caption: Optional[str] = ""
+    status: ModerationStatus
+    uploaded_by: int
+    uploader_username: str
+    upvotes: int
+    downvotes: int
+    score: int
+    created_at: str
+
+
+class AdminImageListPage(BaseModel):
+    items: List[AdminImageItem]
+    total: int
+    page: int
+    page_size: int
+
+
+class AdminCommentItem(BaseModel):
+    id: int
+    word: str
+    content: str
+    status: ModerationStatus
+    user_id: int
+    username: str
+    upvotes: int
+    downvotes: int
+    score: int
+    created_at: str
+
+
+class AdminCommentListPage(BaseModel):
+    items: List[AdminCommentItem]
+    total: int
+    page: int
+    page_size: int
+
+
+class AdminDictionaryStats(BaseModel):
+    total_content: int
+    pending_count: int
+    today_count: int
+    high_downvote_count: int
+
+
+class UpdateModerationStatusRequest(BaseModel):
+    status: ModerationStatus
+
+
+class BulkApproveRequest(BaseModel):
+    # Empty/omitted means "approve every pending item currently in the queue".
+    ids: Optional[List[int]] = None
+
+
+class BulkApproveResponse(BaseModel):
+    approved_count: int

@@ -1,15 +1,15 @@
 """Community-contributed images attached to a dictionary word."""
 import asyncio
-from typing import List
+from typing import List, Optional
 
 import cloudinary
 import cloudinary.uploader
 from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, selectinload
 
 from app.dependencies import get_current_user, UserResponse
-from app.models.database import get_db, DictionaryImage
-from app.schemas.dictionary import ImageItem
+from app.models.database import get_db, DictionaryImage, DictionaryImageVote
+from app.schemas.dictionary import ImageItem, ImageVoteRequest
 from app.utils.cloudinary import init_cloudinary
 
 init_cloudinary()
@@ -19,22 +19,28 @@ router = APIRouter()
 MAX_UPLOAD_IMAGE_BYTES = 5 * 1024 * 1024  # 5 MB
 
 
+def _image_to_item(record: DictionaryImage, requesting_user_id: Optional[int]) -> ImageItem:
+    upvotes = sum(1 for v in record.votes if v.vote_type == 'up')
+    downvotes = sum(1 for v in record.votes if v.vote_type == 'down')
+    my_vote = next((v.vote_type for v in record.votes if v.user_id == requesting_user_id), None)
+    return ImageItem(
+        id=record.id, image_url=record.image_url, caption=record.caption or "",
+        uploaded_by=record.uploaded_by, uploader_username=record.uploader.username if record.uploader else "",
+        status=record.status, upvotes=upvotes, downvotes=downvotes, my_vote=my_vote,
+        created_at=record.created_at.isoformat() if record.created_at else "",
+    )
+
+
 @router.get("/images/{word}", response_model=List[ImageItem])
-async def get_images(word: str, db: Session = Depends(get_db)):
+async def get_images(word: str, user_id: Optional[int] = None, db: Session = Depends(get_db)):
     records = (
         db.query(DictionaryImage)
+        .options(selectinload(DictionaryImage.votes))
         .filter(DictionaryImage.word == word)
         .order_by(DictionaryImage.created_at.desc())
         .all()
     )
-    return [
-        ImageItem(
-            id=r.id, image_url=r.image_url, caption=r.caption or "",
-            uploaded_by=r.uploaded_by, uploader_username=r.uploader.username if r.uploader else "",
-            created_at=r.created_at.isoformat() if r.created_at else "",
-        )
-        for r in records
-    ]
+    return [_image_to_item(r, user_id) for r in records]
 
 
 @router.post("/images", response_model=ImageItem)
@@ -75,11 +81,7 @@ async def upload_image(
     db.commit()
     db.refresh(record)
 
-    return ImageItem(
-        id=record.id, image_url=record.image_url, caption=record.caption or "",
-        uploaded_by=record.uploaded_by, uploader_username=current_user.username,
-        created_at=record.created_at.isoformat() if record.created_at else "",
-    )
+    return _image_to_item(record, current_user.id)
 
 
 @router.delete("/images/{image_id}")
@@ -105,3 +107,32 @@ async def delete_image(
     db.delete(record)
     db.commit()
     return {"success": True}
+
+
+@router.post("/images/{image_id}/vote", response_model=ImageItem)
+async def vote_image(
+    image_id: int,
+    req: ImageVoteRequest,
+    current_user: UserResponse = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    if req.vote_type not in ('up', 'down'):
+        raise HTTPException(status_code=400, detail="vote_type must be 'up' or 'down'")
+    record = db.query(DictionaryImage).filter(DictionaryImage.id == image_id).first()
+    if not record:
+        raise HTTPException(status_code=404, detail="Image not found")
+
+    existing = db.query(DictionaryImageVote).filter(
+        DictionaryImageVote.image_id == image_id,
+        DictionaryImageVote.user_id == current_user.id,
+    ).first()
+
+    if existing and existing.vote_type == req.vote_type:
+        db.delete(existing)  # clicking the same vote again toggles it off
+    elif existing:
+        existing.vote_type = req.vote_type
+    else:
+        db.add(DictionaryImageVote(image_id=image_id, user_id=current_user.id, vote_type=req.vote_type))
+    db.commit()
+    db.refresh(record)
+    return _image_to_item(record, current_user.id)

@@ -11,6 +11,7 @@ import {
   PublishedExamSummary,
   SubmitAttemptResult,
   TakeExam,
+  fetchAttemptDetail,
   fetchDashboard,
   fetchExamToTake,
   fetchLevelAverages,
@@ -30,7 +31,7 @@ import RegistrationInfoCard from "./RegistrationInfoCard";
 import TakeExamView from "./TakeExamView";
 import WeakMondaiCard from "./WeakMondaiCard";
 
-type View = "browse" | "take" | "result";
+type View = "browse" | "take" | "result" | "history-detail";
 const DEFAULT_LEVEL: JlptLevel = "N3";
 
 function isJlptLevel(value?: string | null): value is JlptLevel {
@@ -62,6 +63,7 @@ export default function JLPTPractice() {
   const [activeExam, setActiveExam] = useState<TakeExam | null>(null);
   const [result, setResult] = useState<SubmitAttemptResult | null>(null);
   const [submitting, setSubmitting] = useState(false);
+  const [loadingAttemptDetail, setLoadingAttemptDetail] = useState(false);
 
   const targetLevel = isJlptLevel(profile?.target_jlpt_level) ? (profile!.target_jlpt_level as JlptLevel) : undefined;
   const dashboardLevel: JlptLevel = level === "ALL" ? targetLevel ?? DEFAULT_LEVEL : level;
@@ -212,6 +214,27 @@ export default function JLPTPractice() {
     loadExams(level);
   };
 
+  const handleSelectAttempt = async (attemptId: number) => {
+    setLoadingAttemptDetail(true);
+    try {
+      const detail = await fetchAttemptDetail(attemptId);
+      setActiveExam(detail.exam);
+      setResult(detail.result);
+      setView("history-detail");
+    } catch {
+      // reported globally
+    } finally {
+      setLoadingAttemptDetail(false);
+    }
+  };
+
+  const handleBackToHistory = () => {
+    setActiveExam(null);
+    setResult(null);
+    setTab("history");
+    setView("browse");
+  };
+
   if (view === "take" && activeExam) {
     return (
       <TakeExamView
@@ -225,6 +248,10 @@ export default function JLPTPractice() {
 
   if (view === "result" && activeExam && result) {
     return <ExamResultView exam={activeExam} result={result} onBack={handleBackToBrowse} />;
+  }
+
+  if (view === "history-detail" && activeExam && result) {
+    return <ExamResultView exam={activeExam} result={result} onBack={handleBackToHistory} backLabel="Quay lại lịch sử" />;
   }
 
   return (
@@ -286,7 +313,16 @@ export default function JLPTPractice() {
             <ExamStatsSidebar {...examStats} />
           </div>
         ) : (
-          <AttemptHistoryList level={level} attempts={attempts} averages={averages} loading={loadingAttempts} />
+          <>
+            {loadingAttemptDetail && <p className="text-sm text-gray-500 dark:text-gray-400">Đang tải chi tiết bài làm...</p>}
+            <AttemptHistoryList
+              level={level}
+              attempts={attempts}
+              averages={averages}
+              loading={loadingAttempts}
+              onSelectAttempt={handleSelectAttempt}
+            />
+          </>
         )}
       </div>
     </div>

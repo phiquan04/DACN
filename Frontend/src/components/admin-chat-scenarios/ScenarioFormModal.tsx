@@ -2,6 +2,8 @@ import { useState } from "react";
 import { Modal } from "../ui/modal";
 import type { AdminScenario, ScenarioPayload } from "../../services/adminScenarioApi";
 import { PlusIcon, TrashBinIcon } from "../../icons";
+import { ADMIN_PRIMARY_GRADIENT } from "../../utils/adminStyles";
+import IconPickerButton, { DEFAULT_SCENARIO_ICON } from "./IconPicker";
 
 interface Props {
   scenario: AdminScenario | null;
@@ -16,8 +18,8 @@ interface FieldRow {
 }
 
 const inputClass =
-  "w-full rounded-lg border border-gray-200 bg-white px-3.5 py-2 text-sm text-gray-800 outline-none focus:border-brand-500 focus:ring-1 focus:ring-brand-500 dark:border-gray-700 dark:bg-gray-800 dark:text-white/90";
-const labelClass = "mb-1 block text-xs font-medium text-gray-500 dark:text-gray-400";
+  "w-full rounded-[9px] border border-admin-border-input bg-white px-3.5 py-2 text-sm text-admin-ink outline-none focus:border-admin-200 focus:ring-3 focus:ring-admin-500/18";
+const labelClass = "mb-1 block text-xs font-medium text-admin-body";
 
 const LEVELS = ["N5", "N4", "N3", "N2", "N1"];
 
@@ -25,7 +27,7 @@ export default function ScenarioFormModal({ scenario, saving, onConfirm, onClose
   const [title, setTitle] = useState(scenario?.title ?? "");
   const [description, setDescription] = useState(scenario?.description ?? "");
   const [level, setLevel] = useState(scenario?.level ?? "");
-  const [icon, setIcon] = useState(scenario?.icon ?? "");
+  const [icon, setIcon] = useState(scenario?.icon ?? DEFAULT_SCENARIO_ICON);
   const [openingLine, setOpeningLine] = useState(scenario?.opening_line ?? "");
   const [topicPrompt, setTopicPrompt] = useState(scenario?.topic_prompt ?? "");
   const [fields, setFields] = useState<FieldRow[]>(
@@ -60,10 +62,10 @@ export default function ScenarioFormModal({ scenario, saving, onConfirm, onClose
 
   return (
     <Modal isOpen onClose={onClose} className="m-4 max-w-lg p-6">
-      <h2 className="text-lg font-semibold text-gray-800 dark:text-white/90">
+      <h2 className="text-lg font-semibold text-admin-ink">
         {scenario ? "Sửa tình huống" : "Thêm tình huống mới"}
       </h2>
-      <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
+      <p className="mt-1 text-sm text-admin-body">
         Người dùng chọn tình huống này trong trang Chatbot rồi nhập bối cảnh trước khi bắt đầu hội thoại.
       </p>
 
@@ -71,7 +73,7 @@ export default function ScenarioFormModal({ scenario, saving, onConfirm, onClose
         <div className="grid gap-3 sm:grid-cols-[1fr_auto_auto]">
           <div>
             <label className={labelClass}>
-              Tiêu đề <span className="text-rose-500">*</span>
+              Tiêu đề <span className="text-[#C94D5C]">*</span>
             </label>
             <input value={title} onChange={(e) => setTitle(e.target.value)} className={inputClass} />
           </div>
@@ -86,14 +88,9 @@ export default function ScenarioFormModal({ scenario, saving, onConfirm, onClose
               ))}
             </select>
           </div>
-          <div>
+          <div className="w-40">
             <label className={labelClass}>Icon</label>
-            <input
-              value={icon}
-              onChange={(e) => setIcon(e.target.value)}
-              placeholder="💼"
-              className={`${inputClass} w-16 text-center`}
-            />
+            <IconPickerButton value={icon} onChange={setIcon} />
           </div>
         </div>
 
@@ -109,29 +106,29 @@ export default function ScenarioFormModal({ scenario, saving, onConfirm, onClose
 
         <div>
           <div className="mb-1.5 flex items-center justify-between">
-            <label className="text-xs font-medium text-gray-500 dark:text-gray-400">
+            <label className="text-xs font-medium text-admin-body">
               Form nhập bối cảnh (場面)
             </label>
             <button
               type="button"
               onClick={addField}
-              className="flex items-center gap-1 rounded-lg border border-gray-200 px-2.5 py-1 text-xs font-medium text-gray-600 hover:bg-gray-50 dark:border-gray-700 dark:text-gray-300 dark:hover:bg-gray-800"
+              className="flex items-center gap-1 rounded-[9px] border border-admin-border-input px-2.5 py-1 text-xs font-medium text-admin-body hover:bg-admin-fill"
             >
               <PlusIcon className="h-3.5 w-3.5" /> Thêm trường
             </button>
           </div>
-          <p className="mb-2 text-[11px] leading-relaxed text-gray-400 dark:text-gray-500">
+          <p className="mb-2 text-[11px] leading-relaxed text-admin-meta">
             Mỗi trường là một câu hỏi người dùng phải điền khi chọn tình huống này (ví dụ: Tên công ty, Lĩnh vực...).
             Để trống nếu vẫn muốn dùng 1 ô nhập tự do như trước.
           </p>
           {fields.length === 0 && (
-            <p className="rounded-lg border border-dashed border-gray-200 py-4 text-center text-xs text-gray-400 dark:border-gray-700 dark:text-gray-500">
+            <p className="rounded-[9px] border border-dashed border-admin-border-input py-4 text-center text-xs text-admin-meta">
               Chưa có trường nào — sẽ dùng ô nhập tự do.
             </p>
           )}
           <div className="space-y-2">
             {fields.map((f, i) => (
-              <div key={i} className="flex items-start gap-2 rounded-lg border border-gray-200 p-2.5 dark:border-gray-700">
+              <div key={i} className="flex items-start gap-2 rounded-[9px] border border-admin-border-input p-2.5">
                 <div className="grid flex-1 gap-1.5 sm:grid-cols-2">
                   <input
                     value={f.label}
@@ -149,7 +146,7 @@ export default function ScenarioFormModal({ scenario, saving, onConfirm, onClose
                 <button
                   type="button"
                   onClick={() => removeField(i)}
-                  className="mt-2 shrink-0 text-gray-400 hover:text-rose-500"
+                  className="mt-2 shrink-0 text-admin-meta hover:text-[#C94D5C]"
                   title="Xóa trường"
                 >
                   <TrashBinIcon className="h-4 w-4" />
@@ -159,8 +156,8 @@ export default function ScenarioFormModal({ scenario, saving, onConfirm, onClose
           </div>
         </div>
 
-        <details className="rounded-lg border border-gray-200 p-3 dark:border-gray-700">
-          <summary className="cursor-pointer text-xs font-medium text-gray-600 dark:text-gray-300">
+        <details className="rounded-[9px] border border-admin-border-input p-3">
+          <summary className="cursor-pointer text-xs font-medium text-admin-body">
             Tùy chọn nâng cao
           </summary>
           <div className="mt-3 space-y-3">
@@ -192,7 +189,7 @@ export default function ScenarioFormModal({ scenario, saving, onConfirm, onClose
           type="button"
           onClick={onClose}
           disabled={saving}
-          className="rounded-lg border border-gray-200 px-4 py-2 text-sm font-medium text-gray-600 hover:bg-gray-50 disabled:opacity-50 dark:border-gray-700 dark:text-gray-300 dark:hover:bg-gray-800"
+          className="rounded-[9px] border border-admin-border-input px-4 py-2 text-sm font-medium text-admin-body hover:bg-admin-fill disabled:opacity-50"
         >
           Hủy
         </button>
@@ -200,7 +197,7 @@ export default function ScenarioFormModal({ scenario, saving, onConfirm, onClose
           type="button"
           onClick={handleSubmit}
           disabled={saving || !valid}
-          className="rounded-lg bg-brand-500 px-4 py-2 text-sm font-medium text-white hover:bg-brand-600 disabled:opacity-50"
+          className={`rounded-[9px] px-4 py-2 text-sm font-medium text-white shadow-[0_5px_12px_rgba(49,93,206,0.22)] disabled:opacity-50 ${ADMIN_PRIMARY_GRADIENT}`}
         >
           {saving ? "Đang lưu..." : scenario ? "Lưu thay đổi" : "Tạo tình huống"}
         </button>

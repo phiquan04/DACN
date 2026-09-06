@@ -11,6 +11,10 @@ from .history import router as history_router
 from .images import router as images_router
 from .lookup import router as lookup_router
 
+# admin_moderation.py's router is registered separately in
+# app/routes/__init__.py, since it lives at /admin/dictionary rather than
+# nested under this module's /dictionary prefix.
+
 router = APIRouter(prefix="/dictionary", tags=["dictionary"])
 router.include_router(lookup_router)
 router.include_router(handwriting_router)

@@ -7,11 +7,13 @@ export default function AttemptHistoryList({
   attempts,
   averages,
   loading,
+  onSelectAttempt,
 }: {
   level: JlptLevel | "ALL";
   attempts: AttemptHistoryItem[];
   averages: LevelAverage[];
   loading: boolean;
+  onSelectAttempt: (attemptId: number) => void;
 }) {
   const visible = level === "ALL" ? attempts : attempts.filter((a) => a.level === level);
 
@@ -43,9 +45,11 @@ export default function AttemptHistoryList({
         {visible.map((a) => {
           const tone = percentTone(a.percent);
           return (
-            <div
+            <button
               key={a.attempt_id}
-              className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-gray-200 bg-white p-4 shadow-sm dark:border-gray-700 dark:bg-gray-900"
+              type="button"
+              onClick={() => onSelectAttempt(a.attempt_id)}
+              className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-gray-200 bg-white p-4 text-left shadow-sm transition-colors hover:border-teal-500 hover:shadow dark:border-gray-700 dark:bg-gray-900"
             >
               <div className="min-w-0 flex-1">
                 <div className="flex flex-wrap items-center gap-2">
@@ -82,7 +86,7 @@ export default function AttemptHistoryList({
                   {a.percent}%
                 </span>
               </div>
-            </div>
+            </button>
           );
         })}
       </div>

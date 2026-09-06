@@ -116,6 +116,7 @@ export default function Vocabulary() {
                         currentUser={currentUser}
                         onUpload={handleUploadImage}
                         onDelete={images.remove}
+                        onVote={images.vote}
                       />
                       <CommentsCard
                         comments={comments.comments}

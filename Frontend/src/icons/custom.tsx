@@ -133,6 +133,17 @@ export const FilterIcon = ({ className = "h-4 w-4" }: { className?: string }) =>
   </svg>
 );
 
+export const EyeOffIcon = ({ className = "h-4 w-4" }: { className?: string }) => (
+  <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor">
+    <path
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      strokeWidth={2}
+      d="M3 3l18 18M10.6 10.6a2 2 0 002.8 2.8M9.9 5.1A10 10 0 0112 5c5 0 9 4 10.5 7a13 13 0 01-2.7 3.7M6.6 6.6C4.6 7.9 3 9.7 1.5 12c1.5 3 5.5 7 10.5 7a9.7 9.7 0 004.1-.9"
+    />
+  </svg>
+);
+
 export const RefreshIcon = ({ className = "h-4 w-4" }: { className?: string }) => (
   <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor">
     <polyline points="1 4 1 10 7 10" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" />

@@ -156,6 +156,7 @@ class ExamSummary(BaseModel):
     has_answer_key: bool
     question_count: int = 0
     reviewed_count: int = 0
+    created_at: Optional[str] = None
 
 
 # --- User-facing: browsing/taking a published exam (never exposes correct_no/explanation) ---
@@ -265,6 +266,13 @@ class SubmitAttemptOut(BaseModel):
     pass_total: Optional[int] = None
     is_pass: Optional[bool] = None
     sections: List[SectionScoreOut] = []
+
+
+class AttemptDetailOut(BaseModel):
+    """Full detail of one past attempt: the exam's questions/choices plus the
+    learner's graded answers, for the "xem chi tiết" view in attempt history."""
+    exam: TakeExamOut
+    result: SubmitAttemptOut
 
 
 class AttemptHistoryItem(BaseModel):

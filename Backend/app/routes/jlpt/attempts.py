@@ -23,7 +23,7 @@ from app.models.jlpt import (
 from app.models.profile import UserInformation
 from app.models.user import User
 from app.schemas.jlpt import (
-    AttemptHistoryItem, ExamRankingEntryOut, ExamRankingOut, JlptLevel, LevelAverage,
+    AttemptDetailOut, AttemptHistoryItem, ExamRankingEntryOut, ExamRankingOut, JlptLevel, LevelAverage,
     PublishedExamSummary, SubmitAttemptIn, SubmitAttemptOut, TakeExamOut,
 )
 from app.services.audit_log import log_event
@@ -82,9 +82,8 @@ def list_published_exams(
     ]
 
 
-@router.get("/published-exams/{exam_id}", response_model=TakeExamOut)
-def get_exam_to_take(exam_id: int, db: Session = Depends(get_db)):
-    exam = (
+def _load_exam_for_taking(db: Session, exam_id: int, require_published: bool) -> Optional[JlptExam]:
+    query = (
         db.query(JlptExam)
         .options(
             selectinload(JlptExam.questions).selectinload(JlptQuestion.choices),
@@ -93,12 +92,14 @@ def get_exam_to_take(exam_id: int, db: Session = Depends(get_db)):
             .joinedload(JlptLevelStructure.sections)
             .joinedload(JlptSection.mondai_templates),
         )
-        .filter(JlptExam.id == exam_id, JlptExam.status == 'published')
-        .first()
+        .filter(JlptExam.id == exam_id)
     )
-    if not exam:
-        raise HTTPException(status_code=404, detail="Không tìm thấy đề thi")
+    if require_published:
+        query = query.filter(JlptExam.status == 'published')
+    return query.first()
 
+
+def _build_take_exam_out(exam: JlptExam) -> dict:
     questions_by_mondai = {}
     for q in exam.questions:
         questions_by_mondai.setdefault(q.mondai_template_id, []).append(q)
@@ -136,6 +137,14 @@ def get_exam_to_take(exam_id: int, db: Session = Depends(get_db)):
         "total_time_minutes": exam.level_structure.total_time_minutes if exam.level_structure else None,
         "sections": sections_out,
     }
+
+
+@router.get("/published-exams/{exam_id}", response_model=TakeExamOut)
+def get_exam_to_take(exam_id: int, db: Session = Depends(get_db)):
+    exam = _load_exam_for_taking(db, exam_id, require_published=True)
+    if not exam:
+        raise HTTPException(status_code=404, detail="Không tìm thấy đề thi")
+    return _build_take_exam_out(exam)
 
 
 @router.get("/published-exams/{exam_id}/ranking", response_model=ExamRankingOut)
@@ -320,6 +329,56 @@ def list_my_attempts(
         }
         for a in attempts
     ]
+
+
+@router.get("/attempts/{attempt_id:int}", response_model=AttemptDetailOut)
+def get_attempt_detail(
+    attempt_id: int,
+    db: Session = Depends(get_db),
+    current_user: UserResponse = Depends(get_current_user),
+):
+    attempt = (
+        db.query(JlptTestAttempt)
+        .options(selectinload(JlptTestAttempt.answers))
+        .filter(JlptTestAttempt.id == attempt_id, JlptTestAttempt.status == 'completed')
+        .first()
+    )
+    if not attempt or attempt.user_id != current_user.id:
+        raise HTTPException(status_code=404, detail="Không tìm thấy lượt làm bài")
+
+    # Not restricted to status == 'published': a learner should still be able
+    # to review an attempt even if the exam was unpublished afterwards.
+    exam = _load_exam_for_taking(db, attempt.exam_id, require_published=False)
+    if not exam or not exam.level_structure:
+        raise HTTPException(status_code=404, detail="Không tìm thấy đề thi")
+
+    answer_by_question = {a.question_id: a for a in attempt.answers}
+    graded = [
+        {
+            "question_id": q.id,
+            "selected_choice_no": answer_by_question[q.id].selected_choice_no if q.id in answer_by_question else None,
+            "correct_no": q.correct_no,
+            "is_correct": bool(answer_by_question[q.id].is_correct) if q.id in answer_by_question else False,
+            "explanation": q.explanation,
+        }
+        for q in sorted(exam.questions, key=lambda q: q.question_no)
+    ]
+
+    breakdown = build_score_breakdown(exam.level, raw_section_counts(db, attempt.answers))
+    total = attempt.total_questions or 0
+
+    return {
+        "exam": _build_take_exam_out(exam),
+        "result": {
+            "attempt_id": attempt.id, "exam_id": exam.id,
+            "score": attempt.score or 0, "total_questions": total,
+            "percent": round((attempt.score or 0) / total * 100, 1) if total else 0.0,
+            "answers": graded,
+            "total": breakdown["total"], "total_max": breakdown["total_max"],
+            "pass_total": breakdown["pass_total"], "is_pass": breakdown["is_pass"],
+            "sections": breakdown["sections"],
+        },
+    }
 
 
 @router.get("/attempts/average", response_model=List[LevelAverage])

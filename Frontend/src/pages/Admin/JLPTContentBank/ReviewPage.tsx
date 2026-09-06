@@ -2,7 +2,6 @@ import { useEffect } from "react";
 import { useSearchParams } from "react-router";
 import PageMeta from "../../../components/common/PageMeta";
 import { usePageHeader } from "../../../context/PageHeaderContext";
-import JLPTTabs from "../../../components/admin-jlpt/JLPTTabs";
 import ReviewExams from "../../../components/admin-jlpt/ReviewExams";
 
 export default function ReviewPage() {
@@ -19,7 +18,6 @@ export default function ReviewPage() {
     <>
       <PageMeta title="Duyệt đề thi | Manabi AI" description="Duyệt và publish đề thi JLPT." />
       <div className="space-y-5">
-        <JLPTTabs current="Duyệt đề" />
         <ReviewExams focusExamId={focusExamId} />
       </div>
     </>

@@ -2,7 +2,6 @@ import { useEffect } from "react";
 import { useNavigate } from "react-router";
 import PageMeta from "../../../components/common/PageMeta";
 import { usePageHeader } from "../../../context/PageHeaderContext";
-import JLPTTabs from "../../../components/admin-jlpt/JLPTTabs";
 import ImportExamPanel from "../../../components/admin-jlpt/ImportExamPanel";
 
 export default function ImportPage() {
@@ -17,7 +16,6 @@ export default function ImportPage() {
     <>
       <PageMeta title="Import đề thi | Manabi AI" description="Import đề thi JLPT từ file PDF." />
       <div className="space-y-5">
-        <JLPTTabs current="Import đề" />
         <ImportExamPanel onImported={(examId) => navigate(`/admin/jlpt-content/review?examId=${examId}`)} />
       </div>
     </>

@@ -19,7 +19,7 @@ def _comment_to_item(comment: DictionaryComment, requesting_user_id: Optional[in
         id=comment.id, word=comment.word, user_id=comment.user_id,
         username=comment.author.username if comment.author else "",
         avatar_url=comment.author.information.avatar_url if comment.author and comment.author.information else None,
-        content=comment.content, upvotes=upvotes, downvotes=downvotes, my_vote=my_vote,
+        content=comment.content, status=comment.status, upvotes=upvotes, downvotes=downvotes, my_vote=my_vote,
         created_at=comment.created_at.isoformat() if comment.created_at else "",
     )
 
