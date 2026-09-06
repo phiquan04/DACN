@@ -13,6 +13,7 @@ from .grammar import GrammarCorrection
 from .transcription import TranscriptionSession, TranscriptionSegment
 from .dictionary import SearchHistory, DictionaryImage, DictionaryComment, DictionaryCommentVote
 from .profile import UserInformation
+from .reminder import ReminderTime
 from .jlpt import (
     JlptLevelStructure, JlptSection, JlptMondaiTemplate,
     JlptExam, JlptPassage, JlptQuestion, JlptChoice,
@@ -29,6 +30,7 @@ __all__ = [
     'TranscriptionSession', 'TranscriptionSegment',
     'SearchHistory', 'DictionaryImage', 'DictionaryComment', 'DictionaryCommentVote',
     'UserInformation',
+    'ReminderTime',
     'JlptLevelStructure', 'JlptSection', 'JlptMondaiTemplate',
     'JlptExam', 'JlptPassage', 'JlptQuestion', 'JlptChoice',
     'JlptTestAttempt', 'JlptTestAttemptAnswer',

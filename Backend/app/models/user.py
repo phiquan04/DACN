@@ -28,6 +28,7 @@ class User(BaseModel):
     daily_vocab_goal = Column(Integer, nullable=True)  # words/day target for the vocabulary library; None = use the default
     vocab_xp = Column(Integer, nullable=False, default=0)  # cumulative XP earned from vocabulary reviews; drives the level shown in the library
     email_verified = Column(Boolean, nullable=False, default=False)  # set once the user confirms an emailed OTP (see services/email_verification.py)
+    reminder_emails_enabled = Column(Boolean, nullable=False, default=False)  # opt-in for study-reminder emails, set from the profile page (see services/reminder_scheduler.py)
     last_login_at = Column(DateTime, nullable=True)
     last_seen_at = Column(DateTime, nullable=True)  # last heartbeat while the app was open; None once logged out — drives the admin "online now" status
     locked_reason = Column(String(255), nullable=True)

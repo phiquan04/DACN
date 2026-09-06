@@ -20,12 +20,10 @@ export default function AuthLayout({
 
       <div className="relative z-10 w-full max-w-md">
         <div className="mb-8 text-center">
-          <Link to="/" className="inline-flex items-center gap-2">
-            <Logo size={40} />
-            <h1 className="text-3xl font-bold tracking-tight text-primary dark:text-white">
-              Manabi<span className="text-secondary">AI</span>
-            </h1>
-          </Link>
+          <Logo size={40} />
+          <h1 className="text-3xl font-bold tracking-tight text-primary dark:text-white">
+            Manabi<span className="text-secondary">AI</span>
+          </h1>
           <p className="mt-3 text-base text-on-surface-variant dark:text-gray-400">
             Trợ lý học tập cá nhân
           </p>

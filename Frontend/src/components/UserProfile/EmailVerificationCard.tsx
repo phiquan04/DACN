@@ -11,17 +11,15 @@ import { MailIcon } from "../../icons";
  * banner, not a permanent status card, so a verified account shouldn't have
  * to keep looking at it.
  *
- * The code input is shown right away rather than gated behind a "send"
- * button: signup already emails a code immediately (see
- * Backend/app/routes/auth.py's sign_up), so most learners land here with an
- * unread code already sitting in their inbox — hiding the input until they
- * click "send" again would just make them wait through the resend cooldown
- * for no reason. */
+ * Signup no longer emails a code automatically — the learner has to land
+ * here and press "Gửi mã xác minh" first, so the code input only appears
+ * once a send has actually gone out. */
 export default function EmailVerificationCard() {
   const { showToast } = useToast();
   const [verified, setVerified] = useState<boolean | null>(null);
   const [email, setEmail] = useState("");
   const [code, setCode] = useState("");
+  const [codeSent, setCodeSent] = useState(false);
   const [sending, setSending] = useState(false);
   const [confirming, setConfirming] = useState(false);
 
@@ -48,6 +46,7 @@ export default function EmailVerificationCard() {
     try {
       const res = await sendEmailVerification();
       showToast(res.message, "success");
+      setCodeSent(true);
     } catch {
       // reported globally by the http client
     } finally {
@@ -77,25 +76,31 @@ export default function EmailVerificationCard() {
         <div>
           <h4 className="text-base font-semibold text-gray-800 dark:text-white/90">Email chưa được xác minh</h4>
           <p className="mt-0.5 text-sm text-gray-600 dark:text-gray-400">
-            Chúng tôi đã gửi mã xác minh 6 số tới {email}. Nhập mã bên dưới để hoàn tất xác minh.
+            {codeSent
+              ? `Chúng tôi đã gửi mã xác minh 6 số tới ${email}. Nhập mã bên dưới để hoàn tất xác minh.`
+              : `Xác minh địa chỉ ${email} để dùng đầy đủ tính năng của Manabi AI.`}
           </p>
         </div>
       </div>
 
       <div className="mt-5 flex flex-wrap items-end gap-3 border-t border-amber-200 pt-4 dark:border-amber-500/20">
-        <div className="w-40">
-          <Label>Mã xác minh</Label>
-          <Input
-            value={code}
-            onChange={(e) => setCode(e.target.value.replace(/\D/g, "").slice(0, 6))}
-            placeholder="000000"
-          />
-        </div>
-        <Button size="sm" onClick={handleConfirm} disabled={confirming || code.length !== 6}>
-          {confirming ? "Đang xác minh..." : "Xác nhận"}
-        </Button>
+        {codeSent && (
+          <div className="w-40">
+            <Label>Mã xác minh</Label>
+            <Input
+              value={code}
+              onChange={(e) => setCode(e.target.value.replace(/\D/g, "").slice(0, 6))}
+              placeholder="000000"
+            />
+          </div>
+        )}
+        {codeSent && (
+          <Button size="sm" onClick={handleConfirm} disabled={confirming || code.length !== 6}>
+            {confirming ? "Đang xác minh..." : "Xác nhận"}
+          </Button>
+        )}
         <Button size="sm" variant="outline" onClick={handleSend} disabled={sending}>
-          {sending ? "Đang gửi..." : "Gửi lại mã"}
+          {sending ? "Đang gửi..." : codeSent ? "Gửi lại mã" : "Gửi mã xác minh"}
         </Button>
       </div>
     </div>

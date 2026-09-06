@@ -76,3 +76,26 @@ export async function changePassword(currentPassword: string, newPassword: strin
     body: JSON.stringify({ current_password: currentPassword, new_password: newPassword }),
   });
 }
+
+export interface ReminderSettings {
+  enabled: boolean;
+  /** "HH:MM:SS" time-of-day strings, at most 5. */
+  times: string[];
+}
+
+export async function getReminderSettings(): Promise<ReminderSettings> {
+  const token = getToken();
+  return request(`/api/user/reminder-settings`, {
+    method: "GET",
+    headers: authHeaders(token),
+  });
+}
+
+export async function updateReminderSettings(data: ReminderSettings): Promise<ReminderSettings> {
+  const token = getToken();
+  return request(`/api/user/reminder-settings`, {
+    method: "PUT",
+    headers: jsonHeaders(token),
+    body: JSON.stringify(data),
+  });
+}

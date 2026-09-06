@@ -5,7 +5,7 @@ import AppHeader from "./AppHeader";
 import Backdrop from "./Backdrop";
 import AppSidebar from "./AppSidebar";
 import SiteHelpChatWidget from "../components/site-help-chat/SiteHelpChatWidget";
-import SelectionAskPopup from "../components/site-help-chat/SelectionAskPopup";
+import SelectionMeaningPopup from "../components/site-help-chat/SelectionMeaningPopup";
 
 // Routes whose content should fill the full dashboard width/height instead of
 // sitting inside the centered max-width column — the page owns its own
@@ -42,7 +42,7 @@ const LayoutContent: React.FC = () => {
       {!isFullBleed && (
         <>
           <SiteHelpChatWidget />
-          <SelectionAskPopup />
+          <SelectionMeaningPopup />
         </>
       )}
     </div>

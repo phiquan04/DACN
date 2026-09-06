@@ -6,6 +6,7 @@ import LevelProgressCard from "../components/UserProfile/LevelProgressCard";
 import ActivityHeatmapCard from "../components/UserProfile/ActivityHeatmapCard";
 import SecurityCard from "../components/UserProfile/SecurityCard";
 import EmailVerificationCard from "../components/UserProfile/EmailVerificationCard";
+import ReminderSettingsCard from "../components/UserProfile/ReminderSettingsCard";
 import SettingsCard from "../components/UserProfile/SettingsCard";
 import PageMeta from "../components/common/PageMeta";
 import { getUserProfile, updateUserProfile, type UserProfile, type UserProfileUpdate } from "../services/api";
@@ -87,6 +88,8 @@ export default function UserProfiles() {
           </div>
 
           <UserInfoCard profile={profile} onSave={handleSaveProfile} />
+
+          <ReminderSettingsCard />
 
           <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
             <UserAddressCard profile={profile} onSave={handleSaveProfile} />

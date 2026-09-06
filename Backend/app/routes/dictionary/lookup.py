@@ -17,7 +17,10 @@ from gtts import gTTS
 from sqlalchemy.orm import Session
 
 from app.models.database import get_db
-from app.schemas.dictionary import LookupRequest, LookupResponse, ReadingRequest, VietnameseMeaningRequest
+from app.schemas.dictionary import (
+    LookupRequest, LookupResponse, ReadingRequest, TranslateSentenceRequest,
+    TranslateSentenceResponse, VietnameseMeaningRequest,
+)
 from app.services import dictionary_ai, dictionary_jmdict
 
 router = APIRouter()
@@ -54,6 +57,20 @@ async def get_sentence_reading(req: ReadingRequest):
         raise HTTPException(status_code=400, detail="Thiếu câu tiếng Nhật")
     reading = await dictionary_ai.get_sentence_reading(text)
     return {"reading": reading}
+
+
+@router.post("/translate-sentence", response_model=TranslateSentenceResponse)
+async def translate_sentence(req: TranslateSentenceRequest):
+    """Quick Japanese -> Vietnamese translation for a highlighted sentence
+    (see the frontend's SelectionMeaningPopup) — for a single word, the
+    client calls /lookup instead to get a proper dictionary entry."""
+    text = req.text.strip()
+    if not text:
+        raise HTTPException(status_code=400, detail="Thiếu câu tiếng Nhật")
+    translation = await dictionary_ai.translate_japanese_sentence(text)
+    if not translation:
+        raise HTTPException(status_code=502, detail="Không dịch được câu này")
+    return TranslateSentenceResponse(translation=translation)
 
 
 @router.post("/lookup", response_model=LookupResponse)

@@ -30,3 +30,15 @@ export const SparkleIcon = ({ className = "w-4 h-4" }: { className?: string }) =
     />
   </svg>
 );
+
+export const SpeakerIcon = ({ className = "w-4 h-4" }: { className?: string }) => (
+  <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor">
+    <path
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      strokeWidth={2}
+      d="M4 9v6h4l5 4V5L8 9H4Z"
+    />
+    <path strokeLinecap="round" strokeWidth={2} d="M16.5 9a4.5 4.5 0 0 1 0 6" />
+  </svg>
+);

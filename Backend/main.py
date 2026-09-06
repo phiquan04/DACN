@@ -27,6 +27,7 @@ from fastapi.responses import JSONResponse
 from config import get_config
 from app.models import init_db
 from app.routes import register_routers
+from app.services.reminder_scheduler import start_reminder_scheduler, stop_reminder_scheduler
 
 def app():
     """Application factory"""
@@ -61,7 +62,11 @@ def app():
     
     # Register all routers
     register_routers(app)
-    
+
+    # Study-reminder email job (see app/services/reminder_scheduler.py)
+    app.add_event_handler("startup", start_reminder_scheduler)
+    app.add_event_handler("shutdown", stop_reminder_scheduler)
+
     # Health check endpoint
     @app.get("/")
     def root():
