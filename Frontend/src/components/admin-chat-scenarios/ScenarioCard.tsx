@@ -42,13 +42,13 @@ export default function ScenarioCard({ scenario, index, toggling, onToggle, onEd
           onClick={onToggle}
           disabled={toggling}
           title={scenario.is_active ? "Đang hiển thị — bấm để ẩn" : "Đã ẩn — bấm để hiển thị"}
-          className={`relative h-6 w-11 shrink-0 rounded-full outline-none transition-colors duration-150 focus-visible:ring-[3px] focus-visible:ring-admin-500/18 disabled:opacity-50 ${
+          className={`relative inline-flex h-6 w-11 shrink-0 items-center rounded-full border-0 p-0 transition-colors duration-150 focus:outline-none focus-visible:ring-3 focus-visible:ring-admin-500/40 disabled:opacity-50 ${
             scenario.is_active ? "bg-admin-500" : "bg-admin-count-bg"
           }`}
         >
           <span
-            className={`absolute top-0.5 h-5 w-5 rounded-full bg-white shadow-sm transition-transform duration-150 ${
-              scenario.is_active ? "translate-x-[22px]" : "translate-x-0.5"
+            className={`absolute left-0.5 h-5 w-5 rounded-full bg-white transition-transform duration-150 ${
+              scenario.is_active ? "translate-x-5" : "translate-x-0"
             }`}
           />
         </button>

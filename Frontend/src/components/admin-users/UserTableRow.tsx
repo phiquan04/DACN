@@ -40,7 +40,7 @@ export default function UserTableRow({ user, selected, onToggleSelect, onOpen, o
       </td>
       <td className="cursor-pointer whitespace-nowrap px-4 py-3.5" onClick={onOpen}>
         <div className="flex items-center gap-3">
-          <UserAvatar id={user.id} name={displayName(user)} username={user.username} avatarUrl={user.avatar_url} />
+          <UserAvatar id={user.id} name={displayName(user)} username={user.username} avatarUrl={user.avatar_url} zoomable />
           <div className="min-w-0">
             <p className="truncate text-sm font-semibold text-admin-ink">{displayName(user)}</p>
             <p className="truncate text-xs text-admin-meta">{user.email}</p>

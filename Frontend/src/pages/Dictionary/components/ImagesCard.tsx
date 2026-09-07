@@ -1,4 +1,5 @@
 import type { DictionaryImageItem, User } from "../../../services/api";
+import ZoomableImage from "../../../components/common/ZoomableImage";
 
 interface ImagesCardProps {
   word: string;
@@ -36,7 +37,7 @@ export default function ImagesCard({ word, images, loading, uploading, currentUs
           {images.map((img) => (
             <div key={img.id} className="w-40">
               <div className="group relative">
-                <img
+                <ZoomableImage
                   src={img.image_url}
                   alt={img.caption || word}
                   title={`${img.caption || ""}${img.caption ? " — " : ""}bởi ${img.uploader_username}`}

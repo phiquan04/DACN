@@ -5,6 +5,8 @@
 // person always gets the same color across pages. Shared by the learner and
 // admin surfaces so a user without an uploaded photo never falls back to a
 // generic stock image on either one.
+import ZoomableImage from "./ZoomableImage";
+
 const PALETTE = ["#315DCE", "#15988E", "#C94D5C", "#5E6BC4", "#B47A1B", "#4B91D2", "#142B52", "#0E7A63"];
 
 function colorFor(id: number): string {
@@ -24,23 +26,23 @@ interface Props {
   username: string;
   avatarUrl?: string | null;
   size?: number;
+  // Opt-in only: header dropdown avatars use UserAvatar as a menu trigger,
+  // so they must NOT open the zoom modal on click.
+  zoomable?: boolean;
 }
 
-export default function UserAvatar({ id, name, username, avatarUrl, size = 40 }: Props) {
+export default function UserAvatar({ id, name, username, avatarUrl, size = 40, zoomable = false }: Props) {
   // Scale with size so a big profile-header avatar and a small table-row
   // avatar both read as "the same rounded-square shape", not two different
   // radii glued to arbitrary pixel values.
   const radius = Math.round(size * 0.28);
 
   if (avatarUrl) {
-    return (
-      <img
-        src={avatarUrl}
-        alt=""
-        style={{ width: size, height: size, borderRadius: radius }}
-        className="shrink-0 object-cover"
-      />
-    );
+    const style = { width: size, height: size, borderRadius: radius };
+    if (zoomable) {
+      return <ZoomableImage src={avatarUrl} alt="" style={style} className="shrink-0 object-cover" />;
+    }
+    return <img src={avatarUrl} alt="" style={style} className="shrink-0 object-cover" />;
   }
 
   return (

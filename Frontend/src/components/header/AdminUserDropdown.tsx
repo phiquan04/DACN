@@ -109,6 +109,24 @@ export default function AdminUserDropdown() {
               Cài đặt
             </DropdownItem>
           </li>
+          <li>
+            <DropdownItem
+              onItemClick={closeDropdown}
+              tag="a"
+              to="/dictionary"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="flex items-center gap-3 px-3 py-2 font-medium text-gray-700 rounded-lg group text-theme-sm hover:bg-gray-100 hover:text-gray-700 dark:text-gray-400 dark:hover:bg-white/5 dark:hover:text-gray-300"
+            >
+              {/* External link icon */}
+              <svg className="stroke-gray-500 group-hover:stroke-gray-700 dark:stroke-gray-400 dark:group-hover:stroke-gray-300" width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <path d="M18 13.5V18.75C18 19.9926 16.9926 21 15.75 21H5.25C4.00736 21 3 19.9926 3 18.75V8.25C3 7.00736 4.00736 6 5.25 6H10.5" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+                <path d="M15 3H21V9" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+                <path d="M10.5 13.5L21 3" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+              </svg>
+              Xem trang người dùng
+            </DropdownItem>
+          </li>
         </ul>
 
         {/* Sign Out Button */}

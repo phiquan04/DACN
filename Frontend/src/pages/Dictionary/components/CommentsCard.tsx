@@ -1,4 +1,5 @@
 import Pagination from "../../../components/ui/pagination";
+import ZoomableImage from "../../../components/common/ZoomableImage";
 import type { DictionaryCommentItem, User } from "../../../services/api";
 import { COMMENTS_PER_PAGE } from "../dictionaryUtils";
 
@@ -77,7 +78,7 @@ export default function CommentsCard({
             {pageComments.map((c) => (
               <li key={c.id} className="flex items-start gap-2.5 text-sm">
                 {c.avatar_url ? (
-                  <img
+                  <ZoomableImage
                     src={c.avatar_url}
                     alt={c.username}
                     className="h-8 w-8 shrink-0 rounded-full object-cover"

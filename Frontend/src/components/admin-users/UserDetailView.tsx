@@ -104,7 +104,7 @@ export default function UserDetailView({
 
       <div className="flex flex-wrap items-stretch gap-6 rounded-2xl border border-admin-border bg-white p-8 shadow-[0_4px_16px_rgba(35,67,110,0.05)]">
         <div className="flex flex-1 items-center gap-6">
-          <UserAvatar id={user.id} name={displayName(user)} username={user.username} avatarUrl={user.avatar_url} size={104} />
+          <UserAvatar id={user.id} name={displayName(user)} username={user.username} avatarUrl={user.avatar_url} size={104} zoomable />
           <div>
             <div className="flex flex-wrap items-center gap-3">
               <h3 className="text-2xl font-bold text-admin-ink">{displayName(user)}</h3>

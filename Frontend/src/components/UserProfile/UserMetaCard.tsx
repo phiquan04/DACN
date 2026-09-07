@@ -5,6 +5,7 @@ import type { StudyOverview } from "../../services/vocabularyLearningApi";
 import { BoltIcon, DocsIcon, MailIcon, PencilIcon, ShootingStarIcon, TaskIcon, TrashBinIcon } from "../../icons";
 import { FlagIcon, GlobeIcon } from "../../icons/custom";
 import Spinner from "../ui/spinner/Spinner";
+import ZoomableImage from "../common/ZoomableImage";
 
 const JLPT_LEVELS = ["N5", "N4", "N3", "N2", "N1"];
 
@@ -118,7 +119,7 @@ export default function UserMetaCard({
               }`}
             >
               {avatarUrl ? (
-                <img src={avatarUrl} alt="avatar" className="h-full w-full object-cover" />
+                <ZoomableImage src={avatarUrl} alt="avatar" className="h-full w-full object-cover" />
               ) : (
                 <div className="flex h-full w-full items-center justify-center bg-brand-100 text-brand-400 dark:bg-brand-500/20 dark:text-brand-300">
                   <svg width="36" height="36" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">

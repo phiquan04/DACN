@@ -8,6 +8,7 @@ import ModerationRow from "../../components/admin-dictionary/ModerationRow";
 import ImageDetailModal from "../../components/admin-dictionary/ImageDetailModal";
 import CommentDetailModal from "../../components/admin-dictionary/CommentDetailModal";
 import ConfirmActionModal from "../../components/admin-dictionary/ConfirmActionModal";
+import ZoomableImage from "../../components/common/ZoomableImage";
 import { AlertIcon, ChatIcon, ArrowDownIcon, CheckCircleIcon } from "../../icons";
 import { LayersIcon, SearchIcon, FilterIcon } from "../../icons/custom";
 import { ADMIN_PRIMARY_GRADIENT } from "../../utils/adminStyles";
@@ -280,7 +281,7 @@ export default function DictionaryModeration() {
               images.map((img) => (
                 <ModerationRow
                   key={img.id}
-                  thumbnail={<img src={img.image_url} alt={img.word} className="h-full w-full object-cover" />}
+                  thumbnail={<ZoomableImage src={img.image_url} alt={img.word} className="h-full w-full object-cover" />}
                   wordJa={img.word}
                   subtitle={img.caption || "Ảnh minh hoạ được đề xuất cho từ vựng này."}
                   status={img.status}
