@@ -9,7 +9,7 @@ validates the {exam_id} type, so whichever router happened to be registered
 first would silently win). Distinct top-level paths avoid depending on
 router registration order.
 """
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from typing import List, Optional
 
 from fastapi import APIRouter, Depends, HTTPException
@@ -250,10 +250,17 @@ def submit_attempt(
         if a.question_id in exam_question_ids
     }
 
+    submitted_at = datetime.now(timezone.utc)
     attempt = JlptTestAttempt(
         user_id=current_user.id, exam_id=exam.id, status='completed',
-        submitted_at=datetime.now(timezone.utc),
+        submitted_at=submitted_at,
     )
+    # created_at doubles as started_at (see the model docstring), but this
+    # row only comes into existence now — left at its default it would equal
+    # submitted_at and every attempt would report a 0-minute duration. Back-
+    # date it by the time the client says the exam was open.
+    if payload.elapsed_seconds is not None:
+        attempt.created_at = submitted_at - timedelta(seconds=payload.elapsed_seconds)
     db.add(attempt)
 
     graded = []

@@ -20,7 +20,10 @@ if hasattr(sys.stdout, "reconfigure"):
     sys.stdout.reconfigure(encoding="utf-8", errors="replace")
     sys.stderr.reconfigure(encoding="utf-8", errors="replace")
 
+from contextlib import asynccontextmanager
+
 from fastapi import FastAPI
+from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 
@@ -32,10 +35,21 @@ from app.services.reminder_scheduler import start_reminder_scheduler, stop_remin
 def app():
     """Application factory"""
     cfg = get_config()
+
+    # Study-reminder email job (see app/services/reminder_scheduler.py)
+    @asynccontextmanager
+    async def lifespan(_app):
+        start_reminder_scheduler()
+        try:
+            yield
+        finally:
+            stop_reminder_scheduler()
+
     app = FastAPI(
         title="Japanese VA Backend",
         description="Backend API for Japanese Learning Virtual Assistant",
-        version="1.0.0"
+        version="1.0.0",
+        lifespan=lifespan,
     )
     
     # Setup CORS Middleware
@@ -63,10 +77,6 @@ def app():
     # Register all routers
     register_routers(app)
 
-    # Study-reminder email job (see app/services/reminder_scheduler.py)
-    app.add_event_handler("startup", start_reminder_scheduler)
-    app.add_event_handler("shutdown", stop_reminder_scheduler)
-
     # Health check endpoint
     @app.get("/")
     def root():
@@ -76,6 +86,20 @@ def app():
             "status": "running"
         }
     
+    # FastAPI's default 422 body puts a list of error objects in "detail";
+    # the frontend's request() helper shows "detail" to the user as-is, so
+    # flatten it to one readable Vietnamese sentence instead.
+    @app.exception_handler(RequestValidationError)
+    async def validation_exception_handler(request, exc):
+        first = exc.errors()[0] if exc.errors() else {}
+        if first.get("type") in ("string_too_long", "too_long"):
+            limit = (first.get("ctx") or {}).get("max_length")
+            detail = f"Nội dung gửi lên quá dài (tối đa {limit})." if limit else "Nội dung gửi lên quá dài."
+        else:
+            field = ".".join(str(part) for part in first.get("loc", ())[1:])
+            detail = f"Dữ liệu gửi lên không hợp lệ ({field})." if field else "Dữ liệu gửi lên không hợp lệ."
+        return JSONResponse(status_code=422, content={"detail": detail})
+
     # Global exception handler
     @app.exception_handler(Exception)
     async def global_exception_handler(request, exc):

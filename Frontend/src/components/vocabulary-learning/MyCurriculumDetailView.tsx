@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import {
   BoxIconLine, CheckCircleIcon, ChevronLeftIcon, ListIcon, PlusIcon, TaskIcon, TrashBinIcon,
 } from "../../icons";
@@ -21,6 +21,14 @@ export default function MyCurriculumDetailView({
 }) {
   const [sets, setSets] = useState<MySet[]>(curriculum.sets);
   const [showCreateSet, setShowCreateSet] = useState(false);
+
+  // The parent refetches the curriculum when the learner comes back from a
+  // bài (see VocabularyLearningHome.handleBackFromMySet), and that response
+  // lands after this view has already mounted with the old snapshot — follow
+  // the prop so new/deleted bài and updated counts actually show up.
+  useEffect(() => {
+    setSets(curriculum.sets);
+  }, [curriculum.sets]);
 
   const totalLearnedWords = sets.reduce((acc, s) => acc + s.learned_count, 0);
   const totalReviewingWords = sets.reduce((acc, s) => acc + s.reviewing_count, 0);
@@ -163,6 +171,12 @@ export default function MyCurriculumDetailView({
             <button
               type="button"
               onClick={async () => {
+                if (
+                  !window.confirm(
+                    `Xóa bộ "${curriculum.name}"? Toàn bộ danh mục, từ vựng và tiến độ học bên trong sẽ bị xóa vĩnh viễn.`
+                  )
+                )
+                  return;
                 await deleteMyCurriculum(curriculum.id);
                 onDeleted();
               }}

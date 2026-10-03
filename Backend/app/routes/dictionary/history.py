@@ -6,16 +6,31 @@ from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy import func
 from sqlalchemy.orm import Session
 
+from app.dependencies import UserResponse, get_current_user
 from app.models.database import get_db, SearchHistory
 from app.schemas.dictionary import SaveHistoryRequest
 
 router = APIRouter()
 
 
+def _require_self(user_id: int, current_user: UserResponse) -> None:
+    """The history URLs carry a user_id (the frontend has always sent it), but
+    it is only ever honoured when it names the signed-in caller — the token,
+    not the path, decides whose history is read or deleted."""
+    if user_id != current_user.id:
+        raise HTTPException(status_code=403, detail="Bạn không có quyền truy cập lịch sử này")
+
+
 @router.post("/history/save")
-def save_search_history(req: SaveHistoryRequest, db: Session = Depends(get_db)):
+def save_search_history(
+    req: SaveHistoryRequest,
+    current_user: UserResponse = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    # req.user_id is ignored: rows are always written for the token's owner.
+    user_id = current_user.id
     existing = db.query(SearchHistory).filter(
-        SearchHistory.user_id == req.user_id,
+        SearchHistory.user_id == user_id,
         SearchHistory.word == req.word
     ).first()
     if existing:
@@ -43,7 +58,7 @@ def save_search_history(req: SaveHistoryRequest, db: Session = Depends(get_db)):
         record = existing
     else:
         record = SearchHistory(
-            user_id=req.user_id,
+            user_id=user_id,
             word=req.word,
             reading=req.reading,
             meaning=req.meaning,
@@ -61,7 +76,10 @@ def save_search_history(req: SaveHistoryRequest, db: Session = Depends(get_db)):
 
 
 @router.get("/history/{user_id}")
-def get_search_history(user_id: int, db: Session = Depends(get_db)):
+def get_search_history(
+    user_id: int, current_user: UserResponse = Depends(get_current_user), db: Session = Depends(get_db),
+):
+    _require_self(user_id, current_user)
     records = (
         db.query(SearchHistory)
         .filter(SearchHistory.user_id == user_id)
@@ -88,7 +106,11 @@ def get_search_history(user_id: int, db: Session = Depends(get_db)):
 
 
 @router.delete("/history/{user_id}/{history_id}")
-def delete_history_item(user_id: int, history_id: int, db: Session = Depends(get_db)):
+def delete_history_item(
+    user_id: int, history_id: int,
+    current_user: UserResponse = Depends(get_current_user), db: Session = Depends(get_db),
+):
+    _require_self(user_id, current_user)
     record = db.query(SearchHistory).filter(
         SearchHistory.id == history_id,
         SearchHistory.user_id == user_id
@@ -101,15 +123,21 @@ def delete_history_item(user_id: int, history_id: int, db: Session = Depends(get
 
 
 @router.delete("/history/{user_id}")
-def clear_history(user_id: int, db: Session = Depends(get_db)):
+def clear_history(
+    user_id: int, current_user: UserResponse = Depends(get_current_user), db: Session = Depends(get_db),
+):
+    _require_self(user_id, current_user)
     db.query(SearchHistory).filter(SearchHistory.user_id == user_id).delete()
     db.commit()
     return {"success": True}
 
 
 @router.get("/history/words/{user_id}")
-def get_history_words(user_id: int, db: Session = Depends(get_db)):
+def get_history_words(
+    user_id: int, current_user: UserResponse = Depends(get_current_user), db: Session = Depends(get_db),
+):
     """Lấy danh sách các từ đã tra cứu (word, reading, meaning) phục vụ luyện phát âm"""
+    _require_self(user_id, current_user)
     subq = db.query(
         SearchHistory.word,
         func.max(SearchHistory.created_at).label('latest')

@@ -24,7 +24,11 @@ export function formatSittingLabel(iso: string): string {
 
 export function formatDateTime(iso?: string | null): string {
   if (!iso) return "—";
-  const d = new Date(iso);
+  // The backend stores UTC without an offset (naive datetimes), so its
+  // isoformat() output has no "Z". Without one, Date() reads the string as
+  // local time and the result is 7 hours early in Vietnam.
+  const hasOffset = /(Z|[+-]\d{2}:?\d{2})$/.test(iso);
+  const d = new Date(hasOffset ? iso : `${iso}Z`);
   const dd = String(d.getDate()).padStart(2, "0");
   const mm = String(d.getMonth() + 1).padStart(2, "0");
   const hh = String(d.getHours()).padStart(2, "0");

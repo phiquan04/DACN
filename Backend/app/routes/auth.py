@@ -18,8 +18,16 @@ from app.utils.auth import (
     verify_refresh_token,
     Token
 )
+from app.utils.rate_limit import rate_limit
 
 router = APIRouter(prefix="/auth", tags=["Authentication"])
+
+# Slows down password guessing and bulk account creation. These requests carry
+# no token, so the limiter keys them by client IP — kept loose enough that a
+# classroom behind one NAT address can still sign in together.
+_signin_limit = Depends(rate_limit("auth-signin", limit=10, window_seconds=60))
+_signup_limit = Depends(rate_limit("auth-signup", limit=5, window_seconds=300))
+_refresh_limit = Depends(rate_limit("auth-refresh", limit=30, window_seconds=60))
 
 # Pydantic schemas
 class UserSignUp(BaseModel):
@@ -80,7 +88,9 @@ class EmailVerificationResponse(BaseModel):
     message: str
 
 # Routes
-@router.post("/signup", response_model=SignUpResponse, status_code=status.HTTP_201_CREATED)
+@router.post(
+    "/signup", response_model=SignUpResponse, status_code=status.HTTP_201_CREATED, dependencies=[_signup_limit],
+)
 def sign_up(user_data: UserSignUp, db: Session = Depends(get_db)):
     # Check if user already exists
     existing_user_email = db.query(User).filter(User.email == user_data.email).first()
@@ -117,6 +127,7 @@ def sign_up(user_data: UserSignUp, db: Session = Depends(get_db)):
     # re-reading `new_user` afterwards would issue extra queries for values we
     # already have.
     user_response = to_user_response(new_user)
+    new_user_token_version = new_user.token_version or 0
 
     # No verification code is sent here — the learner requests one explicitly
     # from the profile page's "Gửi mã xác minh" button (see
@@ -128,9 +139,10 @@ def sign_up(user_data: UserSignUp, db: Session = Depends(get_db)):
 
     # Create access + refresh tokens
     access_token = create_access_token(
-        user_id=user_response.id, username=user_response.username, role=user_response.role
+        user_id=user_response.id, username=user_response.username, role=user_response.role,
+        token_version=new_user_token_version,
     )
-    refresh_token = create_refresh_token(user_id=user_response.id)
+    refresh_token = create_refresh_token(user_id=user_response.id, token_version=new_user_token_version)
 
     return SignUpResponse(
         user=user_response,
@@ -139,7 +151,7 @@ def sign_up(user_data: UserSignUp, db: Session = Depends(get_db)):
         token_type="bearer"
     )
 
-@router.post("/signin", response_model=SignInResponse)
+@router.post("/signin", response_model=SignInResponse, dependencies=[_signin_limit])
 def sign_in(user_data: UserSignIn, db: Session = Depends(get_db)):
     user = db.query(User).filter(User.email == user_data.email).first()
     
@@ -163,10 +175,12 @@ def sign_in(user_data: UserSignIn, db: Session = Depends(get_db)):
     )
     db.commit()
 
+    token_version = user.token_version or 0
     access_token = create_access_token(
-        user_id=user.id, username=user.username, role=user.role.code if user.role else "user"
+        user_id=user.id, username=user.username, role=user.role.code if user.role else "user",
+        token_version=token_version,
     )
-    refresh_token = create_refresh_token(user_id=user.id)
+    refresh_token = create_refresh_token(user_id=user.id, token_version=token_version)
 
     return SignInResponse(
         user=to_user_response(user),
@@ -175,21 +189,31 @@ def sign_in(user_data: UserSignIn, db: Session = Depends(get_db)):
         token_type="bearer"
     )
 
-@router.post("/refresh", response_model=RefreshResponse)
+@router.post("/refresh", response_model=RefreshResponse, dependencies=[_refresh_limit])
 def refresh_access_token(req: RefreshRequest, db: Session = Depends(get_db)):
-    user_id = verify_refresh_token(req.refresh_token)
-    if user_id is None:
+    verified = verify_refresh_token(req.refresh_token)
+    if verified is None:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Invalid or expired refresh token",
             headers={"WWW-Authenticate": "Bearer"}
         )
+    user_id, issued_version = verified
 
     user = db.query(User).filter(User.id == user_id).first()
     if not user:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="User not found")
     if not user.is_active:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="User account is inactive")
+    # Revoked: the user logged out, changed password, or was locked/reset by
+    # an admin after this refresh token was issued (see User.token_version).
+    token_version = user.token_version or 0
+    if issued_version != token_version:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid or expired refresh token",
+            headers={"WWW-Authenticate": "Bearer"}
+        )
 
     # Rotate the refresh token on every use (sliding expiration): as long as
     # the frontend calls /auth/refresh at least once within
@@ -197,9 +221,10 @@ def refresh_access_token(req: RefreshRequest, db: Session = Depends(get_db)):
     # user is never asked to sign in again — only real inactivity longer than
     # that window, or an explicit logout, ends it.
     access_token = create_access_token(
-        user_id=user.id, username=user.username, role=user.role.code if user.role else "user"
+        user_id=user.id, username=user.username, role=user.role.code if user.role else "user",
+        token_version=token_version,
     )
-    new_refresh_token = create_refresh_token(user_id=user.id)
+    new_refresh_token = create_refresh_token(user_id=user.id, token_version=token_version)
     return RefreshResponse(access_token=access_token, refresh_token=new_refresh_token, token_type="bearer")
 
 @router.get("/me", response_model=UserResponse)
@@ -224,10 +249,13 @@ def heartbeat(current_user: UserResponse = Depends(get_current_user), db: Sessio
 @router.post("/logout", status_code=status.HTTP_204_NO_CONTENT)
 def sign_out(current_user: UserResponse = Depends(get_current_user), db: Session = Depends(get_db)):
     """Marks the account offline immediately on an explicit logout, instead
-    of waiting for the heartbeat timeout to expire."""
+    of waiting for the heartbeat timeout to expire, and revokes the account's
+    tokens. Tokens aren't tracked per device, so this signs the account out
+    everywhere it is logged in, not only in the browser that clicked logout."""
     user = db.query(User).filter(User.id == current_user.id).first()
     if user:
         user.last_seen_at = None
+        user.token_version = (user.token_version or 0) + 1
         db.commit()
 
 

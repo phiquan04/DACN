@@ -90,7 +90,9 @@ export default function VocabularyLearningHome() {
 
   const handleMySetDeleted = () => {
     setMySetId(null);
-    setView("myCurriculum");
+    // Same refresh as a plain "back": without it the deleted bài would still
+    // be listed in the curriculum snapshot.
+    handleBackFromMySet();
   };
 
   const handleSelectCurriculum = (name: string, sets: VocabularySetProgress[]) => {

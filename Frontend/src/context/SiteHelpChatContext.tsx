@@ -25,6 +25,8 @@ interface SiteHelpChatContextValue {
 
 const SiteHelpChatContext = createContext<SiteHelpChatContextValue | null>(null);
 
+const MAX_HISTORY_MESSAGES = 20;
+
 function createWelcomeMessage(): SiteHelpChatMessage {
   return {
     role: "assistant",
@@ -81,7 +83,9 @@ export function SiteHelpChatProvider({ children }: { children: ReactNode }) {
     };
 
     streamSiteHelpMessage(
-      history.map((m) => ({ role: m.role, content: m.content })),
+      // The backend only ever uses the most recent turns (MAX_HISTORY_MESSAGES
+      // in Backend/app/routes/site_help.py) — don't upload the whole session.
+      history.slice(-MAX_HISTORY_MESSAGES).map((m) => ({ role: m.role, content: m.content })),
       {
         onChunk: (chunkText) => {
           setMessages((prev) => {

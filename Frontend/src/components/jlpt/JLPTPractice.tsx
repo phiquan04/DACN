@@ -187,7 +187,10 @@ export default function JLPTPractice() {
     }
   };
 
-  const handleSubmit = async (answers: { question_id: number; selected_choice_no: number | null }[]) => {
+  const handleSubmit = async (
+    answers: { question_id: number; selected_choice_no: number | null }[],
+    elapsedSeconds: number
+  ) => {
     if (!activeExam) return;
     if (!currentUser) {
       showToast("Vui lòng đăng nhập để nộp bài và lưu kết quả", "warning");
@@ -195,7 +198,7 @@ export default function JLPTPractice() {
     }
     setSubmitting(true);
     try {
-      const res = await submitAttempt(activeExam.id, answers);
+      const res = await submitAttempt(activeExam.id, answers, elapsedSeconds);
       setResult(res);
       setView("result");
       loadDashboard();

@@ -16,13 +16,17 @@ from app.schemas.grammar import (
     GrammarHistoryPage,
 )
 from app.services.grammar_service import grade_text
+from app.utils.rate_limit import rate_limit
 
 router = APIRouter()
 
 HISTORY_PAGE_SIZE = 10
 
 
-@router.post('/correct', response_model=CorrectResponse)
+@router.post(
+    '/correct', response_model=CorrectResponse,
+    dependencies=[Depends(rate_limit("grammar", limit=20, window_seconds=60))],
+)
 def correct(
     request: CorrectRequest,
     user_id: Optional[int] = Depends(get_optional_user_id),

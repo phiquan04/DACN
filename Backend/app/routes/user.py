@@ -8,7 +8,7 @@ from app.models.database import get_db, UserInformation
 from app.models.reminder import ReminderTime
 from app.models.user import User
 from app.dependencies import get_current_user, UserResponse
-from app.utils.auth import hash_password, verify_password
+from app.utils.auth import create_access_token, create_refresh_token, hash_password, verify_password
 from app.utils.cloudinary import upload_image
 
 router = APIRouter(prefix="/user", tags=["user"])
@@ -95,8 +95,18 @@ def change_password(
         raise HTTPException(status_code=400, detail="Mật khẩu hiện tại không đúng")
 
     user.password_hash = hash_password(data.new_password)
+    # Revoke every token issued under the old password (other devices, or
+    # whoever knew it) and hand this session a fresh pair so the person who
+    # just changed the password isn't signed out along with them.
+    user.token_version = (user.token_version or 0) + 1
     db.commit()
-    return {"success": True}
+    return {
+        "success": True,
+        "access_token": create_access_token(
+            user_id=user.id, username=user.username, role=current_user.role, token_version=user.token_version,
+        ),
+        "refresh_token": create_refresh_token(user_id=user.id, token_version=user.token_version),
+    }
 
 
 @router.post("/avatar")

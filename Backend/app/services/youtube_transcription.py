@@ -8,11 +8,52 @@ import os
 import re
 import tempfile
 
+from urllib.parse import urlparse
+
 import requests as req
+
+_YOUTUBE_HOSTS = {"youtube.com", "www.youtube.com", "m.youtube.com", "music.youtube.com", "youtu.be"}
+
+# Whisper runs on CPU inside the request, so a long video ties up a worker
+# for many minutes (and the frontend gives up waiting after 3). Overridable
+# for deployments with more headroom.
+MAX_VIDEO_DURATION_SECONDS = int(os.environ.get("MAX_TRANSCRIBE_DURATION_SECONDS", "1200"))
+
+
+class TranscriptionRejected(ValueError):
+    """The request itself is unacceptable (not a YouTube link, video too
+    long, a live stream) — as opposed to a download/transcription failure.
+    The message is Vietnamese and safe to show the user."""
+
+
+def validate_youtube_url(youtube_url: str) -> None:
+    """yt-dlp will happily fetch from thousands of sites and arbitrary direct
+    URLs; this feature is YouTube-only, so anything else is refused before it
+    ever reaches the downloader."""
+    parsed = urlparse(youtube_url)
+    if parsed.scheme not in ("http", "https") or (parsed.hostname or "").lower() not in _YOUTUBE_HOSTS:
+        raise TranscriptionRejected("Chỉ hỗ trợ liên kết video YouTube.")
 
 
 def download_youtube_audio(youtube_url: str) -> str:
     import yt_dlp
+
+    validate_youtube_url(youtube_url)
+
+    # Check the length before downloading anything.
+    try:
+        with yt_dlp.YoutubeDL({'quiet': True, 'no_warnings': True, 'noplaylist': True, 'socket_timeout': 30}) as ydl:
+            meta = ydl.extract_info(youtube_url, download=False)
+    except Exception as e:
+        print(f"Metadata error: {e}", flush=True)
+        raise ValueError(f"Failed to read YouTube video info: {str(e)}")
+    if meta.get('is_live'):
+        raise TranscriptionRejected("Không hỗ trợ video đang phát trực tiếp.")
+    duration = meta.get('duration')
+    if duration and duration > MAX_VIDEO_DURATION_SECONDS:
+        raise TranscriptionRejected(
+            f"Video quá dài (tối đa {MAX_VIDEO_DURATION_SECONDS // 60} phút)."
+        )
 
     tmp_dir = tempfile.mkdtemp()
     output_template = os.path.join(tmp_dir, '%(id)s.%(ext)s')
@@ -23,6 +64,7 @@ def download_youtube_audio(youtube_url: str) -> str:
         'quiet': False,
         'no_warnings': False,
         'socket_timeout': 30,
+        'noplaylist': True,
         'extractor_args': {
             # 'android_vr' (yt-dlp's default pick) has been getting 403s from
             # YouTube; these clients are more reliable for audio-only formats.
@@ -69,9 +111,10 @@ def transcribe_with_whisper(audio_path: str) -> list:
         print(f"Transcribing audio: {audio_path}", flush=True)
 
         try:
-            from faster_whisper import WhisperModel
-            print("Loading faster-whisper model...", flush=True)
-            model = WhisperModel("base", device="cpu")
+            # Shared with pronunciation scoring — loaded once per process
+            # rather than re-read from disk on every transcription request.
+            from app.services.whisper_model import get_whisper_model
+            model = get_whisper_model()
             segs, info = model.transcribe(
                 audio_path,
                 language="ja",

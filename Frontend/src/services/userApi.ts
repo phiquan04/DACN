@@ -70,11 +70,15 @@ export async function updateUserProfile(data: UserProfileUpdate): Promise<UserPr
 
 export async function changePassword(currentPassword: string, newPassword: string): Promise<void> {
   const token = getToken();
-  await request(`/api/user/password`, {
+  const res = await request<{ access_token?: string; refresh_token?: string }>(`/api/user/password`, {
     method: "PUT",
     headers: jsonHeaders(token),
     body: JSON.stringify({ current_password: currentPassword, new_password: newPassword }),
   });
+  // Changing the password revokes every token issued before it; the backend
+  // returns a fresh pair so this session carries on (see routes/user.py).
+  if (res?.access_token) localStorage.setItem("access_token", res.access_token);
+  if (res?.refresh_token) localStorage.setItem("refresh_token", res.refresh_token);
 }
 
 export interface ReminderSettings {

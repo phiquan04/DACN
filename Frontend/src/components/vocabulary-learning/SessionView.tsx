@@ -41,6 +41,9 @@ export default function SessionView({
   const [levelUp, setLevelUp] = useState<number | null>(null);
   const [showAddToMine, setShowAddToMine] = useState(false);
   const startTimeRef = useRef(Date.now());
+  // Ids graded in the card-by-card modes this round — a ref so the check in
+  // handleCardGrade is never behind a pending state update.
+  const gradedRef = useRef<Set<number>>(new Set());
   // Source of truth for the session tally — kept in a ref (not state) so `finish()` always reads
   // the latest count even though it's invoked from a stale closure right after the last grade.
   const tallyRef = useRef<SessionResult>({
@@ -109,12 +112,29 @@ export default function SessionView({
     }
   };
 
+  // The carousel and arrows let the learner visit cards in any order, so
+  // "graded the card at the last index" doesn't mean the round is over, and a
+  // card can be reached again after it was graded. Each word is therefore
+  // submitted at most once per round (a second grade would award XP twice and
+  // push the tally past the batch size), and the round only ends once no
+  // ungraded card is left.
   const handleCardGrade = async (rating: ReviewRating) => {
-    await handleGrade(current.id, rating);
-    goNext();
+    const itemId = current.id;
+    if (!gradedRef.current.has(itemId)) {
+      gradedRef.current.add(itemId);
+      await handleGrade(itemId, rating);
+    }
+    for (let step = 1; step < batch.length; step++) {
+      const next = (index + step) % batch.length;
+      if (!gradedRef.current.has(batch[next].id)) {
+        setIndex(next);
+        return;
+      }
+    }
+    finish();
   };
 
-  const progressPct = isWholeBatch ? 100 : (index / batch.length) * 100;
+  const progressPct = isWholeBatch ? 100 : (Object.keys(outcomes).length / batch.length) * 100;
 
   const renderCard = () => {
     switch (mode) {

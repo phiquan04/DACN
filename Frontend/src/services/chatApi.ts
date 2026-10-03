@@ -1,4 +1,4 @@
-import { BASE_URL, authHeaders, jsonHeaders, request } from "./httpClient";
+import { authHeaders, fetchWithAuthRefresh, jsonHeaders, request } from "./httpClient";
 import { getToken } from "./authApi";
 import type { GrammarErrorExplanation } from "./grammarApi";
 
@@ -157,7 +157,7 @@ export async function streamChatMessage(
   const token = getToken();
   let res: Response;
   try {
-    res = await fetch(`${BASE_URL}/api/chat`, {
+    res = await fetchWithAuthRefresh(`/api/chat`, {
       method: "POST",
       headers: jsonHeaders(token),
       body: JSON.stringify({ conversation_id: conversationId, message }),

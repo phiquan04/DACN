@@ -61,7 +61,7 @@ export function useTranscription(initialSegments: Segment[] = []) {
         if (contentType?.includes("application/json")) {
           try {
             const errData = await res.json();
-            errorText = errData.error || errorText;
+            errorText = errData.detail || errData.error || errorText;
           } catch {
             errorText = res.statusText || errorText;
           }
