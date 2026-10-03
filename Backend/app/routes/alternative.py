@@ -12,6 +12,7 @@ from app.dependencies import get_optional_user_id
 from app.models import GrammarCorrection
 from app.models.database import get_db
 from app.schemas.grammar import AlternativeRequest
+from app.utils.rate_limit import rate_limit
 
 router = APIRouter()
 
@@ -51,7 +52,7 @@ def _call_openrouter(api_key: str, prompt: str, retries: int = 3) -> str:
     raise Exception("OpenRouter lỗi sau nhiều lần retry")
 
 
-@router.post('/alternative')
+@router.post('/alternative', dependencies=[Depends(rate_limit("grammar-alt", limit=20, window_seconds=60))])
 def alternative(
     request: AlternativeRequest,
     user_id: Optional[int] = Depends(get_optional_user_id),

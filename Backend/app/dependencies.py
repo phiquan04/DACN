@@ -77,6 +77,18 @@ def get_current_user(authorization: Optional[str] = Header(None), db: Session = 
     if not user:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="User not found")
 
+    # The signature and expiry are fine, but the token was issued before the
+    # user logged out / changed password (token_version moved on), or the
+    # account has since been locked. 401 rather than 403 so the frontend
+    # attempts a refresh — which is refused for the same reason — and then
+    # ends the session cleanly instead of just toasting an error.
+    if token_data.token_version != (user.token_version or 0) or not user.is_active:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid or expired token",
+            headers={"WWW-Authenticate": "Bearer"}
+        )
+
     return to_user_response(user)
 
 

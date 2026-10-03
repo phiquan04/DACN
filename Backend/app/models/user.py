@@ -24,6 +24,11 @@ class User(BaseModel):
     email = Column(String(120), unique=True, nullable=False)
     password_hash = Column(String(255), nullable=False)
     is_active = Column(Boolean, default=True)
+    # Bumped to revoke every access/refresh token issued so far (logout,
+    # password change, admin reset, lock) — tokens carry the value they were
+    # issued under and are rejected once it no longer matches (see
+    # app/dependencies.py and /auth/refresh).
+    token_version = Column(Integer, nullable=False, default=0, server_default='0')
     role_id = Column(Integer, ForeignKey('roles.id'), nullable=True)
     daily_vocab_goal = Column(Integer, nullable=True)  # words/day target for the vocabulary library; None = use the default
     vocab_xp = Column(Integer, nullable=False, default=0)  # cumulative XP earned from vocabulary reviews; drives the level shown in the library

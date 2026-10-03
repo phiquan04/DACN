@@ -11,10 +11,13 @@ from app.models import TranscriptionSegment, TranscriptionSession
 from app.models.database import get_db
 from app.schemas.transcription import VideoHistoryDetail, VideoHistoryItem, VideoHistoryPage
 from app.services import youtube_transcription as yt
+from app.utils.rate_limit import rate_limit
+from app.utils.uploads import copy_upload_limited
 
 router = APIRouter()
 
 HISTORY_PAGE_SIZE = 12
+MAX_UPLOAD_BYTES = 100 * 1024 * 1024  # an uploaded audio/video file to transcribe
 
 
 def _find_session(db: Session, user_id: int, video_id: str) -> Optional[TranscriptionSession]:
@@ -84,7 +87,12 @@ def _upsert_completed_session(
         return None
 
 
-@router.post("/transcribe")
+# Usable without signing in (guests can watch and transcribe too), and by far
+# the most expensive endpoint in the app — minutes of CPU per call.
+_transcribe_limit = Depends(rate_limit("transcribe", limit=5, window_seconds=600))
+
+
+@router.post("/transcribe", dependencies=[_transcribe_limit])
 def transcribe(
     youtube_url: Optional[str] = Form(None),
     file: Optional[UploadFile] = File(None),
@@ -108,10 +116,13 @@ def transcribe(
         elif file:
             suffix = os.path.splitext(file.filename or "")[1] or ".mp4"
             tmp = tempfile.NamedTemporaryFile(delete=False, suffix=suffix)
-            contents = file.file.read()
-            tmp.write(contents)
-            tmp.close()
+            # Set before copying so the cleanup below also removes a
+            # partially-written file when the upload turns out to be too big.
             tmp_path = tmp.name
+            try:
+                copy_upload_limited(file, tmp, MAX_UPLOAD_BYTES)
+            finally:
+                tmp.close()
 
         else:
             raise HTTPException(
@@ -159,7 +170,15 @@ def transcribe(
                     print(f"Failed to delete {tmp_dir}: {e}", flush=True)
 
     except HTTPException:
+        # Raised before the inner try/finally in the upload-too-large case.
+        if tmp_path and os.path.exists(tmp_path):
+            try:
+                os.unlink(tmp_path)
+            except Exception:
+                pass
         raise
+    except yt.TranscriptionRejected as e:
+        raise HTTPException(status_code=400, detail=str(e))
     except Exception as e:
         print(f"Transcribe error: {e}", flush=True)
         if tmp_path and os.path.exists(tmp_path):
@@ -220,14 +239,19 @@ def mark_video_watched(
         return {"history_id": None}
 
 
-@router.post("/transcribe/url")
+@router.post("/transcribe/url", dependencies=[_transcribe_limit])
 def transcribe_url(
     youtube_url: str,
     user_id: Optional[int] = Depends(get_optional_user_id),
     db: Session = Depends(get_db),
 ):
     """Transcribe từ YouTube URL - nhận plain string query param"""
-    return transcribe(youtube_url=youtube_url, file=None, user_id=user_id, db=db)
+    # The video_* fields are passed explicitly: called as a plain function,
+    # transcribe()'s Form(None) defaults are FieldInfo objects, not None.
+    return transcribe(
+        youtube_url=youtube_url, file=None, video_id=None, video_title=None,
+        channel_id=None, channel_title=None, thumbnail=None, user_id=user_id, db=db,
+    )
 
 
 @router.get("/transcribe/history", response_model=VideoHistoryPage)

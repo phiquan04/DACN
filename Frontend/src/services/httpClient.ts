@@ -141,6 +141,26 @@ async function doRequest<T>(
   return res.json() as Promise<T>;
 }
 
+/**
+ * For the few calls that can't go through request() because they read the
+ * response body themselves (SSE streams): a plain fetch that, on a 401,
+ * refreshes the access token once and retries with the new one — the same
+ * recovery request() does. Returns the Response untouched otherwise; the
+ * caller still handles non-OK statuses.
+ */
+export async function fetchWithAuthRefresh(path: string, init: RequestInit = {}): Promise<Response> {
+  const res = await fetch(`${BASE_URL}${path}`, init);
+  if (res.status !== 401) return res;
+
+  const newAccessToken = await refreshAccessToken();
+  if (!newAccessToken) return res;
+
+  return fetch(`${BASE_URL}${path}`, {
+    ...init,
+    headers: { ...(init.headers as Record<string, string> | undefined), Authorization: `Bearer ${newAccessToken}` },
+  });
+}
+
 export function authHeaders(token: string | null): HeadersInit {
   return token ? { Authorization: `Bearer ${token}` } : {};
 }

@@ -49,7 +49,9 @@ def downgrade() -> None:
                existing_type=sa.VARCHAR(length=10),
                nullable=False)
     op.drop_column('vocabulary_sets', 'is_private')
-    op.drop_constraint(None, 'vocabulary_curriculums', type_='foreignkey')
+    # upgrade() created this FK without a name, so it carries PostgreSQL's
+    # default <table>_<column>_fkey name; drop_constraint needs it spelled out.
+    op.drop_constraint('vocabulary_curriculums_owner_id_fkey', 'vocabulary_curriculums', type_='foreignkey')
     op.create_unique_constraint(op.f('vocabulary_curriculums_name_key'), 'vocabulary_curriculums', ['name'])
     op.drop_column('vocabulary_curriculums', 'is_private')
     op.drop_column('vocabulary_curriculums', 'owner_id')

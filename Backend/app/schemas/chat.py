@@ -1,22 +1,27 @@
 from typing import List, Optional
 
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 from app.schemas.grammar import GrammarErrorExplanation
+
+# Both end up inside an LLM prompt (and the message is also graded by the GEC
+# model, which truncates at 128 tokens per sentence anyway).
+MAX_CHAT_MESSAGE_LENGTH = 1000
+MAX_SITUATION_CONTEXT_LENGTH = 500
 
 
 class StartConversationRequest(BaseModel):
     scenario_id: Optional[int] = None
-    situation_context: Optional[str] = None
+    situation_context: Optional[str] = Field(None, max_length=MAX_SITUATION_CONTEXT_LENGTH)
 
 
 class ChatRequest(BaseModel):
     conversation_id: int
-    message: str
+    message: str = Field(..., max_length=MAX_CHAT_MESSAGE_LENGTH)
 
 
 class UpdateSituationContextRequest(BaseModel):
-    situation_context: Optional[str] = None
+    situation_context: Optional[str] = Field(None, max_length=MAX_SITUATION_CONTEXT_LENGTH)
 
 
 class GrammarNote(BaseModel):

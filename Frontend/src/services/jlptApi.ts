@@ -378,12 +378,13 @@ export interface SubmitAttemptResult {
 
 export async function submitAttempt(
   examId: number,
-  answers: { question_id: number; selected_choice_no: number | null }[]
+  answers: { question_id: number; selected_choice_no: number | null }[],
+  elapsedSeconds?: number
 ): Promise<SubmitAttemptResult> {
   return request(`/api/jlpt/published-exams/${examId}/submit`, {
     method: "POST",
     headers: jsonHeaders(getToken()),
-    body: JSON.stringify({ answers }),
+    body: JSON.stringify({ answers, elapsed_seconds: elapsedSeconds ?? null }),
   });
 }
 

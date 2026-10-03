@@ -134,7 +134,7 @@ export default function PredefinedMode() {
           metrics={
             evaluation && !evaluation.wrong_word
               ? [
-                  { label: "Phát âm thanh đầu", value: evaluation.accent },
+                  { label: "Trọng âm (cao độ)", value: evaluation.accent },
                   { label: "Ngữ điệu (Pitch)", value: evaluation.intonation, highlightLow: true },
                   { label: "Tốc độ & nhịp điệu", value: evaluation.speed },
                 ]

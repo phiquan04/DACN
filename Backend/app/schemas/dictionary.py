@@ -1,12 +1,20 @@
-from typing import List, Literal, Optional
+from typing import Annotated, List, Literal, Optional
 
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 ModerationStatus = Literal['pending', 'approved', 'flagged']
 
+# Upper bounds on free-text input. These endpoints are public and most of
+# them forward the text to a paid LLM, so an unbounded string is an open
+# invitation to burn credit.
+MAX_WORD_LENGTH = 100
+MAX_SENTENCE_LENGTH = 500
+MAX_HANDWRITING_STROKES = 60
+MAX_POINTS_PER_STROKE = 500
+
 
 class LookupRequest(BaseModel):
-    word: str
+    word: str = Field(..., max_length=MAX_WORD_LENGTH)
 
 
 class Definition(BaseModel):
@@ -43,8 +51,10 @@ class LookupResponse(BaseModel):
 
 
 class SaveHistoryRequest(BaseModel):
-    user_id: int
-    word: str
+    # Still accepted because the frontend sends it, but never trusted — the
+    # route writes the row for the token's owner (see routes/dictionary/history.py).
+    user_id: Optional[int] = None
+    word: str = Field(..., max_length=MAX_WORD_LENGTH)
     reading: Optional[str] = ""
     meaning: Optional[str] = ""
     definitions: Optional[List[dict]] = []
@@ -70,12 +80,14 @@ class HistoryItem(BaseModel):
 
 
 class VietnameseMeaningRequest(BaseModel):
-    vietnamese: str
+    vietnamese: str = Field(..., max_length=MAX_WORD_LENGTH)
 
 
 class HandwritingRecognitionRequest(BaseModel):
     # One list of [x, y] points per stroke, in the order they were drawn.
-    strokes: List[List[List[float]]]
+    strokes: List[Annotated[List[List[float]], Field(max_length=MAX_POINTS_PER_STROKE)]] = Field(
+        ..., max_length=MAX_HANDWRITING_STROKES
+    )
 
 
 class HandwritingRecognitionResponse(BaseModel):
@@ -83,11 +95,11 @@ class HandwritingRecognitionResponse(BaseModel):
 
 
 class ReadingRequest(BaseModel):
-    text: str
+    text: str = Field(..., max_length=MAX_SENTENCE_LENGTH)
 
 
 class TranslateSentenceRequest(BaseModel):
-    text: str
+    text: str = Field(..., max_length=MAX_SENTENCE_LENGTH)
 
 
 class TranslateSentenceResponse(BaseModel):

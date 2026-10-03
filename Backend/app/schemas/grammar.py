@@ -1,10 +1,14 @@
 from typing import List, Optional
 
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
+
+# Each sentence costs a BERT forward pass plus up to three LLM calls for the
+# explanation, and the endpoints are usable without signing in.
+MAX_GRAMMAR_TEXT_LENGTH = 2000
 
 
 class CorrectRequest(BaseModel):
-    text: str
+    text: str = Field(..., max_length=MAX_GRAMMAR_TEXT_LENGTH)
 
 
 class GrammarErrorExplanation(BaseModel):
@@ -24,7 +28,7 @@ class CorrectResponse(BaseModel):
 
 
 class AlternativeRequest(BaseModel):
-    text: str
+    text: str = Field(..., max_length=MAX_GRAMMAR_TEXT_LENGTH)
     history_id: Optional[int] = None
 
 

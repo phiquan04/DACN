@@ -11,19 +11,30 @@ import json
 import os
 import tempfile
 
+from typing import Optional
+
 from fastapi import APIRouter, Depends, HTTPException, Response
 from fastapi.responses import FileResponse
 from gtts import gTTS
 from sqlalchemy.orm import Session
 
+from app.dependencies import get_optional_user_id
 from app.models.database import get_db
 from app.schemas.dictionary import (
+    MAX_SENTENCE_LENGTH, MAX_WORD_LENGTH,
     LookupRequest, LookupResponse, ReadingRequest, TranslateSentenceRequest,
     TranslateSentenceResponse, VietnameseMeaningRequest,
 )
 from app.services import dictionary_ai, dictionary_jmdict
+from app.utils.rate_limit import rate_limit
 
 router = APIRouter()
+
+# Everything here is reachable without signing in (the dictionary is the
+# public landing page), so the LLM/gTTS-backed routes are throttled per
+# caller instead. One word lookup fans out to several of these at once
+# (lookup + examples + synonyms + audio), hence the generous shared budget.
+_ai_limit = Depends(rate_limit("dictionary-ai", limit=90, window_seconds=60))
 
 # gTTS audio is regenerated the first time a word/text is requested, then
 # served from disk on every later request (same cache-aside pattern as
@@ -32,15 +43,21 @@ _audio_cache_dir = os.path.join(tempfile.gettempdir(), "dictionary_audio")
 os.makedirs(_audio_cache_dir, exist_ok=True)
 
 
-@router.get("/synonyms/{word}")
-async def get_synonyms(word: str, db: Session = Depends(get_db)):
+@router.get("/synonyms/{word}", dependencies=[_ai_limit])
+async def get_synonyms(
+    word: str,
+    user_id: Optional[int] = Depends(get_optional_user_id),
+    db: Session = Depends(get_db),
+):
     word = word.strip()
     if not word:
         return []
-    return await dictionary_ai.get_synonyms(word, db)
+    if len(word) > MAX_WORD_LENGTH:
+        raise HTTPException(status_code=400, detail="Từ cần tra quá dài")
+    return await dictionary_ai.get_synonyms(word, db, user_id)
 
 
-@router.post("/search-by-meaning")
+@router.post("/search-by-meaning", dependencies=[_ai_limit])
 async def search_words_by_vietnamese(req: VietnameseMeaningRequest):
     """Dùng Gemini: nhập tiếng Việt, trả về danh sách các từ tiếng Nhật phù hợp (tối đa 5 từ)"""
     viet = req.vietnamese.strip()
@@ -49,7 +66,7 @@ async def search_words_by_vietnamese(req: VietnameseMeaningRequest):
     return await dictionary_ai.search_by_vietnamese_meaning(viet)
 
 
-@router.post("/reading")
+@router.post("/reading", dependencies=[_ai_limit])
 async def get_sentence_reading(req: ReadingRequest):
     """Sinh cách đọc toàn bộ bằng hiragana cho một câu tiếng Nhật tuỳ ý."""
     text = req.text.strip()
@@ -59,7 +76,7 @@ async def get_sentence_reading(req: ReadingRequest):
     return {"reading": reading}
 
 
-@router.post("/translate-sentence", response_model=TranslateSentenceResponse)
+@router.post("/translate-sentence", response_model=TranslateSentenceResponse, dependencies=[_ai_limit])
 async def translate_sentence(req: TranslateSentenceRequest):
     """Quick Japanese -> Vietnamese translation for a highlighted sentence
     (see the frontend's SelectionMeaningPopup) — for a single word, the
@@ -73,7 +90,7 @@ async def translate_sentence(req: TranslateSentenceRequest):
     return TranslateSentenceResponse(translation=translation)
 
 
-@router.post("/lookup", response_model=LookupResponse)
+@router.post("/lookup", response_model=LookupResponse, dependencies=[_ai_limit])
 async def dictionary_lookup(req: LookupRequest):
     word = req.word.strip()
     if not word:
@@ -83,12 +100,16 @@ async def dictionary_lookup(req: LookupRequest):
     return await dictionary_jmdict.lookup_word(word)
 
 
-@router.get("/audio")
+@router.get("/audio", dependencies=[_ai_limit])
 async def get_pronunciation_audio(text: str):
     """Serve gTTS audio for a word or reading, generating it once and caching on disk."""
     text = text.strip()
     if not text:
         raise HTTPException(status_code=400, detail="Missing 'text' query parameter")
+    # Every distinct text becomes a file in the on-disk cache, so the length
+    # cap also bounds how fast that directory can be filled.
+    if len(text) > MAX_SENTENCE_LENGTH:
+        raise HTTPException(status_code=400, detail="Văn bản quá dài")
 
     filename = f"{hashlib.md5(text.encode('utf-8')).hexdigest()}.mp3"
     path = os.path.join(_audio_cache_dir, filename)
@@ -111,12 +132,18 @@ async def get_pronunciation_audio(text: str):
     return FileResponse(path, media_type="audio/mpeg")
 
 
-@router.get("/examples/{word}")
-async def get_examples(word: str, db: Session = Depends(get_db)):
+@router.get("/examples/{word}", dependencies=[_ai_limit])
+async def get_examples(
+    word: str,
+    user_id: Optional[int] = Depends(get_optional_user_id),
+    db: Session = Depends(get_db),
+):
     word = word.strip()
     if not word:
         return Response(content="[]", media_type="application/json; charset=utf-8")
+    if len(word) > MAX_WORD_LENGTH:
+        raise HTTPException(status_code=400, detail="Từ cần tra quá dài")
 
-    examples = await dictionary_ai.get_examples(word, db)
+    examples = await dictionary_ai.get_examples(word, db, user_id)
     json_text = json.dumps(examples, ensure_ascii=False)
     return Response(content=json_text, media_type="application/json; charset=utf-8")

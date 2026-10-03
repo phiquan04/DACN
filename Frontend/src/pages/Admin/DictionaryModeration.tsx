@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import PageMeta from "../../components/common/PageMeta";
 import { usePageHeader } from "../../context/PageHeaderContext";
 import { useToast } from "../../context/ToastContext";
@@ -79,23 +79,33 @@ export default function DictionaryModeration() {
     setTabCounts({ images: imagesRes.total, comments: commentsRes.total });
   }, []);
 
+  // Changing a filter while on page > 1 fires two requests back to back (the
+  // new filter with the old page, then page 1), and they can resolve in
+  // either order. Only the most recently started one may write to state.
+  const listRequestRef = useRef(0);
+
   const loadList = useCallback(async () => {
+    const requestId = ++listRequestRef.current;
     setLoading(true);
     try {
       const params = { search: search.trim() || undefined, status: statusFilter, sort, page };
-      if (tab === "images") {
-        const res = await fetchAdminImages(params);
-        setImages(res.items);
-        setTotal(res.total);
-        setPageSize(res.page_size);
-      } else {
-        const res = await fetchAdminComments(params);
-        setComments(res.items);
-        setTotal(res.total);
-        setPageSize(res.page_size);
+      const res = tab === "images" ? await fetchAdminImages(params) : await fetchAdminComments(params);
+      if (requestId !== listRequestRef.current) return;
+
+      // The page no longer exists (e.g. its last row was just deleted):
+      // step back to the last page that does instead of showing an empty
+      // table next to a non-zero total.
+      if (res.items.length === 0 && res.total > 0 && page > 1) {
+        setPage(Math.max(1, Math.ceil(res.total / res.page_size)));
+        return;
       }
+
+      if (tab === "images") setImages(res.items as AdminDictionaryImageItem[]);
+      else setComments(res.items as AdminDictionaryCommentItem[]);
+      setTotal(res.total);
+      setPageSize(res.page_size);
     } finally {
-      setLoading(false);
+      if (requestId === listRequestRef.current) setLoading(false);
     }
   }, [tab, search, statusFilter, sort, page]);
 

@@ -158,7 +158,7 @@ export default function VoiceMode() {
           metrics={
             evaluation && !evaluation.wrong_word
               ? [
-                  { label: "Phát âm thanh đầu", value: evaluation.accent },
+                  { label: "Trọng âm (cao độ)", value: evaluation.accent },
                   { label: "Ngữ điệu", value: evaluation.intonation },
                   { label: "Tốc độ nói", value: evaluation.speed },
                 ]

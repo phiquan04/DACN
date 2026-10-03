@@ -270,6 +270,7 @@ def reset_password(user_id: int, db: Session = Depends(get_db), admin: UserRespo
 
     temporary_password = secrets.token_urlsafe(9)
     user.password_hash = hash_password(temporary_password)
+    user.token_version = (user.token_version or 0) + 1  # sign the account out everywhere
     log_event(
         db, subject_user_id=user.id, action="admin.password_reset",
         description=f"Mật khẩu được đặt lại bởi quản trị viên @{admin.username}",
@@ -294,6 +295,7 @@ def lock_user(
         raise HTTPException(status_code=404, detail="Không tìm thấy người dùng")
 
     user.is_active = False
+    user.token_version = (user.token_version or 0) + 1  # revoke outstanding tokens right away
     user.locked_reason = payload.reason
     user.locked_at = datetime.utcnow()
     log_event(

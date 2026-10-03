@@ -1,4 +1,4 @@
-fastapi==0.104.1
+fastapi>=0.118,<1.0
 uvicorn==0.46.0
 
 tensorflow==2.10.0
@@ -23,8 +23,7 @@ yt-dlp==2026.7.4
 ffmpeg-python==0.2.0
 
 # Authentication
-python-jose[cryptography]==3.3.0
-passlib[bcrypt]==1.7.4
+PyJWT>=2.10,<3
 bcrypt==4.1.1
 python-dotenv==1.0.0
 cryptography==48.0.0
@@ -54,9 +53,9 @@ googletrans==4.0.2
 gTTS==2.5.4
 
 # HTTP / async
+# starlette and anyio are deliberately not pinned here: fastapi pulls the
+# versions it is tested against.
 httpx==0.28.1
-anyio==3.7.1
-starlette==0.27.0
 
 # Web scraping
 beautifulsoup4==4.14.3

@@ -1,10 +1,16 @@
 import os
 import re
 import requests as req
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, Depends, HTTPException
 from typing import Optional
 
+from app.utils.rate_limit import rate_limit
+
 router = APIRouter()
+
+# Each search.list call costs 100 units of the YouTube Data API's 10,000/day
+# quota, and both routes are public — throttle so one caller can't drain it.
+_youtube_limit = Depends(rate_limit("youtube", limit=20, window_seconds=60))
 
 def _parse_iso8601_duration(duration: str) -> str:
     match = re.match(r'PT(?:(\d+)H)?(?:(\d+)M)?(?:(\d+)S)?', duration)
@@ -55,7 +61,7 @@ def _format_video(vid_id: str, snippet: dict, details_map: dict) -> dict:
     }
 
 
-@router.get('/youtube-search')
+@router.get('/youtube-search', dependencies=[_youtube_limit])
 def youtube_search(q: str = "日本語", lang: str = "ja", maxResults: int = 12):
     try:
         api_key = os.environ.get('YOUTUBE_API_KEY')
@@ -113,7 +119,7 @@ def youtube_search(q: str = "日本語", lang: str = "ja", maxResults: int = 12)
         raise HTTPException(status_code=500, detail=str(e))
 
 
-@router.get('/youtube-related')
+@router.get('/youtube-related', dependencies=[_youtube_limit])
 def youtube_related(
     videoId: str,
     channelId: Optional[str] = None,

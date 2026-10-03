@@ -11,7 +11,7 @@ from datetime import datetime, timedelta
 from typing import List, Optional
 
 from fastapi import APIRouter, Depends, HTTPException
-from sqlalchemy import func
+from sqlalchemy import func, or_
 from sqlalchemy.orm import Session, selectinload
 
 from app.dependencies import UserResponse, get_current_user
@@ -29,6 +29,7 @@ from app.schemas.vocabulary import (
 from app.services.audit_log import has_logged_today, log_event
 from app.services.chat_ai import call_openrouter, require_api_key
 from app.services.xp_leveling import level_info as _level_info, xp_threshold as _xp_threshold
+from app.utils.rate_limit import rate_limit
 
 router = APIRouter(prefix="/learn", tags=["vocabulary-learning"])
 
@@ -47,6 +48,7 @@ STREAK_LOOKBACK_DAYS = 400
 
 RATING_XP = {'again': 1, 'hard': 5, 'good': 10, 'easy': 15}
 LEARNED_BONUS_XP = 20  # awarded once, the review that first pushes a word into 'learned'
+MAX_MINI_STORY_WORDS = 200  # same ceiling as a study batch (see get_study_batch's count cap)
 
 # (code, name, description, metric, target) — metric keys into the dict built
 # in get_achievements from streak/learned-word-count/level.
@@ -137,6 +139,33 @@ def _published_set_query(db: Session):
     return db.query(VocabularySet).filter(
         VocabularySet.status == 'published', VocabularySet.is_locked.is_(False), VocabularySet.is_private.is_(False),
     )
+
+
+def _visible_set_filters(user_id: int) -> tuple:
+    """SQL conditions for "a set this user may study": published and unlocked,
+    and either public or the user's own private set. Used wherever a word is
+    reached by its id or through a progress row rather than through
+    _published_set_query — a private set is created already 'published' (see
+    models/vocabulary.py), so status alone doesn't keep it private."""
+    return (
+        VocabularySet.status == 'published',
+        VocabularySet.is_locked.is_(False),
+        or_(VocabularySet.is_private.is_(False), VocabularySet.created_by == user_id),
+    )
+
+
+def _get_visible_item(db: Session, user_id: int, item_id: int) -> VocabularyItem:
+    """404s (rather than 403) for someone else's private word so its id isn't
+    confirmed to exist."""
+    item = (
+        db.query(VocabularyItem)
+        .join(VocabularySet, VocabularySet.id == VocabularyItem.set_id)
+        .filter(VocabularyItem.id == item_id, *_visible_set_filters(user_id))
+        .first()
+    )
+    if not item:
+        raise HTTPException(status_code=404, detail="Không tìm thấy từ vựng")
+    return item
 
 
 def _learning_item_out(item: VocabularyItem, progress: Optional[VocabularyItemProgress]) -> VocabularyLearningItemOut:
@@ -407,7 +436,7 @@ def get_due_batch(
             VocabularyItemProgress.user_id == current_user.id,
             VocabularyItemProgress.status.in_(('reviewing', 'learned')),
             VocabularyItemProgress.due_at <= now,
-            VocabularySet.status == 'published', VocabularySet.is_locked.is_(False),
+            *_visible_set_filters(current_user.id),
         )
         .order_by(VocabularyItemProgress.due_at.asc())
         .limit(max(1, min(payload.count, 200)))
@@ -427,7 +456,7 @@ def list_bookmarked(db: Session = Depends(get_db), current_user: UserResponse = 
         .filter(
             VocabularyItemProgress.user_id == current_user.id,
             VocabularyItemProgress.is_bookmarked.is_(True),
-            VocabularySet.status == 'published', VocabularySet.is_locked.is_(False),
+            *_visible_set_filters(current_user.id),
         )
         .order_by(VocabularyItem.set_id, VocabularyItem.order_no)
         .all()
@@ -446,7 +475,7 @@ def get_bookmarked_batch(
         .filter(
             VocabularyItemProgress.user_id == current_user.id,
             VocabularyItemProgress.is_bookmarked.is_(True),
-            VocabularySet.status == 'published', VocabularySet.is_locked.is_(False),
+            *_visible_set_filters(current_user.id),
         )
         .order_by(VocabularyItem.set_id, VocabularyItem.order_no)
         .limit(max(1, min(payload.count, 200)))
@@ -462,9 +491,7 @@ def submit_review(
     item_id: int, payload: ReviewSubmitRequest,
     db: Session = Depends(get_db), current_user: UserResponse = Depends(get_current_user),
 ):
-    item = db.query(VocabularyItem).filter(VocabularyItem.id == item_id).first()
-    if not item:
-        raise HTTPException(status_code=404, detail="Không tìm thấy từ vựng")
+    _get_visible_item(db, current_user.id, item_id)
 
     user = db.query(User).filter(User.id == current_user.id).first()
     if not user:
@@ -522,9 +549,7 @@ def submit_review(
 def toggle_bookmark(
     item_id: int, db: Session = Depends(get_db), current_user: UserResponse = Depends(get_current_user),
 ):
-    item = db.query(VocabularyItem).filter(VocabularyItem.id == item_id).first()
-    if not item:
-        raise HTTPException(status_code=404, detail="Không tìm thấy từ vựng")
+    _get_visible_item(db, current_user.id, item_id)
 
     progress = _get_or_create_progress(db, current_user.id, item_id)
     progress.is_bookmarked = not progress.is_bookmarked
@@ -541,14 +566,24 @@ def _parse_story_json(raw: str) -> dict:
         return {}
 
 
-@router.post("/mini-story", response_model=MiniStoryResponse)
+@router.post(
+    "/mini-story", response_model=MiniStoryResponse,
+    dependencies=[Depends(rate_limit("mini-story", limit=10, window_seconds=60))],
+)
 def generate_mini_story(
     payload: MiniStoryRequest, db: Session = Depends(get_db), current_user: UserResponse = Depends(get_current_user),
 ):
     if not payload.item_ids:
         raise HTTPException(status_code=400, detail="Cần chọn ít nhất 1 từ")
+    if len(payload.item_ids) > MAX_MINI_STORY_WORDS:
+        raise HTTPException(status_code=400, detail=f"Chỉ chọn tối đa {MAX_MINI_STORY_WORDS} từ cho một đoạn văn")
 
-    items = db.query(VocabularyItem).filter(VocabularyItem.id.in_(payload.item_ids)).all()
+    items = (
+        db.query(VocabularyItem)
+        .join(VocabularySet, VocabularySet.id == VocabularyItem.set_id)
+        .filter(VocabularyItem.id.in_(payload.item_ids), *_visible_set_filters(current_user.id))
+        .all()
+    )
     if not items:
         raise HTTPException(status_code=404, detail="Không tìm thấy từ vựng")
 

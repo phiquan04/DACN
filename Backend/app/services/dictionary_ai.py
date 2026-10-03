@@ -125,19 +125,39 @@ async def translate_batch(texts: List[str]) -> List[str]:
     return list(await asyncio.gather(*(_translate_one(text) for text in texts)))
 
 
-async def get_synonyms(word: str, db: Session) -> list:
-    """Synonyms for a Japanese word: in-memory cache, then the most recent
-    SearchHistory row for the word (any user), then an AI-generated fallback."""
+def _own_history_row(db: Session, word: str, user_id: Optional[int]) -> Optional[SearchHistory]:
+    """The caller's own saved lookup of `word`, if any.
+
+    SearchHistory rows are client-supplied (POST /history/save stores whatever
+    synonyms/examples the browser sends), so one user's row must never be
+    served to another — that would let anyone plant content on a word for
+    every other learner. A caller can only ever read back what they saved.
+    """
+    if user_id is None:
+        return None
+    try:
+        return (
+            db.query(SearchHistory)
+            .filter(SearchHistory.word == word, SearchHistory.user_id == user_id)
+            .order_by(SearchHistory.created_at.desc())
+            .first()
+        )
+    except Exception as e:
+        print(f"[History DB lookup] Error: {e}", flush=True)
+        return None
+
+
+async def get_synonyms(word: str, db: Session, user_id: Optional[int] = None) -> list:
+    """Synonyms for a Japanese word: in-memory cache, then the caller's own
+    SearchHistory row for the word, then an AI-generated fallback."""
     if word in _synonym_cache:
         return _synonym_cache[word]
 
-    try:
-        record = db.query(SearchHistory).filter(SearchHistory.word == word).order_by(SearchHistory.created_at.desc()).first()
-        if record and record.synonyms:
-            _synonym_cache[word] = record.synonyms
-            return record.synonyms
-    except Exception as e:
-        print(f"[Synonyms DB lookup] Error: {e}", flush=True)
+    # Deliberately not copied into the shared in-memory cache: it is
+    # user-supplied data (see _own_history_row).
+    record = _own_history_row(db, word, user_id)
+    if record and record.synonyms:
+        return record.synonyms
 
     prompt = (
         f'Liệt kê 2-3 từ đồng nghĩa hoặc có liên quan chặt chẽ đến từ "{word}" trong tiếng Nhật.\n'
@@ -246,19 +266,15 @@ async def translate_japanese_sentence(text: str) -> str:
     return translation
 
 
-async def get_examples(word: str, db: Session) -> list:
-    """Ví dụ minh hoạ cho một từ: in-memory cache, rồi SearchHistory gần nhất
-    (bất kỳ user nào), rồi AI-generated fallback."""
+async def get_examples(word: str, db: Session, user_id: Optional[int] = None) -> list:
+    """Ví dụ minh hoạ cho một từ: in-memory cache, rồi SearchHistory của chính
+    người gọi, rồi AI-generated fallback."""
     if word in _example_cache:
         return _example_cache[word]
 
-    try:
-        record = db.query(SearchHistory).filter(SearchHistory.word == word).order_by(SearchHistory.created_at.desc()).first()
-        if record and record.examples:
-            _example_cache[word] = record.examples
-            return record.examples
-    except Exception as e:
-        print(f"[Examples DB lookup] Error: {e}", flush=True)
+    record = _own_history_row(db, word, user_id)
+    if record and record.examples:
+        return record.examples
 
     prompt = (
         f'Hãy tạo 3 câu ví dụ bằng tiếng Nhật cho từ \"{word}\". '

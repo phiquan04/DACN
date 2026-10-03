@@ -1,6 +1,6 @@
 from typing import List, Literal, Optional
 
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 JlptLevel = Literal['N1', 'N2', 'N3', 'N4', 'N5']
 JLPT_LEVELS: tuple = ('N1', 'N2', 'N3', 'N4', 'N5')
@@ -222,6 +222,10 @@ class SubmitAnswerIn(BaseModel):
 
 class SubmitAttemptIn(BaseModel):
     answers: List[SubmitAnswerIn] = []
+    # How long the learner had the exam open, measured by the client — the
+    # attempt row is only created at submit time, so the server can't know.
+    # Capped at a day; anything larger is a tab left open, not a sitting.
+    elapsed_seconds: Optional[int] = Field(None, ge=0, le=86400)
 
 
 class GradedAnswerOut(BaseModel):

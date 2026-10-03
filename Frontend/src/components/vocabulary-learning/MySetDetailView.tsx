@@ -37,6 +37,10 @@ export default function MySetDetailView({
     setLoading(true);
     fetchMySet(setId)
       .then(setDetail)
+      // e.g. the bài was deleted in the meantime (404) — the error itself is
+      // already toasted by the http client; here it just must not leave the
+      // view stuck on "Đang tải...".
+      .catch(() => setDetail(null))
       .finally(() => setLoading(false));
   };
 
@@ -51,8 +55,23 @@ export default function MySetDetailView({
     listTopRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
   };
 
-  if (loading || !detail) {
+  if (loading) {
     return <p className="text-sm text-gray-500 dark:text-gray-400">Đang tải...</p>;
+  }
+  if (!detail) {
+    return (
+      <div className="space-y-3">
+        <button
+          type="button"
+          onClick={onBack}
+          className="flex items-center gap-1 text-sm text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200"
+        >
+          <ChevronLeftIcon className="h-4 w-4" />
+          Quay lại bộ từ vựng
+        </button>
+        <p className="text-sm text-gray-500 dark:text-gray-400">Không tìm thấy danh mục này.</p>
+      </div>
+    );
   }
 
   const sourceOptions: SourceOption[] = [
@@ -112,6 +131,12 @@ export default function MySetDetailView({
           <button
             type="button"
             onClick={async () => {
+              if (
+                !window.confirm(
+                  `Xóa danh mục "${detail.set_name}"? Toàn bộ từ vựng và tiến độ học bên trong sẽ bị xóa vĩnh viễn.`
+                )
+              )
+                return;
               await deleteMySet(detail.id);
               onDeleted();
             }}
@@ -198,6 +223,7 @@ export default function MySetDetailView({
                 <button
                   type="button"
                   onClick={async () => {
+                    if (!window.confirm(`Xóa từ "${item.word}" khỏi danh mục này?`)) return;
                     await deleteMyItem(item.id);
                     load();
                   }}

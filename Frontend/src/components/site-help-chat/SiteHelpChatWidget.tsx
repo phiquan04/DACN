@@ -84,6 +84,7 @@ export default function SiteHelpChatWidget() {
   const draggingRef = useRef(false);
   const movedRef = useRef(false);
   const dragOffsetRef = useRef({ x: 0, y: 0 });
+  const dragStartRef = useRef({ x: 0, y: 0 });
 
   useEffect(() => {
     const onResize = () => setPos((p) => clampToViewport(p));
@@ -119,13 +120,17 @@ export default function SiteHelpChatWidget() {
     movedRef.current = false;
     const rect = e.currentTarget.getBoundingClientRect();
     dragOffsetRef.current = { x: e.clientX - rect.left, y: e.clientY - rect.top };
+    dragStartRef.current = { x: e.clientX, y: e.clientY };
     e.currentTarget.setPointerCapture(e.pointerId);
   };
 
   const handlePointerMove = (e: React.PointerEvent<HTMLButtonElement>) => {
     if (!draggingRef.current) return;
-    const dx = e.clientX - (dragOffsetRef.current.x + pos.x);
-    const dy = e.clientY - (dragOffsetRef.current.y + pos.y);
+    // Measured from where the press began, not from the previous event: `pos`
+    // follows the pointer on every move, so a per-event delta stays under the
+    // threshold for the whole of a slow drag and the release then counts as a click.
+    const dx = e.clientX - dragStartRef.current.x;
+    const dy = e.clientY - dragStartRef.current.y;
     if (Math.abs(dx) > DRAG_THRESHOLD || Math.abs(dy) > DRAG_THRESHOLD) movedRef.current = true;
     const next = clampToViewport({ x: e.clientX - dragOffsetRef.current.x, y: e.clientY - dragOffsetRef.current.y });
     setPos(next);

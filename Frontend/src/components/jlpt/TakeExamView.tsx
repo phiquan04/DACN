@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { SECTION_LABELS, TakeExam, TakeMondai, TakeQuestion } from "../../services/jlptApi";
 import FormattedText from "./FormattedText";
 import { CloseLineIcon, ShootingStarIcon } from "../../icons";
@@ -136,10 +136,13 @@ export default function TakeExamView({
   submitting,
 }: {
   exam: TakeExam;
-  onSubmit: (answers: { question_id: number; selected_choice_no: number | null }[]) => void;
+  onSubmit: (answers: { question_id: number; selected_choice_no: number | null }[], elapsedSeconds: number) => void;
   onCancel: () => void;
   submitting: boolean;
 }) {
+  // When the learner opened the exam — the attempt row is only created on
+  // submit, so the time taken has to be measured here and sent along.
+  const startedAtRef = useRef(Date.now());
   const [answers, setAnswers] = useState<Record<number, number>>({});
   const [marked, setMarked] = useState<Set<number>>(new Set());
   const [activeSectionIdx, setActiveSectionIdx] = useState(0);
@@ -185,6 +188,11 @@ export default function TakeExamView({
   useEffect(() => {
     if (viewMode !== "one") return;
     const handler = (e: KeyboardEvent) => {
+      // The listener is on window, so it also sees keys typed into unrelated
+      // fields (e.g. the floating help assistant's input) — leave those alone.
+      const target = e.target as HTMLElement | null;
+      if (target?.closest("input, textarea, select, [contenteditable='true']")) return;
+      if (e.ctrlKey || e.metaKey || e.altKey) return;
       const q = sectionQuestions[activeQuestionIdx];
       if (!q) return;
       if (["1", "2", "3", "4"].includes(e.key) && q.choices.some((c) => c.choice_no === Number(e.key))) {
@@ -219,7 +227,10 @@ export default function TakeExamView({
   const handleSubmit = () => {
     const allQuestionIds: number[] = [];
     exam.sections.forEach((s) => s.mondai.forEach((m) => m.questions.forEach((q) => allQuestionIds.push(q.id))));
-    onSubmit(allQuestionIds.map((id) => ({ question_id: id, selected_choice_no: answers[id] ?? null })));
+    onSubmit(
+      allQuestionIds.map((id) => ({ question_id: id, selected_choice_no: answers[id] ?? null })),
+      Math.round((Date.now() - startedAtRef.current) / 1000)
+    );
   };
 
   const onlyQuestionId = viewMode === "one" ? sectionQuestions[activeQuestionIdx]?.id : undefined;
@@ -263,10 +274,14 @@ export default function TakeExamView({
                     : "text-gray-800 dark:text-white/90"
                 }`}
               >
-                {formatClock(remainingSeconds)}
+                {/* A section with no time set (JLPT doesn't publish one for
+                    every part) has nothing to count down — a frozen 00:00
+                    would read as "time's up". */}
+                {activeSection?.time_minutes ? formatClock(remainingSeconds) : "—"}
               </p>
               <p className="text-[11px] text-gray-400 dark:text-gray-500">
-                còn lại · Phần {activeSectionIdx + 1}/{exam.sections.length}
+                {activeSection?.time_minutes ? "còn lại" : "không giới hạn"} · Phần {activeSectionIdx + 1}/
+                {exam.sections.length}
               </p>
             </div>
             <button

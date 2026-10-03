@@ -1,12 +1,13 @@
 import json
-from typing import List
+from typing import List, Literal
 
 import httpx
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, Depends, HTTPException
 from fastapi.responses import StreamingResponse
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 from app.services import chat_ai
+from app.utils.rate_limit import rate_limit
 
 router = APIRouter()
 
@@ -15,20 +16,35 @@ router = APIRouter()
 MAX_HISTORY_MESSAGES = 20
 
 
+# What one turn contributes to the prompt. Longer turns are cut, not rejected:
+# the widget resends earlier assistant replies verbatim, and a long reply
+# from a previous turn must not make every later request fail validation.
+MAX_MESSAGE_LENGTH = 2000
+# Hard ceilings on the request itself, well above anything the widget sends
+# (it only resends the last MAX_HISTORY_MESSAGES turns).
+MAX_RAW_MESSAGE_LENGTH = 20000
+MAX_REQUEST_MESSAGES = 200
+
+
 class SiteHelpMessage(BaseModel):
-    role: str
-    content: str
+    # Only the two conversational roles: the system prompt is the server's
+    # (chat_ai.SITE_HELP_PERSONA), and a client-supplied "system" turn would
+    # let any caller replace it and use this endpoint as a free general LLM.
+    role: Literal["user", "assistant"]
+    content: str = Field(..., max_length=MAX_RAW_MESSAGE_LENGTH)
 
 
 class SiteHelpChatRequest(BaseModel):
-    messages: List[SiteHelpMessage]
+    messages: List[SiteHelpMessage] = Field(..., max_length=MAX_REQUEST_MESSAGES)
 
 
 def sse(event: str, data: dict) -> str:
     return f"event: {event}\ndata: {json.dumps(data, ensure_ascii=False)}\n\n"
 
 
-@router.post("/site-help/chat")
+# No sign-in required — the help widget is on every learner page, including
+# for guests — so it is throttled per caller instead.
+@router.post("/site-help/chat", dependencies=[Depends(rate_limit("site-help", limit=15, window_seconds=60))])
 async def site_help_chat(request: SiteHelpChatRequest):
     """Free-form Q&A about the website itself (features, where to find them),
     as opposed to /api/chat which is the Japanese roleplay practice partner.
@@ -41,7 +57,7 @@ async def site_help_chat(request: SiteHelpChatRequest):
 
     api_key = chat_ai.require_api_key()
     messages = [{"role": "system", "content": chat_ai.SITE_HELP_PERSONA}]
-    messages += [{"role": m.role, "content": m.content} for m in history]
+    messages += [{"role": m.role, "content": m.content[:MAX_MESSAGE_LENGTH]} for m in history]
 
     async def event_stream():
         try:

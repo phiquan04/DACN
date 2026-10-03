@@ -4,13 +4,14 @@ from typing import Optional
 
 import httpx
 from fastapi import APIRouter, Depends, HTTPException
+from fastapi.concurrency import run_in_threadpool
 from fastapi.responses import StreamingResponse
 from sqlalchemy import exists
 from sqlalchemy.orm import Session
 
 from app.dependencies import UserResponse, get_current_user, get_optional_user_id
 from app.models import ChatScenario, Conversation, GrammarCorrection, Message
-from app.models.database import get_db
+from app.models.database import SessionLocal, get_db
 from app.schemas.chat import (
     ChatRequest,
     ConversationDetail,
@@ -24,6 +25,7 @@ from app.schemas.chat import (
 from app.services import chat_ai
 from app.services.audit_log import log_event
 from app.services.grammar_service import grade_text
+from app.utils.rate_limit import rate_limit
 
 router = APIRouter()
 
@@ -40,7 +42,8 @@ def sse(event: str, data: dict) -> str:
     return f"event: {event}\ndata: {json.dumps(data, ensure_ascii=False)}\n\n"
 
 
-@router.post("/conversations")
+# Starting a scenario conversation can cost an LLM call (the opening line).
+@router.post("/conversations", dependencies=[Depends(rate_limit("chat-start", limit=15, window_seconds=60))])
 def start_conversation(
     request: StartConversationRequest,
     db: Session = Depends(get_db),
@@ -135,10 +138,11 @@ def update_situation_context(
     return get_conversation(conversation_id, current_user, db)
 
 
-@router.post("/chat")
+@router.post("/chat", dependencies=[Depends(rate_limit("chat", limit=20, window_seconds=60))])
 async def chat(
     request: ChatRequest,
     db: Session = Depends(get_db),
+    user_id: Optional[int] = Depends(get_optional_user_id),
 ):
     user_message = request.message.strip()
     if not user_message:
@@ -146,6 +150,18 @@ async def chat(
 
     conversation = db.query(Conversation).filter(Conversation.id == request.conversation_id).first()
     if not conversation:
+        raise HTTPException(status_code=404, detail="Conversation not found")
+    # A conversation started while signed in belongs to that account: nobody
+    # else may post into it (or read its context back through the model).
+    # Guest conversations (user_id NULL) have no owner to check against and
+    # stay usable by id, exactly as before.
+    if conversation.user_id is not None and conversation.user_id != user_id:
+        if user_id is None:
+            # No/expired token on an owned conversation — 401 (not 404) so the
+            # frontend refreshes its access token and retries.
+            raise HTTPException(
+                status_code=401, detail="Invalid or expired token", headers={"WWW-Authenticate": "Bearer"},
+            )
         raise HTTPException(status_code=404, detail="Conversation not found")
 
     scenario = (
@@ -193,6 +209,8 @@ async def chat(
     # feedback/suggestions/off-topic detection from turn 2 onward.
     messages.append({"role": "system", "content": chat_ai.JSON_OUTPUT_RULE})
     conversation_id = conversation.id
+    conversation_owner_id = conversation.user_id
+    user_msg_id = user_msg.id
     sentinel_len = len(chat_ai.META_SENTINEL)
 
     async def event_stream():
@@ -201,6 +219,12 @@ async def chat(
         pending = ""
         in_meta = False
 
+        # The generator runs after the route function has returned, and
+        # whether the request-scoped `db` from Depends(get_db) is still open
+        # at that point has changed between FastAPI releases. It writes
+        # through a session of its own instead, closed in the finally below,
+        # so it doesn't depend on that ordering.
+        stream_db = SessionLocal()
         try:
             async for delta in chat_ai.stream_openrouter(messages, api_key):
                 if in_meta:
@@ -240,9 +264,9 @@ async def chat(
                 feedback=parsed_meta["feedback"],
                 is_off_topic=parsed_meta["is_off_topic"],
             )
-            db.add(assistant_msg)
-            db.commit()
-            db.refresh(assistant_msg)
+            stream_db.add(assistant_msg)
+            stream_db.commit()
+            stream_db.refresh(assistant_msg)
 
             yield sse("meta", {
                 "feedback": parsed_meta["feedback"],
@@ -257,20 +281,24 @@ async def chat(
             # AI response. Best-effort: a failure here must not drop the
             # reply that was already sent to the client.
             try:
-                graded = grade_text(user_message)
+                # grade_text is synchronous and slow (BERT inference plus up
+                # to three blocking LLM calls). Awaiting it on a worker
+                # thread keeps the event loop — and with it every other
+                # in-flight request and stream — responsive meanwhile.
+                graded = await run_in_threadpool(grade_text, user_message)
                 correction = GrammarCorrection(
-                    user_id=conversation.user_id,
-                    message_id=user_msg.id,
+                    user_id=conversation_owner_id,
+                    message_id=user_msg_id,
                     original_text=graded["original_text"],
                     corrected_text=graded["corrected_text"],
                     errors=graded["diffs"],
                     explanation=graded["explanation"],
                     error_count=graded["error_count"],
                 )
-                db.add(correction)
-                db.commit()
+                stream_db.add(correction)
+                stream_db.commit()
                 yield sse("grammar", {
-                    "message_id": user_msg.id,
+                    "message_id": user_msg_id,
                     "corrected_text": graded["corrected_text"],
                     "diffs": graded["diffs"],
                     "error_count": graded["error_count"],
@@ -279,12 +307,14 @@ async def chat(
                 })
             except Exception as e:
                 print(f"Grammar grading failed: {e}", flush=True)
-                db.rollback()
+                stream_db.rollback()
         except httpx.TimeoutException:
             yield sse("error", {"detail": "Request timeout"})
         except httpx.HTTPError as e:
             print(f"Chat API error: {e}", flush=True)
             yield sse("error", {"detail": "API error"})
+        finally:
+            stream_db.close()
 
     return StreamingResponse(event_stream(), media_type="text/event-stream")
 
