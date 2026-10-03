@@ -244,3 +244,94 @@ class MiniStoryRequest(BaseModel):
 class MiniStoryResponse(BaseModel):
     story_ja: str
     story_vi: str
+
+
+# --- User-facing: "Bộ từ của tôi" — a learner's own private curriculum/sets/words ---
+
+
+class MySetOut(BaseModel):
+    """One 'bài' (lesson) inside a learner's own private curriculum. No
+    level — a personal list isn't tied to a JLPT level. learned/reviewing/
+    new_count mirror VocabularySetProgressOut, so a private 'bài' card can
+    show the same progress bar/stat breakdown as a public set's."""
+    id: int
+    curriculum_id: int
+    set_name: str
+    description: Optional[str] = None
+    item_count: int = 0
+    learned_count: int = 0
+    reviewing_count: int = 0
+    new_count: int = 0
+    created_at: datetime
+
+
+class MySetIn(BaseModel):
+    set_name: str
+    description: Optional[str] = None
+
+
+class MySetPatch(BaseModel):
+    set_name: Optional[str] = None
+    description: Optional[str] = None
+
+
+class MySetDetailOut(MySetOut):
+    items: List[VocabularyItemOut] = []
+
+
+class MyCurriculumOut(BaseModel):
+    """The top-level 'bộ từ vựng của tôi' a learner creates for themselves.
+    learned/reviewing/new_count mirror VocabularySetProgressOut's fields,
+    aggregated across every item in every 'bài' of this curriculum, from the
+    same VocabularyItemProgress rows the public library uses."""
+    id: int
+    name: str
+    description: Optional[str] = None
+    item_count: int = 0
+    learned_count: int = 0
+    reviewing_count: int = 0
+    new_count: int = 0
+    created_at: datetime
+    sets: List[MySetOut] = []
+
+
+class MyCurriculumIn(BaseModel):
+    name: str
+    description: Optional[str] = None
+
+
+class MyCurriculumPatch(BaseModel):
+    name: Optional[str] = None
+    description: Optional[str] = None
+
+
+class MyItemCreate(BaseModel):
+    """A word a learner adds by hand to one of their own 'bài'. Only word +
+    meaning are required — when auto_fill is left on, any of
+    reading/han_viet/word_type/example left blank gets AI-filled so the
+    word still works in every study mode."""
+    word: str
+    meaning_vi: str
+    reading: Optional[str] = None
+    han_viet: Optional[str] = None
+    word_type: Optional[str] = None
+    example_sentence_ja: Optional[str] = None
+    example_sentence_vi: Optional[str] = None
+    auto_fill: bool = True
+
+
+class MyItemPatch(BaseModel):
+    word: Optional[str] = None
+    reading: Optional[str] = None
+    han_viet: Optional[str] = None
+    meaning_vi: Optional[str] = None
+    word_type: Optional[str] = None
+    example_sentence_ja: Optional[str] = None
+    example_sentence_vi: Optional[str] = None
+
+
+class CopyItemToMineRequest(BaseModel):
+    """Payload for 'Thêm vào bộ của tôi': copies a word from any published
+    (public) set into one of the learner's own private 'bài'."""
+    item_id: int
+    target_set_id: int

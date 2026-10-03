@@ -1,10 +1,12 @@
 import type { DictionaryResult } from "../../../services/api";
+import { FolderIcon } from "../../../icons";
 import { classifyPos, POS_BADGE_CLASSES, uniquePosLabels } from "../dictionaryUtils";
 
 interface WordSummaryCardProps {
   item: DictionaryResult;
   onPlayPronunciation: (text: string) => void;
   onPracticePronunciation: (word: string, reading: string, meaning: string) => void;
+  onAddToMine: () => void;
   /** Hide the compact kanji breakdown preview — redundant once the Hán tự tab shows the same kanji in full detail. */
   showKanjiPreview?: boolean;
 }
@@ -13,6 +15,7 @@ export default function WordSummaryCard({
   item,
   onPlayPronunciation,
   onPracticePronunciation,
+  onAddToMine,
   showKanjiPreview = true,
 }: WordSummaryCardProps) {
   return (
@@ -71,6 +74,15 @@ export default function WordSummaryCard({
               <path d="M7 4a3 3 0 116 0v6a3 3 0 11-6 0V4z" />
               <path d="M5.5 9.643a.75.75 0 00-1.5 0V10c0 3.06 2.29 5.585 5.25 5.954V17.5h-1.5a.75.75 0 000 1.5h4.5a.75.75 0 000-1.5h-1.5v-1.546A6.001 6.001 0 0016 10v-.357a.75.75 0 00-1.5 0V10a4.5 4.5 0 01-9 0v-.357z" />
             </svg>
+          </button>
+          <button
+            type="button"
+            onClick={onAddToMine}
+            disabled={item.definitions.length === 0}
+            title="Thêm vào bộ của tôi"
+            className="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-outline-variant/60 text-on-surface-variant hover:border-brand-500 hover:text-brand-600 disabled:cursor-not-allowed disabled:opacity-40 dark:border-gray-700 dark:text-gray-300 transition-colors"
+          >
+            <FolderIcon className="h-4 w-4" />
           </button>
         </div>
       </div>

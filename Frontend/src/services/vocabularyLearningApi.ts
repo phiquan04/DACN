@@ -80,7 +80,63 @@ export interface MiniStoryResult {
   story_vi: string;
 }
 
+export interface MyVocabularyItem {
+  id: number;
+  order_no: number;
+  word: string;
+  reading?: string | null;
+  han_viet?: string | null;
+  meaning_vi: string;
+  word_type?: string | null;
+  example_sentence_ja?: string | null;
+  example_sentence_vi?: string | null;
+  admin_notes?: string | null;
+  is_meaning_ai_generated: boolean;
+  is_example_ai_generated: boolean;
+  is_reviewed: boolean;
+}
+
+export interface MySet {
+  id: number;
+  curriculum_id: number;
+  set_name: string;
+  description?: string | null;
+  item_count: number;
+  learned_count: number;
+  reviewing_count: number;
+  new_count: number;
+  created_at: string;
+}
+
+export interface MySetDetail extends MySet {
+  items: MyVocabularyItem[];
+}
+
+export interface MyCurriculum {
+  id: number;
+  name: string;
+  description?: string | null;
+  item_count: number;
+  learned_count: number;
+  reviewing_count: number;
+  new_count: number;
+  created_at: string;
+  sets: MySet[];
+}
+
+export interface MyItemCreateInput {
+  word: string;
+  meaning_vi: string;
+  reading?: string;
+  han_viet?: string;
+  word_type?: string;
+  example_sentence_ja?: string;
+  example_sentence_vi?: string;
+  auto_fill?: boolean;
+}
+
 const BASE = "/api/vocabulary/learn";
+const MINE_BASE = "/api/vocabulary/mine";
 
 export async function fetchStudyOverview(): Promise<StudyOverview> {
   return request(`${BASE}/overview`, { headers: authHeaders(getToken()), silent: true });
@@ -159,6 +215,101 @@ export async function generateMiniStory(itemIds: number[]): Promise<MiniStoryRes
     method: "POST",
     headers: jsonHeaders(getToken()),
     body: JSON.stringify({ item_ids: itemIds }),
+  });
+}
+
+// --- "Bộ từ của tôi": a learner's own private curriculum/sets/words ---
+
+export async function fetchMyCurriculums(): Promise<MyCurriculum[]> {
+  return request(`${MINE_BASE}/curriculums`, { headers: authHeaders(getToken()) });
+}
+
+export async function createMyCurriculum(name: string, description?: string): Promise<MyCurriculum> {
+  return request(`${MINE_BASE}/curriculums`, {
+    method: "POST",
+    headers: jsonHeaders(getToken()),
+    body: JSON.stringify({ name, description }),
+  });
+}
+
+export async function updateMyCurriculum(
+  curriculumId: number,
+  payload: { name?: string; description?: string }
+): Promise<MyCurriculum> {
+  return request(`${MINE_BASE}/curriculums/${curriculumId}`, {
+    method: "PATCH",
+    headers: jsonHeaders(getToken()),
+    body: JSON.stringify(payload),
+  });
+}
+
+export async function deleteMyCurriculum(curriculumId: number): Promise<{ success: boolean }> {
+  return request(`${MINE_BASE}/curriculums/${curriculumId}`, {
+    method: "DELETE",
+    headers: authHeaders(getToken()),
+  });
+}
+
+export async function createMySet(
+  curriculumId: number,
+  setName: string,
+  description?: string
+): Promise<MySet> {
+  return request(`${MINE_BASE}/curriculums/${curriculumId}/sets`, {
+    method: "POST",
+    headers: jsonHeaders(getToken()),
+    body: JSON.stringify({ set_name: setName, description }),
+  });
+}
+
+export async function fetchMySet(setId: number): Promise<MySetDetail> {
+  return request(`${MINE_BASE}/sets/${setId}`, { headers: authHeaders(getToken()) });
+}
+
+export async function fetchMyStudyBatch(
+  setId: number,
+  source: BatchSource,
+  count: number
+): Promise<VocabularyLearningItem[]> {
+  return request(`${MINE_BASE}/sets/${setId}/batch`, {
+    method: "POST",
+    headers: jsonHeaders(getToken()),
+    body: JSON.stringify({ source, count }),
+  });
+}
+
+export async function updateMySet(
+  setId: number,
+  payload: { set_name?: string; description?: string }
+): Promise<MySet> {
+  return request(`${MINE_BASE}/sets/${setId}`, {
+    method: "PATCH",
+    headers: jsonHeaders(getToken()),
+    body: JSON.stringify(payload),
+  });
+}
+
+export async function deleteMySet(setId: number): Promise<{ success: boolean }> {
+  return request(`${MINE_BASE}/sets/${setId}`, { method: "DELETE", headers: authHeaders(getToken()) });
+}
+
+export async function createMyItem(setId: number, payload: MyItemCreateInput): Promise<MyVocabularyItem> {
+  return request(`${MINE_BASE}/sets/${setId}/items`, {
+    method: "POST",
+    headers: jsonHeaders(getToken()),
+    body: JSON.stringify({ auto_fill: true, ...payload }),
+  });
+}
+
+export async function deleteMyItem(itemId: number): Promise<{ success: boolean }> {
+  return request(`${MINE_BASE}/items/${itemId}`, { method: "DELETE", headers: authHeaders(getToken()) });
+}
+
+export async function copyItemToMine(itemId: number, targetSetId: number): Promise<MyVocabularyItem> {
+  return request(`${MINE_BASE}/copy`, {
+    method: "POST",
+    headers: jsonHeaders(getToken()),
+    body: JSON.stringify({ item_id: itemId, target_set_id: targetSetId }),
   });
 }
 

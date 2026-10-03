@@ -126,7 +126,7 @@ class AdminUserVocabularySetProgress(BaseModel):
     in it) — powers a row of "Danh sách bộ từ vựng đã ghi danh"."""
     id: int
     set_name: str
-    level: str
+    level: Optional[str] = None  # null for a personal set not tied to a JLPT level
     curriculum_name: Optional[str] = None
     item_count: int
     progress_count: int  # distinct words with at least one review

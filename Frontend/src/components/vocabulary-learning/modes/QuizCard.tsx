@@ -91,7 +91,7 @@ export default function QuizCard({
         <button
           type="button"
           onClick={() => onGrade(isCorrect ? "good" : "again")}
-          className="w-full rounded-lg bg-gray-900 py-2.5 text-sm font-medium text-white hover:bg-gray-800 dark:bg-white dark:text-gray-900"
+          className="w-full rounded-lg bg-brand-500 py-2.5 text-sm font-medium text-white hover:bg-brand-600"
         >
           Tiếp tục
         </button>

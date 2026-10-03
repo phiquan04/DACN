@@ -34,6 +34,7 @@ def list_curriculums(db: Session = Depends(get_db), _admin: UserResponse = Depen
     rows = (
         db.query(VocabularyCurriculum, func.count(VocabularySet.id))
         .outerjoin(VocabularySet, VocabularySet.curriculum_id == VocabularyCurriculum.id)
+        .filter(VocabularyCurriculum.is_private.is_(False))
         .group_by(VocabularyCurriculum.id)
         .order_by(VocabularyCurriculum.name)
         .all()
@@ -48,9 +49,11 @@ def list_curriculums(db: Session = Depends(get_db), _admin: UserResponse = Depen
 def create_curriculum(
     payload: CurriculumIn, db: Session = Depends(get_db), _admin: UserResponse = Depends(require_admin),
 ):
-    if db.query(VocabularyCurriculum).filter(VocabularyCurriculum.name == payload.name).first():
+    if db.query(VocabularyCurriculum).filter(
+        VocabularyCurriculum.name == payload.name, VocabularyCurriculum.is_private.is_(False),
+    ).first():
         raise HTTPException(status_code=409, detail="Đã tồn tại bộ giáo trình với tên này")
-    curriculum = VocabularyCurriculum(name=payload.name, description=payload.description)
+    curriculum = VocabularyCurriculum(name=payload.name, description=payload.description, is_private=False)
     db.add(curriculum)
     db.commit()
     db.refresh(curriculum)
@@ -62,7 +65,9 @@ def update_curriculum(
     curriculum_id: int, payload: CurriculumPatch,
     db: Session = Depends(get_db), _admin: UserResponse = Depends(require_admin),
 ):
-    curriculum = db.query(VocabularyCurriculum).filter(VocabularyCurriculum.id == curriculum_id).first()
+    curriculum = db.query(VocabularyCurriculum).filter(
+        VocabularyCurriculum.id == curriculum_id, VocabularyCurriculum.is_private.is_(False),
+    ).first()
     if not curriculum:
         raise HTTPException(status_code=404, detail="Không tìm thấy bộ giáo trình")
     fields = payload.model_dump(exclude_unset=True)
@@ -80,7 +85,9 @@ def update_curriculum(
 def delete_curriculum(
     curriculum_id: int, db: Session = Depends(get_db), _admin: UserResponse = Depends(require_admin),
 ):
-    curriculum = db.query(VocabularyCurriculum).filter(VocabularyCurriculum.id == curriculum_id).first()
+    curriculum = db.query(VocabularyCurriculum).filter(
+        VocabularyCurriculum.id == curriculum_id, VocabularyCurriculum.is_private.is_(False),
+    ).first()
     if not curriculum:
         raise HTTPException(status_code=404, detail="Không tìm thấy bộ giáo trình")
     in_use = db.query(VocabularySet).filter(VocabularySet.curriculum_id == curriculum_id).count()

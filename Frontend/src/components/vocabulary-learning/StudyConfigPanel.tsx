@@ -1,17 +1,6 @@
 import { useEffect, useState } from "react";
-import {
-  AudioIcon,
-  BoxIconLine,
-  ChatbotIcon,
-  ChatIcon,
-  CheckCircleIcon,
-  CheckLineIcon,
-  DocsIcon,
-  GroupIcon,
-  PencilIcon,
-  TaskIcon,
-} from "../../icons";
-import { STUDY_MODES, StudyMode } from "./types";
+import { CheckCircleIcon } from "../../icons";
+import { STUDY_MODE_ICONS, STUDY_MODES, StudyMode } from "./types";
 
 export interface SourceOption {
   value: string;
@@ -22,18 +11,6 @@ export interface SourceOption {
 
 const COUNT_PRESETS = [10, 20, 40];
 const CONFIG_STORAGE_KEY = "vocab_study_config";
-
-const MODE_ICON: Record<StudyMode, React.ComponentType<{ className?: string }>> = {
-  flashcard: BoxIconLine,
-  hanviet: DocsIcon,
-  listen: AudioIcon,
-  pronounce: ChatbotIcon,
-  "type-meaning": PencilIcon,
-  "fill-blank": CheckLineIcon,
-  quiz: TaskIcon,
-  match: GroupIcon,
-  story: ChatIcon,
-};
 
 function loadSavedConfig(): { mode: StudyMode; count: number } {
   const fallback: { mode: StudyMode; count: number } = { mode: "flashcard", count: 10 };
@@ -85,7 +62,7 @@ export function StudyModeList({ mode, onSelect }: { mode: StudyMode; onSelect: (
   return (
     <div className="space-y-2.5">
       {STUDY_MODES.map((m) => {
-        const Icon = MODE_ICON[m.id];
+        const Icon = STUDY_MODE_ICONS[m.id];
         const active = mode === m.id;
         return (
           <button
@@ -196,7 +173,7 @@ export function StudySessionSettings({
 }
 
 /** Combined mode + settings + start button in one block — used where there's no page header to host
- * the start button separately (e.g. the bookmarked-words quick session in the library "Của tôi" tab). */
+ * the start button separately (e.g. the bookmarked-words quick session in the library "Yêu thích" tab). */
 export default function StudyConfigPanel({
   sourceOptions,
   source,

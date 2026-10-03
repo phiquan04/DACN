@@ -1,11 +1,13 @@
 import { useEffect, useRef, useState } from "react";
-import { AngleLeftIcon, AngleRightIcon, CloseIcon, ShootingStarIcon } from "../../icons";
+import { AngleLeftIcon, AngleRightIcon, CloseIcon, FolderIcon, ShootingStarIcon } from "../../icons";
 import {
   ReviewRating,
   VocabularyLearningItem,
+  copyItemToMine,
   submitReview,
   toggleBookmark,
 } from "../../services/vocabularyLearningApi";
+import AddToMineModal from "./AddToMineModal";
 import Confetti from "./Confetti";
 import FillBlankCard from "./modes/FillBlankCard";
 import FlashcardSrsCard from "./modes/FlashcardSrsCard";
@@ -16,7 +18,10 @@ import MiniStoryPanel from "./modes/MiniStoryPanel";
 import PronounceCard from "./modes/PronounceCard";
 import QuizCard from "./modes/QuizCard";
 import TypeMeaningCard from "./modes/TypeMeaningCard";
-import { SessionResult, StudyMode } from "./types";
+import { SessionResult, STUDY_MODE_ICONS, STUDY_MODES, StudyMode } from "./types";
+import WordCarousel from "./WordCarousel";
+
+type ChipOutcome = "good" | "again";
 
 export default function SessionView({
   batch: initialBatch,
@@ -31,9 +36,13 @@ export default function SessionView({
 }) {
   const [batch, setBatch] = useState(initialBatch);
   const [index, setIndex] = useState(0);
+  const [outcomes, setOutcomes] = useState<Record<number, ChipOutcome>>({});
   const [xpFlash, setXpFlash] = useState<{ amount: number; key: number } | null>(null);
   const [levelUp, setLevelUp] = useState<number | null>(null);
+  const [showAddToMine, setShowAddToMine] = useState(false);
   const startTimeRef = useRef(Date.now());
+  // Source of truth for the session tally — kept in a ref (not state) so `finish()` always reads
+  // the latest count even though it's invoked from a stale closure right after the last grade.
   const tallyRef = useRef<SessionResult>({
     total: initialBatch.length,
     learnedCount: 0,
@@ -41,6 +50,12 @@ export default function SessionView({
     againCount: 0,
     elapsedSeconds: 0,
   });
+  // Mirrors tallyRef purely so the live "Đã thuộc / Cần ôn" chips in the header can re-render.
+  const [tallyDisplay, setTallyDisplay] = useState(tallyRef.current);
+
+  const modeDef = STUDY_MODES.find((m) => m.id === mode);
+  const ModeIcon = STUDY_MODE_ICONS[mode];
+  const isWholeBatch = mode === "match" || mode === "story";
 
   useEffect(() => {
     if (levelUp === null) return;
@@ -56,6 +71,7 @@ export default function SessionView({
   };
 
   const handleGrade = async (itemId: number, rating: ReviewRating) => {
+    setOutcomes((prev) => ({ ...prev, [itemId]: rating === "again" ? "again" : "good" }));
     if (rating === "again") tallyRef.current.againCount += 1;
     try {
       const res = await submitReview(itemId, rating);
@@ -65,6 +81,8 @@ export default function SessionView({
       if (res.leveled_up) setLevelUp(res.new_level);
     } catch {
       tallyRef.current.reviewingCount += 1;
+    } finally {
+      setTallyDisplay({ ...tallyRef.current });
     }
   };
 
@@ -96,7 +114,6 @@ export default function SessionView({
     goNext();
   };
 
-  const isWholeBatch = mode === "match" || mode === "story";
   const progressPct = isWholeBatch ? 100 : (index / batch.length) * 100;
 
   const renderCard = () => {
@@ -171,13 +188,47 @@ export default function SessionView({
   };
 
   return (
-    <div className="space-y-5">
+    <div className="space-y-4">
       {levelUp !== null && <Confetti />}
 
-      <div className="relative flex items-center gap-3">
+      {/* ===== Mode badge + exit ===== */}
+      <div className="mx-auto flex max-w-2xl items-center justify-between">
+        <span className="inline-flex items-center gap-1.5 rounded-full border border-brand-200 bg-brand-50 px-3 py-1 text-xs font-semibold text-brand-700 dark:border-brand-500/30 dark:bg-brand-500/10 dark:text-brand-300">
+          <ModeIcon className="h-3.5 w-3.5" />
+          {modeDef?.name ?? "Học từ vựng"}
+        </span>
+        <div className="flex shrink-0 items-center gap-3">
+          {!isWholeBatch && (
+            <button
+              type="button"
+              onClick={() => setShowAddToMine(true)}
+              aria-label="Thêm từ này vào bộ của tôi"
+              title="Thêm vào bộ của tôi"
+              className="text-gray-400 hover:text-teal-600 dark:hover:text-teal-400"
+            >
+              <FolderIcon className="h-5 w-5" />
+            </button>
+          )}
+          <button
+            type="button"
+            onClick={onExit}
+            aria-label="Đóng phiên học"
+            className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-200"
+          >
+            <CloseIcon className="h-5 w-5" />
+          </button>
+        </div>
+      </div>
+
+      {showAddToMine && current && (
+        <AddToMineModal onPick={(setId) => copyItemToMine(current.id, setId)} onClose={() => setShowAddToMine(false)} />
+      )}
+
+      {/* ===== Progress bar ===== */}
+      <div className="relative mx-auto flex max-w-2xl items-center gap-3">
         <div className="h-2 flex-1 overflow-hidden rounded-full bg-gray-100 dark:bg-gray-800">
           <div
-            className="h-full bg-gray-900 transition-all dark:bg-white"
+            className="h-full bg-brand-500 transition-all"
             style={{ width: isWholeBatch ? "100%" : `${progressPct}%` }}
           />
         </div>
@@ -192,15 +243,31 @@ export default function SessionView({
             +{xpFlash.amount} XP
           </span>
         )}
-        <button
-          type="button"
-          onClick={onExit}
-          aria-label="Đóng phiên học"
-          className="shrink-0 text-gray-400 hover:text-gray-600 dark:hover:text-gray-200"
-        >
-          <CloseIcon className="h-5 w-5" />
-        </button>
       </div>
+
+      {/* ===== Live tally for this round ===== */}
+      <div className="mx-auto flex max-w-2xl flex-wrap items-center gap-4 text-[11px] text-gray-500 dark:text-gray-400">
+        <span className="flex items-center gap-1.5">
+          <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" />
+          Đã thuộc <span className="font-semibold text-gray-700 dark:text-gray-200">{tallyDisplay.learnedCount}</span>
+        </span>
+        <span className="flex items-center gap-1.5">
+          <span className="h-1.5 w-1.5 rounded-full bg-rose-400" />
+          Cần ôn lại{" "}
+          <span className="font-semibold text-gray-700 dark:text-gray-200">{tallyDisplay.reviewingCount}</span>
+        </span>
+        {tallyDisplay.againCount > 0 && (
+          <span className="flex items-center gap-1.5">
+            <span className="h-1.5 w-1.5 rounded-full bg-gray-300 dark:bg-gray-600" />
+            Quên hẳn <span className="font-semibold text-gray-700 dark:text-gray-200">{tallyDisplay.againCount}</span>
+          </span>
+        )}
+      </div>
+
+      {/* ===== Word roadmap: coverflow of every word this round, current/done/upcoming ===== */}
+      {!isWholeBatch && (
+        <WordCarousel items={batch} currentIndex={index} outcomes={outcomes} onJump={setIndex} />
+      )}
 
       {levelUp !== null && (
         <p className="flex items-center justify-center gap-1.5 text-sm font-semibold text-teal-600 dark:text-teal-400">

@@ -63,7 +63,7 @@ export default function SummaryView({
           <p className="text-xs text-gray-400 dark:text-gray-500">Cần ôn lại</p>
         </div>
         <div className="rounded-xl border border-gray-200 bg-white p-5 shadow-sm dark:border-gray-700 dark:bg-gray-900">
-          <div className="mx-auto flex h-10 w-10 items-center justify-center rounded-full bg-blue-100 text-blue-600 dark:bg-blue-500/20 dark:text-blue-300">
+          <div className="mx-auto flex h-10 w-10 items-center justify-center rounded-full bg-brand-100 text-brand-600 dark:bg-brand-500/20 dark:text-brand-300">
             <TimeIcon className="h-5 w-5" />
           </div>
           <p className="mt-3 text-2xl font-bold text-gray-800 dark:text-white/90">{formatDuration(result.elapsedSeconds)}</p>
@@ -89,7 +89,7 @@ export default function SummaryView({
           <button
             type="button"
             onClick={onContinue}
-            className="rounded-lg bg-gray-900 px-5 py-2.5 text-sm font-medium text-white hover:bg-gray-800 dark:bg-white dark:text-gray-900"
+            className="rounded-lg bg-gradient-to-r from-brand-500 to-brand-600 px-5 py-2.5 text-sm font-medium text-white transition hover:from-brand-600 hover:to-brand-700"
           >
             Học tiếp batch kế
           </button>

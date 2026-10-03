@@ -60,7 +60,7 @@ def list_vocabulary_sets(
 ):
     query = db.query(VocabularySet).options(
         selectinload(VocabularySet.items), selectinload(VocabularySet.curriculum), selectinload(VocabularySet.category),
-    )
+    ).filter(VocabularySet.is_private.is_(False))
     if level:
         query = query.filter(VocabularySet.level == level)
     if status_filter:
@@ -80,7 +80,7 @@ def get_set_for_review(
     vocab_set = (
         db.query(VocabularySet)
         .options(selectinload(VocabularySet.items), selectinload(VocabularySet.curriculum), selectinload(VocabularySet.category))
-        .filter(VocabularySet.id == set_id)
+        .filter(VocabularySet.id == set_id, VocabularySet.is_private.is_(False))
         .first()
     )
     if not vocab_set:
@@ -101,7 +101,7 @@ def update_set_metadata(
     set_id: int, payload: VocabularySetPatch,
     db: Session = Depends(get_db), _admin: UserResponse = Depends(require_admin),
 ):
-    vocab_set = db.query(VocabularySet).filter(VocabularySet.id == set_id).first()
+    vocab_set = db.query(VocabularySet).filter(VocabularySet.id == set_id, VocabularySet.is_private.is_(False)).first()
     if not vocab_set:
         raise HTTPException(status_code=404, detail="Không tìm thấy bộ từ vựng")
 
@@ -151,7 +151,7 @@ def create_item(
     set_id: int, payload: VocabularyItemCreate,
     db: Session = Depends(get_db), _admin: UserResponse = Depends(require_admin),
 ):
-    vocab_set = db.query(VocabularySet).filter(VocabularySet.id == set_id).first()
+    vocab_set = db.query(VocabularySet).filter(VocabularySet.id == set_id, VocabularySet.is_private.is_(False)).first()
     if not vocab_set:
         raise HTTPException(status_code=404, detail="Không tìm thấy bộ từ vựng")
 
@@ -182,7 +182,7 @@ def delete_item(
     if not item:
         raise HTTPException(status_code=404, detail="Không tìm thấy từ vựng")
 
-    vocab_set = db.query(VocabularySet).filter(VocabularySet.id == set_id).first()
+    vocab_set = db.query(VocabularySet).filter(VocabularySet.id == set_id, VocabularySet.is_private.is_(False)).first()
     db.delete(item)
     if vocab_set:
         vocab_set.item_count = max(0, vocab_set.item_count - 1)
@@ -199,7 +199,7 @@ def mark_all_items_reviewed(
     before publish is impractical. A word the admin still wants to fix can be
     edited normally afterwards (editing re-saves it, which is a no-op on the
     is_reviewed flag since it's already true)."""
-    vocab_set = db.query(VocabularySet).filter(VocabularySet.id == set_id).first()
+    vocab_set = db.query(VocabularySet).filter(VocabularySet.id == set_id, VocabularySet.is_private.is_(False)).first()
     if not vocab_set:
         raise HTTPException(status_code=404, detail="Không tìm thấy bộ từ vựng")
 
@@ -218,7 +218,7 @@ def publish_set(
     vocab_set = (
         db.query(VocabularySet)
         .options(selectinload(VocabularySet.items))
-        .filter(VocabularySet.id == set_id)
+        .filter(VocabularySet.id == set_id, VocabularySet.is_private.is_(False))
         .first()
     )
     if not vocab_set:
@@ -246,7 +246,7 @@ def publish_set(
 def delete_set(
     set_id: int, db: Session = Depends(get_db), _admin: UserResponse = Depends(require_admin),
 ):
-    vocab_set = db.query(VocabularySet).filter(VocabularySet.id == set_id).first()
+    vocab_set = db.query(VocabularySet).filter(VocabularySet.id == set_id, VocabularySet.is_private.is_(False)).first()
     if not vocab_set:
         raise HTTPException(status_code=404, detail="Không tìm thấy bộ từ vựng")
     try:
@@ -258,7 +258,7 @@ def delete_set(
         # chỉ báo lỗi, tự động khóa set lại để admin xử lý tiếp trong mục "Đã khóa"
         # thay vì mất trắng thao tác xóa.
         db.rollback()
-        vocab_set = db.query(VocabularySet).filter(VocabularySet.id == set_id).first()
+        vocab_set = db.query(VocabularySet).filter(VocabularySet.id == set_id, VocabularySet.is_private.is_(False)).first()
         vocab_set.is_locked = True
         db.commit()
         raise HTTPException(
