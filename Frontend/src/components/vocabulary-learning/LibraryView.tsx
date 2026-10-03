@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { JLPT_LEVELS, JlptLevel } from "../../services/jlptApi";
 import {
+  MyCurriculum,
   StudyOverview,
   VocabularyLearningItem,
   VocabularySetProgress,
@@ -10,15 +11,16 @@ import {
   toggleBookmark,
   updateDailyGoal,
 } from "../../services/vocabularyLearningApi";
-import { BoltIcon, CalenderIcon, PencilIcon, ShootingStarIcon, TaskIcon } from "../../icons";
+import { BoltIcon, CalenderIcon, FolderIcon, PencilIcon, ShootingStarIcon, TaskIcon } from "../../icons";
 import AchievementsPanel from "./AchievementsPanel";
 import BookmarkToggle from "./BookmarkToggle";
+import MyVocabularyPanel from "./MyVocabularyPanel";
 import ProgressBar from "./ProgressBar";
 import StreakHeatmap from "./StreakHeatmap";
 import StudyConfigPanel from "./StudyConfigPanel";
 import { StudyMode } from "./types";
 
-type Tab = "sets" | "mine" | "achievements";
+type Tab = "sets" | "mine" | "myLists" | "achievements";
 
 interface CurriculumGroup {
   curriculumId: number | null;
@@ -55,11 +57,13 @@ function sumGroup(sets: VocabularySetProgress[]) {
 export default function LibraryView({
   onSelectSet,
   onSelectCurriculum,
+  onOpenMyCurriculum,
   onStartDueQuick,
   onStartBookmarked,
 }: {
   onSelectSet: (set: VocabularySetProgress) => void;
   onSelectCurriculum: (curriculumName: string, sets: VocabularySetProgress[]) => void;
+  onOpenMyCurriculum: (curriculum: MyCurriculum) => void;
   onStartDueQuick: () => void;
   onStartBookmarked: (mode: StudyMode, count: number) => void;
 }) {
@@ -246,7 +250,8 @@ export default function LibraryView({
           {(
             [
               { id: "sets" as Tab, label: "Các bộ từ vựng" },
-              { id: "mine" as Tab, label: "Của tôi" },
+              { id: "mine" as Tab, label: "Yêu thích" },
+              { id: "myLists" as Tab, label: "Bộ từ của tôi" },
               { id: "achievements" as Tab, label: "Thành tích" },
             ]
           ).map((t) => (
@@ -315,9 +320,14 @@ export default function LibraryView({
                     }
                     className="flex flex-col gap-3 rounded-xl border border-gray-200 bg-white p-4 text-left shadow-sm transition hover:border-teal-500 hover:shadow-sm dark:border-gray-700 dark:bg-gray-900"
                   >
-                    <span className="truncate text-sm font-semibold text-gray-800 dark:text-white/90">
-                      {group.curriculumName}
-                    </span>
+                    <div className="flex min-w-0 items-center gap-2.5">
+                      <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-brand-100 text-brand-600 dark:bg-brand-500/20 dark:text-brand-300">
+                        <FolderIcon className="h-4 w-4" />
+                      </span>
+                      <span className="truncate text-sm font-semibold text-gray-800 dark:text-white/90">
+                        {group.curriculumName}
+                      </span>
+                    </div>
                     <p className="text-xs text-gray-400 dark:text-gray-500">
                       {isCurriculum ? `${group.sets.length} bộ · ${totals.item_count} từ` : `${totals.item_count} từ`}
                     </p>
@@ -386,6 +396,8 @@ export default function LibraryView({
             )}
           </div>
         )}
+
+        {tab === "myLists" && <MyVocabularyPanel onOpenCurriculum={onOpenMyCurriculum} />}
 
         {tab === "achievements" && <AchievementsPanel />}
       </div>

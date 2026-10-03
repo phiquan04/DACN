@@ -201,7 +201,7 @@ export async function fetchUserActivity(id: number, limit = 6): Promise<AdminAct
 export interface AdminUserVocabularySetProgress {
   id: number;
   set_name: string;
-  level: string;
+  level?: string | null;
   curriculum_name?: string | null;
   item_count: number;
   progress_count: number;

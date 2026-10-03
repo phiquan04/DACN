@@ -25,6 +25,14 @@ class SearchHistory(Base):
     user = relationship('User', backref='search_history')
 
 
+# A newly-submitted image/comment starts 'pending' so it shows up in the
+# admin moderation queue, but — per product decision — moderation here is
+# purely a post-hoc review: status never gates whether the dictionary page
+# shows the content, it only drives the admin queue and the badge shown to
+# admins ('pending' | 'approved' | 'flagged').
+DEFAULT_MODERATION_STATUS = 'pending'
+
+
 class DictionaryImage(Base):
     """A community-contributed illustration image for a dictionary word."""
     __tablename__ = 'dictionary_images'
@@ -35,9 +43,26 @@ class DictionaryImage(Base):
     cloudinary_public_id = Column(String(255), nullable=True)  # needed to delete the asset from Cloudinary
     caption = Column(String(255), nullable=True)
     uploaded_by = Column(Integer, ForeignKey('users.id'), nullable=False)
+    status = Column(String(20), nullable=False, default=DEFAULT_MODERATION_STATUS, server_default=DEFAULT_MODERATION_STATUS)
     created_at = Column(DateTime, default=datetime.utcnow)
 
     uploader = relationship('User')
+    votes = relationship('DictionaryImageVote', backref='image', cascade='all, delete-orphan')
+
+
+class DictionaryImageVote(Base):
+    """One user's up/down vote on one dictionary image."""
+    __tablename__ = 'dictionary_image_votes'
+
+    id = Column(Integer, primary_key=True)
+    image_id = Column(Integer, ForeignKey('dictionary_images.id'), nullable=False)
+    user_id = Column(Integer, ForeignKey('users.id'), nullable=False)
+    vote_type = Column(String(4), nullable=False)  # 'up' or 'down'
+    created_at = Column(DateTime, default=datetime.utcnow)
+
+    __table_args__ = (
+        UniqueConstraint('image_id', 'user_id', name='uq_image_vote_user'),
+    )
 
 
 class DictionaryComment(Base):
@@ -48,6 +73,7 @@ class DictionaryComment(Base):
     word = Column(String(255), nullable=False, index=True)
     user_id = Column(Integer, ForeignKey('users.id'), nullable=False)
     content = Column(Text, nullable=False)
+    status = Column(String(20), nullable=False, default=DEFAULT_MODERATION_STATUS, server_default=DEFAULT_MODERATION_STATUS)
     created_at = Column(DateTime, default=datetime.utcnow)
 
     author = relationship('User')

@@ -135,7 +135,7 @@ def _studied_today_count(db: Session, user_id: int, today) -> int:
 
 def _published_set_query(db: Session):
     return db.query(VocabularySet).filter(
-        VocabularySet.status == 'published', VocabularySet.is_locked.is_(False),
+        VocabularySet.status == 'published', VocabularySet.is_locked.is_(False), VocabularySet.is_private.is_(False),
     )
 
 

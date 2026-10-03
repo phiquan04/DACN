@@ -3,10 +3,12 @@ import { AudioIcon, ChevronLeftIcon, FolderIcon } from "../../icons";
 import {
   BatchSource,
   VocabularySetLearningDetail,
+  copyItemToMine,
   fetchSetForLearning,
   speakJapanese,
   toggleBookmark,
 } from "../../services/vocabularyLearningApi";
+import AddToMineModal from "./AddToMineModal";
 import BookmarkToggle from "./BookmarkToggle";
 import Pagination from "../ui/pagination";
 import ProgressBar from "./ProgressBar";
@@ -39,6 +41,7 @@ export default function SetDetailView({
   const [page, setPage] = useState(1);
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState<"all" | "learned" | "reviewing" | "new">("all");
+  const [addToMineItemId, setAddToMineItemId] = useState<number | null>(null);
   const { mode, setMode, count, customCount, selectPreset, changeCustomCount } = useStudyConfig();
   const listTopRef = useRef<HTMLDivElement>(null);
 
@@ -228,8 +231,20 @@ export default function SetDetailView({
                 className="relative flex flex-col gap-2 rounded-xl border border-gray-200 bg-white p-4 shadow-sm transition hover:border-teal-500 dark:border-gray-700 dark:bg-gray-900"
               >
                 <BookmarkToggle active={item.is_bookmarked} onToggle={() => handleToggleBookmark(item.id)} />
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setAddToMineItemId(item.id);
+                  }}
+                  aria-label="Thêm từ này vào bộ của tôi"
+                  title="Thêm vào bộ của tôi"
+                  className="absolute right-10 top-3 z-10 text-gray-300 hover:text-teal-600 dark:text-gray-600 dark:hover:text-teal-400"
+                >
+                  <FolderIcon className="h-5 w-5" />
+                </button>
 
-                <div className="flex flex-wrap items-center gap-2 pr-8">
+                <div className="flex flex-wrap items-center gap-2 pr-20">
                   <span lang="ja" className="text-lg font-bold text-gray-800 dark:text-white/90">
                     {item.word}
                   </span>
@@ -315,6 +330,13 @@ export default function SetDetailView({
           </div>
         </div>
       </div>
+
+      {addToMineItemId !== null && (
+        <AddToMineModal
+          onPick={(setId) => copyItemToMine(addToMineItemId, setId)}
+          onClose={() => setAddToMineItemId(null)}
+        />
+      )}
     </div>
   );
 }

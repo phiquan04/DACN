@@ -11,6 +11,7 @@ import asyncio
 import json
 import os
 import re
+import time
 from typing import List, Optional
 
 import httpx
@@ -22,6 +23,16 @@ from app.models.database import SearchHistory
 OPENROUTER_API_KEY = os.getenv("OPENROUTER_API_KEY")
 
 translator = GoogleTranslator(source='en', target='vi')
+
+# deep_translator's free Google endpoint gets rate-limited in bursts (e.g.
+# importing a large kanji set translates dozens/hundreds of meanings back to
+# back). Once it fails once, skip it for a cooldown window instead of paying
+# its network latency + failure on every remaining item in the batch -- go
+# straight to the AI fallback until the cooldown expires.
+_GOOGLE_TRANSLATE_COOLDOWN_SECONDS = 300
+_google_translate_disabled_until = 0.0
+
+_TRANSLATE_CONCURRENCY = 6
 
 _translation_cache: dict = {}
 _synonym_cache: dict = {}
@@ -76,31 +87,42 @@ async def _translate_via_ai(text: str) -> str:
     return response.strip().strip('"').strip() if response else ""
 
 
+async def _translate_via_google(text: str) -> Optional[str]:
+    """Returns None (without even trying the network call) while the
+    cooldown from a recent failure is active."""
+    global _google_translate_disabled_until
+    if time.monotonic() < _google_translate_disabled_until:
+        return None
+    try:
+        result = await asyncio.get_event_loop().run_in_executor(
+            None, translator.translate, text
+        )
+        if result:
+            return result
+    except Exception as e:
+        print(f"Translation error for '{text}': {e}", flush=True)
+    _google_translate_disabled_until = time.monotonic() + _GOOGLE_TRANSLATE_COOLDOWN_SECONDS
+    return None
+
+
 async def translate_batch(texts: List[str]) -> List[str]:
-    results = []
-    for i, text in enumerate(texts):
-        if i > 0:
-            await asyncio.sleep(0.05)
+    semaphore = asyncio.Semaphore(_TRANSLATE_CONCURRENCY)
+
+    async def _translate_one(text: str) -> str:
         cache_key = f"trans:{text}"
         if cache_key in _translation_cache:
-            results.append(_translation_cache[cache_key])
-            continue
+            return _translation_cache[cache_key]
 
-        result = None
-        try:
-            result = await asyncio.get_event_loop().run_in_executor(
-                None, translator.translate, text
-            )
-        except Exception as e:
-            print(f"Translation error for '{text}': {e}", flush=True)
-
-        if not result:
-            result = await _translate_via_ai(text)
+        async with semaphore:
+            result = await _translate_via_google(text)
+            if not result:
+                result = await _translate_via_ai(text)
 
         result = result or text  # last resort: show the original English rather than nothing
         _translation_cache[cache_key] = result
-        results.append(result)
-    return results
+        return result
+
+    return list(await asyncio.gather(*(_translate_one(text) for text in texts)))
 
 
 async def get_synonyms(word: str, db: Session) -> list:

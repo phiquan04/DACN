@@ -135,8 +135,8 @@ Format JSON:
             "Content-Type": "application/json",
         },
         json={
-            "model": "minimax/minimax-m3:free",  # free tier — same model already used for vision OCR
-                                                  # in practice_test_ocr.py; avoids needing OpenRouter credits
+            "model": "nvidia/nemotron-3-super-120b-a12b:free",  # free tier, text-only (no vision needed here)
+            "reasoning": {"enabled": False},  # otherwise it leaks chain-of-thought into content, breaking JSON parsing
             "messages": [{"role": "user", "content": prompt}],
             "temperature": 0.2,
             "max_tokens": 16000,
@@ -152,12 +152,17 @@ Format JSON:
         raise ValueError(f"AI trả về JSON không hợp lệ cho một phần của file: {e}") from e
 
 
+BATCH_RETRY_ATTEMPTS = 3
+BATCH_RETRY_DELAY_SECONDS = 5  # free-tier providers are often transiently overloaded/rate-limited
+
+
 def parse_vocabulary_with_ai(pages: List[str], level: str) -> dict:
     """Batches PAGES_PER_BATCH pages per AI call and merges the results. A
-    batch that fails (AI error, invalid JSON) is skipped rather than failing
-    the whole import — its words are simply missing from the result, same as
-    an individual word the AI couldn't confidently parse (see imports.py),
-    and the admin can add anything missed by hand during review."""
+    batch is retried a few times (transient 429/503 upstream overload on the
+    free tier is common) before being skipped rather than failing the whole
+    import — its words are simply missing from the result, same as an
+    individual word the AI couldn't confidently parse (see imports.py), and
+    the admin can add anything missed by hand during review."""
     all_items = []
     failed_batch_count = 0
 
@@ -165,11 +170,22 @@ def parse_vocabulary_with_ai(pages: List[str], level: str) -> dict:
         batch_text = '\n'.join(p for p in pages[i:i + PAGES_PER_BATCH] if p.strip())
         if not batch_text.strip():
             continue
-        try:
-            result = _parse_vocabulary_chunk(batch_text, level)
-            all_items.extend(result.get('items', []))
-        except Exception as e:
-            print(f"⚠️  Bỏ qua batch trang {i + 1}-{min(i + PAGES_PER_BATCH, len(pages))}: {e}", flush=True)
+
+        last_error = None
+        for attempt in range(1, BATCH_RETRY_ATTEMPTS + 1):
+            try:
+                result = _parse_vocabulary_chunk(batch_text, level)
+                all_items.extend(result.get('items', []))
+                last_error = None
+                break
+            except Exception as e:
+                last_error = e
+                if attempt < BATCH_RETRY_ATTEMPTS:
+                    print(f"⚠️  Batch trang {i + 1}-{min(i + PAGES_PER_BATCH, len(pages))} lỗi (lần {attempt}/{BATCH_RETRY_ATTEMPTS}): {e} — thử lại sau {BATCH_RETRY_DELAY_SECONDS}s", flush=True)
+                    time.sleep(BATCH_RETRY_DELAY_SECONDS)
+
+        if last_error is not None:
+            print(f"⚠️  Bỏ qua batch trang {i + 1}-{min(i + PAGES_PER_BATCH, len(pages))} sau {BATCH_RETRY_ATTEMPTS} lần thử: {last_error}", flush=True)
             failed_batch_count += 1
 
     return {'items': all_items, 'failed_batch_count': failed_batch_count}

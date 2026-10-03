@@ -1,6 +1,8 @@
 import { useState } from "react";
 import PageMeta from "../../components/common/PageMeta";
-import type { SearchHistoryItem } from "../../services/api";
+import type { DictionaryResult, SearchHistoryItem } from "../../services/api";
+import { createMyItem, MyItemCreateInput } from "../../services/vocabularyLearningApi";
+import AddToMineModal from "../../components/vocabulary-learning/AddToMineModal";
 import { useVocabularyPage } from "./hooks/useVocabularyPage";
 import SearchBar from "./components/SearchBar";
 import WordSummaryCard from "./components/WordSummaryCard";
@@ -15,6 +17,28 @@ import KanjiDrawModal from "./components/KanjiDrawModal";
 export default function Vocabulary() {
   const { currentUser, history, images, comments, lookup } = useVocabularyPage();
   const [isDrawOpen, setIsDrawOpen] = useState(false);
+  const [addToMineTarget, setAddToMineTarget] = useState<DictionaryResult | null>(null);
+
+  /** Dictionary lookups come from JMdict, not the VocabularyItem table, so
+   * there's no existing item id to copy — build a new personal word from
+   * whatever the lookup already resolved (current example, if loaded, and a
+   * best-effort Hán Việt guessed from the per-kanji breakdown). */
+  const buildMyItemPayload = (item: DictionaryResult): MyItemCreateInput => {
+    const hanViet = item.kanji.length > 0
+      ? item.kanji.map((k) => k.hanviet[0]).filter(Boolean).join(", ").toUpperCase()
+      : undefined;
+    const example = lookup.examplesData[0];
+    return {
+      word: item.word,
+      meaning_vi: item.definitions[0]?.meaning ?? "",
+      reading: item.reading || undefined,
+      han_viet: hanViet || undefined,
+      word_type: item.definitions[0]?.pos_label || undefined,
+      example_sentence_ja: example?.japanese,
+      example_sentence_vi: example?.vietnamese,
+      auto_fill: true,
+    };
+  };
 
   const handleUploadImage = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -96,6 +120,7 @@ export default function Vocabulary() {
                     item={item}
                     onPlayPronunciation={lookup.playPronunciation}
                     onPracticePronunciation={lookup.goToPronunciationPractice}
+                    onAddToMine={() => setAddToMineTarget(item)}
                     showKanjiPreview={lookup.activeTab === "vocab"}
                   />
 
@@ -116,6 +141,7 @@ export default function Vocabulary() {
                         currentUser={currentUser}
                         onUpload={handleUploadImage}
                         onDelete={images.remove}
+                        onVote={images.vote}
                       />
                       <CommentsCard
                         comments={comments.comments}
@@ -176,6 +202,13 @@ export default function Vocabulary() {
         onClose={() => setIsDrawOpen(false)}
         onSelectCharacter={(char) => lookup.setSearchTerm((prev) => prev + char)}
       />
+
+      {addToMineTarget && (
+        <AddToMineModal
+          onPick={(setId) => createMyItem(setId, buildMyItemPayload(addToMineTarget))}
+          onClose={() => setAddToMineTarget(null)}
+        />
+      )}
     </>
   );
 }

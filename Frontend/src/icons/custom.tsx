@@ -77,6 +77,73 @@ export const SendIcon = ({ className = "h-4 w-4" }: { className?: string }) => (
   </svg>
 );
 
+export const TrophyIcon = ({ className = "h-4 w-4" }: { className?: string }) => (
+  <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor">
+    <path
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      strokeWidth={2}
+      d="M8 4h8v4a4 4 0 01-8 0V4zM8 5H5a2 2 0 00-2 2c0 2.5 2 4 4.5 4.2M16 5h3a2 2 0 012 2c0 2.5-2 4-4.5 4.2M12 12v3m-3 4h6m-4 0v-4h2v4"
+    />
+  </svg>
+);
+
+export const LayersIcon = ({ className = "h-4 w-4" }: { className?: string }) => (
+  <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor">
+    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 3l9 5-9 5-9-5 9-5z" />
+    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 12l9 5 9-5M3 16l9 5 9-5" />
+  </svg>
+);
+
+export const HistoryIcon = ({ className = "h-4 w-4" }: { className?: string }) => (
+  <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor">
+    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 12a9 9 0 109-9 9.02 9.02 0 00-7.5 4" />
+    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 4v4h4M12 7v5l3.5 2" />
+  </svg>
+);
+
+export const FlagIcon = ({ className = "h-4 w-4" }: { className?: string }) => (
+  <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor">
+    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 3v18" />
+    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 4h12l-3 4 3 4H5" />
+  </svg>
+);
+
+export const HourglassIcon = ({ className = "h-4 w-4" }: { className?: string }) => (
+  <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor">
+    <path
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      strokeWidth={2}
+      d="M7 3h10M7 21h10M7 3c0 4 2.5 5.5 5 8-2.5 2.5-5 4-5 8m10-16c0 4-2.5 5.5-5 8 2.5 2.5 5 4 5 8"
+    />
+  </svg>
+);
+
+export const TrendingUpIcon = ({ className = "h-4 w-4" }: { className?: string }) => (
+  <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor">
+    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 17l6-6 4 4 8-8" />
+    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 7h6v6" />
+  </svg>
+);
+
+export const FilterIcon = ({ className = "h-4 w-4" }: { className?: string }) => (
+  <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor">
+    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 5h16M7 12h10M10 19h4" />
+  </svg>
+);
+
+export const EyeOffIcon = ({ className = "h-4 w-4" }: { className?: string }) => (
+  <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor">
+    <path
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      strokeWidth={2}
+      d="M3 3l18 18M10.6 10.6a2 2 0 002.8 2.8M9.9 5.1A10 10 0 0112 5c5 0 9 4 10.5 7a13 13 0 01-2.7 3.7M6.6 6.6C4.6 7.9 3 9.7 1.5 12c1.5 3 5.5 7 10.5 7a9.7 9.7 0 004.1-.9"
+    />
+  </svg>
+);
+
 export const RefreshIcon = ({ className = "h-4 w-4" }: { className?: string }) => (
   <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor">
     <polyline points="1 4 1 10 7 10" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" />

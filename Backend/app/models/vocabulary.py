@@ -8,11 +8,20 @@ from .base import BaseModel
 
 class VocabularyCurriculum(BaseModel):
     """A reusable textbook/curriculum name (e.g. 'Mimikara Oboeru N2',
-    'Shinkanzen Master N3') that vocabulary sets can be grouped under."""
+    'Shinkanzen Master N3') that vocabulary sets can be grouped under.
+
+    Also doubles as the top-level "Bộ từ vựng của tôi" a learner creates for
+    themselves (is_private=True, owner_id set) — same table, since both are
+    just a named group of VocabularySet 'bài'. name is NOT globally unique at
+    the DB level (only enforced app-side, and only among the admin/public
+    rows) so two users can freely reuse the same private set name.
+    """
     __tablename__ = 'vocabulary_curriculums'
 
-    name = Column(String(255), nullable=False, unique=True)
+    name = Column(String(255), nullable=False)
     description = Column(Text, nullable=True)
+    owner_id = Column(Integer, ForeignKey('users.id'), nullable=True)
+    is_private = Column(Boolean, nullable=False, default=False)
 
     sets = relationship('VocabularySet', backref='curriculum')
 
@@ -37,16 +46,23 @@ class VocabularyCategory(BaseModel):
 class VocabularySet(BaseModel):
     """One imported vocabulary set (= one lesson/chapter). Sits in 'draft'
     while the admin reviews the AI-parsed words, and only becomes visible to
-    users once 'published'."""
+    users once 'published'.
+
+    Also doubles as one "bài" (lesson) inside a learner's own private
+    VocabularyCurriculum (is_private=True, created_by=owner) — created
+    already 'published' since there's no admin review step for it, and
+    level is left null since a personal list isn't tied to a JLPT level.
+    """
     __tablename__ = 'vocabulary_sets'
 
     curriculum_id = Column(Integer, ForeignKey('vocabulary_curriculums.id'), nullable=True)
     category_id = Column(Integer, ForeignKey('vocabulary_categories.id'), nullable=True)
-    level = Column(String(10), nullable=False)  # 'N1'..'N5'
+    level = Column(String(10), nullable=True)  # 'N1'..'N5', null for a private user-created set
     set_name = Column(String(255), nullable=False)
     description = Column(Text, nullable=True)
     status = Column(String(20), nullable=False, default='draft')  # 'draft' | 'processing' | 'failed' | 'published'
     is_locked = Column(Boolean, nullable=False, default=False)  # locked = hidden from users even if published
+    is_private = Column(Boolean, nullable=False, default=False)  # a learner's own set, never shown in public listings
     source_filename = Column(String(255), nullable=True)
     error_message = Column(Text, nullable=True)
     item_count = Column(Integer, nullable=False, default=0)  # denormalized count of `items`

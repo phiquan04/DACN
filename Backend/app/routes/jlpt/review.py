@@ -63,6 +63,7 @@ def _exam_summary(exam: JlptExam) -> dict:
         "has_answer_key": exam.has_answer_key,
         "question_count": len(exam.questions),
         "reviewed_count": sum(1 for q in exam.questions if q.is_reviewed),
+        "created_at": exam.created_at.isoformat() if exam.created_at else None,
     }
 
 

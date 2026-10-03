@@ -1,3 +1,16 @@
+import type { ComponentType } from "react";
+import {
+  AudioIcon,
+  BoxIconLine,
+  ChatbotIcon,
+  ChatIcon,
+  CheckLineIcon,
+  DocsIcon,
+  GroupIcon,
+  PencilIcon,
+  TaskIcon,
+} from "../../icons";
+
 export type StudyMode =
   | "flashcard"
   | "hanviet"
@@ -66,6 +79,19 @@ export const STUDY_MODES: StudyModeDef[] = [
     wholeBatch: true,
   },
 ];
+
+/** Icon per study mode — shared between the mode picker and the in-session header badge. */
+export const STUDY_MODE_ICONS: Record<StudyMode, ComponentType<{ className?: string }>> = {
+  flashcard: BoxIconLine,
+  hanviet: DocsIcon,
+  listen: AudioIcon,
+  pronounce: ChatbotIcon,
+  "type-meaning": PencilIcon,
+  "fill-blank": CheckLineIcon,
+  quiz: TaskIcon,
+  match: GroupIcon,
+  story: ChatIcon,
+};
 
 /** Where the current batch of words came from — determines what happens on "back". */
 export type BatchOrigin =

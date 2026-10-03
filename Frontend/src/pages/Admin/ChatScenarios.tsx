@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import PageMeta from "../../components/common/PageMeta";
 import { usePageHeader } from "../../context/PageHeaderContext";
 import { useToast } from "../../context/ToastContext";
@@ -10,7 +10,15 @@ import {
   updateScenario,
 } from "../../services/adminScenarioApi";
 import ScenarioFormModal from "../../components/admin-chat-scenarios/ScenarioFormModal";
-import { PencilIcon, PlusIcon } from "../../icons";
+import ScenarioCard from "../../components/admin-chat-scenarios/ScenarioCard";
+import StatCard from "../../components/admin-vocabulary/StatCard";
+import { PlusIcon, ChatIcon, CheckCircleIcon, TaskIcon } from "../../icons";
+import { SearchIcon, EyeOffIcon } from "../../icons/custom";
+import { ADMIN_PRIMARY_GRADIENT } from "../../utils/adminStyles";
+
+const LEVELS = ["N5", "N4", "N3", "N2", "N1"];
+
+type StatusFilter = "" | "active" | "inactive";
 
 export default function ChatScenarios() {
   const { setPageHeader } = usePageHeader();
@@ -22,8 +30,12 @@ export default function ChatScenarios() {
   const [saving, setSaving] = useState(false);
   const [togglingId, setTogglingId] = useState<number | null>(null);
 
+  const [search, setSearch] = useState("");
+  const [level, setLevel] = useState("");
+  const [status, setStatus] = useState<StatusFilter>("");
+
   useEffect(() => {
-    setPageHeader("Kịch bản hội thoại", "Quản lý các tình huống nhập vai và form nhập bối cảnh cho từng tình huống.");
+    setPageHeader("Kịch bản chat", "Thiết kế các tình huống hội thoại giúp học viên luyện tập thực tế.");
   }, [setPageHeader]);
 
   const load = useCallback(async () => {
@@ -72,78 +84,105 @@ export default function ChatScenarios() {
     }
   };
 
+  const activeCount = items.filter((i) => i.is_active).length;
+  const withContextFormCount = items.filter((i) => i.context_fields.length > 0).length;
+
+  const filtered = useMemo(() => {
+    const q = search.trim().toLowerCase();
+    return items.filter((i) => {
+      if (q && !i.title.toLowerCase().includes(q) && !(i.description ?? "").toLowerCase().includes(q)) return false;
+      if (level && i.level !== level) return false;
+      if (status === "active" && !i.is_active) return false;
+      if (status === "inactive" && i.is_active) return false;
+      return true;
+    });
+  }, [items, search, level, status]);
+
   return (
     <>
-      <PageMeta title="Kịch bản hội thoại | Manabi AI" description="Quản lý kịch bản hội thoại." />
+      <PageMeta title="Kịch bản chat | Manabi AI" description="Quản lý kịch bản hội thoại." />
 
-      <div className="rounded-2xl border border-gray-200 bg-white shadow-sm dark:border-gray-700 dark:bg-gray-900">
-        <div className="flex items-center justify-between border-b border-gray-200 p-5 dark:border-gray-700">
-          <p className="text-sm text-gray-500 dark:text-gray-400">
-            {items.length} tình huống · {items.filter((i) => i.is_active).length} đang hiển thị cho người dùng
+      <div className="flex flex-col gap-5">
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <p className="text-sm text-admin-body">
+            Thiết kế các tình huống hội thoại giúp học viên luyện tập thực tế.
           </p>
           <button
             type="button"
             onClick={() => setFormTarget("new")}
-            className="flex items-center gap-1.5 rounded-lg bg-brand-500 px-4 py-2 text-sm font-medium text-white hover:bg-brand-600"
+            className={`flex items-center gap-1.5 rounded-[9px] px-4 py-2.5 text-sm font-medium text-white shadow-[0_5px_12px_rgba(49,93,206,0.22)] ${ADMIN_PRIMARY_GRADIENT}`}
           >
-            <PlusIcon className="h-4 w-4" /> Thêm tình huống
+            <PlusIcon className="h-4 w-4" /> Tạo kịch bản
           </button>
         </div>
 
-        <div className="divide-y divide-gray-100 dark:divide-gray-800">
-          {loading && <p className="p-6 text-center text-sm text-gray-400 dark:text-gray-500">Đang tải...</p>}
-          {!loading && items.length === 0 && (
-            <p className="p-6 text-center text-sm text-gray-400 dark:text-gray-500">Chưa có tình huống nào.</p>
-          )}
-          {items.map((item) => (
-            <div key={item.id} className="flex items-center gap-3 p-4">
-              <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-brand-50 text-lg dark:bg-brand-500/10">
-                {item.icon || "💬"}
-              </span>
-              <div className="min-w-0 flex-1">
-                <div className="flex items-center gap-2">
-                  <p className="truncate text-sm font-semibold text-gray-800 dark:text-white/90">{item.title}</p>
-                  {item.level && (
-                    <span className="shrink-0 rounded-md bg-brand-100 px-2 py-0.5 text-[10px] font-bold text-brand-700 dark:bg-brand-500/20 dark:text-brand-300">
-                      {item.level}
-                    </span>
-                  )}
-                  <span
-                    className={`shrink-0 rounded-md px-2 py-0.5 text-[10px] font-bold ${
-                      item.is_active
-                        ? "bg-emerald-100 text-emerald-700 dark:bg-emerald-500/15 dark:text-emerald-400"
-                        : "bg-gray-100 text-gray-500 dark:bg-gray-800 dark:text-gray-400"
-                    }`}
-                  >
-                    {item.is_active ? "Đang hiển thị" : "Đã ẩn"}
-                  </span>
-                </div>
-                {item.description && (
-                  <p className="mt-0.5 truncate text-xs text-gray-500 dark:text-gray-400">{item.description}</p>
-                )}
-                <p className="mt-0.5 text-[11px] text-gray-400 dark:text-gray-500">
-                  {item.context_fields.length > 0
-                    ? `Form bối cảnh: ${item.context_fields.length} trường`
-                    : "Bối cảnh: nhập tự do"}
-                </p>
-              </div>
-              <button
-                type="button"
-                onClick={() => toggleActive(item)}
-                disabled={togglingId === item.id}
-                className="shrink-0 rounded-lg border border-gray-200 px-3 py-1.5 text-xs font-medium text-gray-600 hover:bg-gray-50 disabled:opacity-50 dark:border-gray-700 dark:text-gray-300 dark:hover:bg-gray-800"
-              >
-                {item.is_active ? "Ẩn" : "Hiện"}
-              </button>
-              <button
-                type="button"
-                onClick={() => setFormTarget(item)}
-                className="shrink-0 flex items-center gap-1.5 rounded-lg border border-gray-200 px-3 py-1.5 text-xs font-medium text-gray-600 hover:bg-gray-50 dark:border-gray-700 dark:text-gray-300 dark:hover:bg-gray-800"
-              >
-                <PencilIcon className="h-3.5 w-3.5" /> Sửa
-              </button>
+        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+          <StatCard label="Tổng kịch bản" value={items.length} icon={<ChatIcon />} tone="neutral" />
+          <StatCard label="Đang hiển thị" value={activeCount} icon={<CheckCircleIcon />} tone="success" />
+          <StatCard label="Đã ẩn" value={items.length - activeCount} icon={<EyeOffIcon />} tone="pending" />
+          <StatCard label="Có form bối cảnh" value={withContextFormCount} icon={<TaskIcon />} tone="info" />
+        </div>
+
+        <div className="rounded-2xl border border-admin-border bg-white shadow-[0_4px_16px_rgba(35,67,110,0.05)]">
+          <div className="flex flex-wrap items-center justify-between gap-3 border-b border-admin-border p-4">
+            <div className="relative w-full max-w-xs">
+              <SearchIcon className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-admin-body" />
+              <input
+                type="search"
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                placeholder="Tìm kiếm kịch bản..."
+                className="w-full rounded-[9px] border border-admin-border-input bg-admin-fill py-2.5 pl-10 pr-3.5 text-sm text-admin-ink outline-none placeholder:text-admin-meta focus:border-admin-200 focus:ring-3 focus:ring-admin-500/18"
+              />
             </div>
-          ))}
+            <div className="flex flex-wrap items-center gap-3">
+              <select
+                value={level}
+                onChange={(e) => setLevel(e.target.value)}
+                className="rounded-[9px] border border-admin-border-input bg-white px-3.5 py-2.5 text-sm text-admin-body outline-none focus:border-admin-200 focus:ring-3 focus:ring-admin-500/18"
+              >
+                <option value="">Tất cả cấp độ</option>
+                {LEVELS.map((l) => (
+                  <option key={l} value={l}>
+                    {l}
+                  </option>
+                ))}
+              </select>
+              <select
+                value={status}
+                onChange={(e) => setStatus(e.target.value as StatusFilter)}
+                className="rounded-[9px] border border-admin-border-input bg-white px-3.5 py-2.5 text-sm text-admin-body outline-none focus:border-admin-200 focus:ring-3 focus:ring-admin-500/18"
+              >
+                <option value="">Tất cả trạng thái</option>
+                <option value="active">Đang hiển thị</option>
+                <option value="inactive">Đã ẩn</option>
+              </select>
+            </div>
+          </div>
+
+          <div className="p-5">
+            {loading && <p className="py-10 text-center text-sm text-admin-meta">Đang tải...</p>}
+            {!loading && items.length === 0 && (
+              <p className="py-10 text-center text-sm text-admin-meta">Chưa có tình huống nào.</p>
+            )}
+            {!loading && items.length > 0 && filtered.length === 0 && (
+              <p className="py-10 text-center text-sm text-admin-meta">Không tìm thấy kịch bản phù hợp.</p>
+            )}
+            {filtered.length > 0 && (
+              <div className="grid gap-4 sm:grid-cols-2">
+                {filtered.map((item, index) => (
+                  <ScenarioCard
+                    key={item.id}
+                    scenario={item}
+                    index={index}
+                    toggling={togglingId === item.id}
+                    onToggle={() => toggleActive(item)}
+                    onEdit={() => setFormTarget(item)}
+                  />
+                ))}
+              </div>
+            )}
+          </div>
         </div>
       </div>
 

@@ -3,7 +3,7 @@ import { Link, useLocation, useNavigate } from "react-router";
 
 import { useSidebar } from "../context/SidebarContext";
 import { logout } from "../services/api";
-import { GridIcon, GroupIcon, DocsIcon, ListIcon, ChatIcon, VideoIcon, ChevronDownIcon, TableIcon, FolderIcon, CheckLineIcon } from "../icons";
+import { GridIcon, GroupIcon, DocsIcon, ListIcon, ChatIcon, VideoIcon, ChevronDownIcon, TableIcon, FolderIcon, CheckLineIcon, PageIcon } from "../icons";
 import { UploadIcon } from "../components/admin-jlpt/icons";
 import Logo from "../components/common/Logo";
 
@@ -27,11 +27,13 @@ const navGroups: NavGroup[] = [
     items: [
       { icon: <GridIcon />, name: "Tổng quan", path: "/admin" },
       { icon: <GroupIcon />, name: "Quản lý người dùng", path: "/admin/users" },
+      { icon: <PageIcon />, name: "Kiểm duyệt từ điển", path: "/admin/dictionary-moderation" },
       {
         icon: <DocsIcon />,
         name: "Ngân hàng đề JLPT",
         path: "/admin/jlpt-content",
         subItems: [
+          { name: "Tổng quan", path: "/admin/jlpt-content/overview", icon: <GridIcon /> },
           { name: "Cấu trúc đề", path: "/admin/jlpt-content/structure", icon: <TableIcon /> },
           { name: "Import đề", path: "/admin/jlpt-content/import", icon: <UploadIcon /> },
           { name: "Duyệt đề", path: "/admin/jlpt-content/review", icon: <CheckLineIcon /> },

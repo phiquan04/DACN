@@ -3,6 +3,7 @@ import {
   fetchImages,
   uploadImage as uploadImageApi,
   deleteImage as deleteImageApi,
+  voteImage as voteImageApi,
   type DictionaryImageItem,
   type User,
 } from "../../../services/api";
@@ -17,13 +18,13 @@ export function useWordImages(currentUser: User | null) {
     if (!word) return;
     setLoadingImages(true);
     try {
-      setImages(await fetchImages(word));
+      setImages(await fetchImages(word, currentUser?.id));
     } catch {
       setImages([]);
     } finally {
       setLoadingImages(false);
     }
-  }, []);
+  }, [currentUser]);
 
   const reset = useCallback(() => setImages([]), []);
 
@@ -56,5 +57,18 @@ export function useWordImages(currentUser: User | null) {
     [currentUser]
   );
 
-  return { images, loadingImages, uploadingImage, load, reset, upload, remove };
+  const vote = useCallback(
+    async (image: DictionaryImageItem, voteType: "up" | "down") => {
+      if (!currentUser) return;
+      try {
+        const updated = await voteImageApi(image.id, voteType);
+        setImages((prev) => prev.map((i) => (i.id === updated.id ? updated : i)));
+      } catch (err) {
+        console.error("Failed to vote:", err);
+      }
+    },
+    [currentUser]
+  );
+
+  return { images, loadingImages, uploadingImage, load, reset, upload, remove, vote };
 }

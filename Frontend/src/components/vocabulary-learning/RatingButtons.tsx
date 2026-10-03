@@ -20,7 +20,7 @@ const OPTIONS: { rating: ReviewRating; label: string; sub: string; className: st
     label: "Bình thường",
     sub: "vài ngày",
     className:
-      "border-blue-200 bg-blue-50 text-blue-600 hover:border-blue-300 dark:border-blue-500/30 dark:bg-blue-500/10 dark:text-blue-300",
+      "border-brand-200 bg-brand-50 text-brand-700 hover:border-brand-300 dark:border-brand-500/30 dark:bg-brand-500/10 dark:text-brand-300",
   },
   {
     rating: "easy",

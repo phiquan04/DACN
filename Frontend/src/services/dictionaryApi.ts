@@ -175,21 +175,36 @@ export async function fetchHistoryWords(userId: number): Promise<{ word: string;
 }
 
 // ---------- Community images ----------
+export type ModerationStatus = "pending" | "approved" | "flagged";
+
 export interface DictionaryImageItem {
   id: number;
   image_url: string;
   caption: string;
   uploaded_by: number;
   uploader_username: string;
+  status: ModerationStatus;
+  upvotes: number;
+  downvotes: number;
+  my_vote: "up" | "down" | null;
   created_at: string;
 }
 
-export async function fetchImages(word: string): Promise<DictionaryImageItem[]> {
+export async function fetchImages(word: string, userId?: number): Promise<DictionaryImageItem[]> {
+  const query = userId ? `?user_id=${userId}` : "";
   try {
-    return await request(`/api/dictionary/images/${encodeURIComponent(word)}`, { silent: true });
+    return await request(`/api/dictionary/images/${encodeURIComponent(word)}${query}`, { silent: true });
   } catch {
     return [];
   }
+}
+
+export async function voteImage(imageId: number, voteType: "up" | "down"): Promise<DictionaryImageItem> {
+  return request(`/api/dictionary/images/${imageId}/vote`, {
+    method: "POST",
+    headers: jsonHeaders(getToken()),
+    body: JSON.stringify({ vote_type: voteType }),
+  });
 }
 
 export async function uploadImage(params: {
@@ -229,6 +244,7 @@ export interface DictionaryCommentItem {
   username: string;
   avatar_url?: string | null;
   content: string;
+  status: ModerationStatus;
   upvotes: number;
   downvotes: number;
   my_vote: "up" | "down" | null;

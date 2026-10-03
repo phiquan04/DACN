@@ -11,7 +11,7 @@ from .user import Role, User
 from .chat import ChatScenario, Conversation, Message
 from .grammar import GrammarCorrection
 from .transcription import TranscriptionSession, TranscriptionSegment
-from .dictionary import SearchHistory, DictionaryImage, DictionaryComment, DictionaryCommentVote
+from .dictionary import SearchHistory, DictionaryImage, DictionaryImageVote, DictionaryComment, DictionaryCommentVote
 from .profile import UserInformation
 from .reminder import ReminderTime
 from .jlpt import (
@@ -28,7 +28,7 @@ __all__ = [
     'ChatScenario', 'Conversation', 'Message',
     'GrammarCorrection',
     'TranscriptionSession', 'TranscriptionSegment',
-    'SearchHistory', 'DictionaryImage', 'DictionaryComment', 'DictionaryCommentVote',
+    'SearchHistory', 'DictionaryImage', 'DictionaryImageVote', 'DictionaryComment', 'DictionaryCommentVote',
     'UserInformation',
     'ReminderTime',
     'JlptLevelStructure', 'JlptSection', 'JlptMondaiTemplate',
