@@ -57,7 +57,7 @@ export default function App() {
               <Route path="/calendar" element={<Calendar />} />
               <Route path="/chat-bot" element={<ChatBot />} />
               <Route path="/jlpt-practice" element={<JLPTPracticePage />} />
-              <Route path="/line-chart" element={<JapaneseWatch />} />
+              <Route path="/video-learn" element={<JapaneseWatch />} />
             </Route>
              <Route path="/meeting/room/:roomID" element={<MeetingRoom />} />
 
