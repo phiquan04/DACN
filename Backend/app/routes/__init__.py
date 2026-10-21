@@ -10,6 +10,7 @@ from .transcribe import router as transcribe_router
 from .tts import router as tts_router
 from .jlpt import router as jlpt_router
 from .vocabulary import router as vocabulary_router
+from .grammar_content import router as grammar_content_router
 from .auth import router as auth_router
 from .pronunciation import router as pronunciation_router
 from .dictionary import router as dictionary_router
@@ -35,6 +36,7 @@ def register_routers(app):
     app.include_router(tts_router, prefix="/api")
     app.include_router(jlpt_router, prefix="/api")
     app.include_router(vocabulary_router, prefix="/api")
+    app.include_router(grammar_content_router, prefix="/api")
     app.include_router(pronunciation_router, prefix="/api")
     app.include_router(dictionary_router, prefix="/api")
     app.include_router(admin_dictionary_router, prefix="/api")

@@ -21,6 +21,8 @@ from .jlpt import (
     JlptExamSchedule, JlptUserExamPlan,
 )
 from .vocabulary import VocabularyCurriculum, VocabularyCategory, VocabularySet, VocabularyItem
+from .grammar_content import GrammarCurriculum, GrammarCategory, GrammarSet, GrammarPoint
+from .grammar_exercise import GrammarExercise, GrammarPointProgress
 
 __all__ = [
     'DATABASE_URL', 'engine', 'SessionLocal', 'Base', 'BaseModel', 'get_db', 'init_db',
@@ -36,4 +38,6 @@ __all__ = [
     'JlptTestAttempt', 'JlptTestAttemptAnswer',
     'JlptExamSchedule', 'JlptUserExamPlan',
     'VocabularyCurriculum', 'VocabularyCategory', 'VocabularySet', 'VocabularyItem',
+    'GrammarCurriculum', 'GrammarCategory', 'GrammarSet', 'GrammarPoint',
+    'GrammarExercise', 'GrammarPointProgress',
 ]

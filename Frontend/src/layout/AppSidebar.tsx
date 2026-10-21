@@ -14,6 +14,7 @@ import {
   DocsIcon,
   GroupIcon,
   HorizontaLDots,
+  ListIcon,
   PageIcon,
   TaskIcon,
   UserCircleIcon,
@@ -43,6 +44,11 @@ const navItems: NavItem[] = [
     icon: <CheckLineIcon />,
     name: "Kiểm tra ngữ pháp",
     path: "/fixgrammar",
+  },
+  {
+    icon: <ListIcon />,
+    name: "Kho ngữ pháp",
+    path: "/grammar-bank",
   },
   {
     icon: <AudioIcon />,
