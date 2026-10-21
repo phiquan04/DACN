@@ -3,7 +3,7 @@ import { Link, useLocation, useNavigate } from "react-router";
 
 import { useSidebar } from "../context/SidebarContext";
 import { logout } from "../services/api";
-import { GridIcon, GroupIcon, DocsIcon, ListIcon, ChatIcon, VideoIcon, ChevronDownIcon, TableIcon, FolderIcon, CheckLineIcon } from "../icons";
+import { GridIcon, GroupIcon, DocsIcon, ListIcon, ChatIcon, VideoIcon, ChevronDownIcon, TableIcon, FolderIcon, CheckLineIcon, PageIcon } from "../icons";
 import { UploadIcon } from "../components/admin-jlpt/icons";
 import Logo from "../components/common/Logo";
 
@@ -45,6 +45,16 @@ const navGroups: NavGroup[] = [
           { name: "Giáo trình & Danh mục", path: "/admin/vocabulary-content/lookups", icon: <FolderIcon /> },
           { name: "Import bộ từ vựng", path: "/admin/vocabulary-content/import", icon: <UploadIcon /> },
           { name: "Duyệt bộ từ vựng", path: "/admin/vocabulary-content/review", icon: <CheckLineIcon /> },
+        ],
+      },
+      {
+        icon: <PageIcon />,
+        name: "Kho ngữ pháp",
+        path: "/admin/grammar-content",
+        subItems: [
+          { name: "Giáo trình & Danh mục", path: "/admin/grammar-content/lookups", icon: <FolderIcon /> },
+          { name: "Import bộ ngữ pháp", path: "/admin/grammar-content/import", icon: <UploadIcon /> },
+          { name: "Duyệt bộ ngữ pháp", path: "/admin/grammar-content/review", icon: <CheckLineIcon /> },
         ],
       },
       { icon: <ChatIcon />, name: "Kịch bản chat", path: "/admin/chat-scenarios" },

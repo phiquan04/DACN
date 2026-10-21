@@ -14,6 +14,9 @@ const AdminJLPTReview = lazy(() => import("./pages/Admin/JLPTContentBank/ReviewP
 const AdminVocabularyLookups = lazy(() => import("./pages/Admin/VocabularyContentBank/LookupsPage"));
 const AdminVocabularyImport = lazy(() => import("./pages/Admin/VocabularyContentBank/ImportPage"));
 const AdminVocabularyReview = lazy(() => import("./pages/Admin/VocabularyContentBank/ReviewPage"));
+const AdminGrammarLookups = lazy(() => import("./pages/Admin/GrammarContentBank/LookupsPage"));
+const AdminGrammarImport = lazy(() => import("./pages/Admin/GrammarContentBank/ImportPage"));
+const AdminGrammarReview = lazy(() => import("./pages/Admin/GrammarContentBank/ReviewPage"));
 const AdminChatScenarios = lazy(() => import("./pages/Admin/ChatScenarios"));
 const AdminVideoTranscripts = lazy(() => import("./pages/Admin/VideoTranscripts"));
 const AdminSettings = lazy(() => import("./pages/Admin/Settings"));
@@ -23,6 +26,10 @@ const Calendar = lazy(() => import("./pages/Calendar"));
 const ChatBot = lazy(() => import("./pages/Chatbot/ChatBot"));
 const Vocabulary = lazy(() => import("./pages/Dictionary/Vocabulary"));
 const FixGrammar = lazy(() => import("./pages/Grammar/FixGrammar"));
+const GrammarBank = lazy(() => import("./pages/Grammar/GrammarBank"));
+const GrammarSetDetail = lazy(() => import("./pages/Grammar/GrammarSetDetail"));
+const GrammarPointDetail = lazy(() => import("./pages/Grammar/GrammarPointDetail"));
+const GrammarPractice = lazy(() => import("./pages/Grammar/GrammarPractice"));
 const MeetingLobby = lazy(() => import("./pages/Meeting/MeetingLobby"));
 const MeetingRoom = lazy(() => import("./pages/Meeting/MeetingRoom"));
 const NotFound = lazy(() => import("./pages/OtherPage/NotFound"));
@@ -49,6 +56,11 @@ export default function App() {
 
               {/* Others Page */}
               <Route path="/fixgrammar" element={<FixGrammar />} />
+              <Route path="/grammar-bank" element={<GrammarBank />} />
+              <Route path="/grammar-bank/practice" element={<GrammarPractice />} />
+              <Route path="/grammar-bank/:setId" element={<GrammarSetDetail />} />
+              <Route path="/grammar-bank/:setId/practice" element={<GrammarPractice />} />
+              <Route path="/grammar-bank/:setId/:pointId" element={<GrammarPointDetail />} />
               <Route path="/check-pronunciation" element={<CheckPronunciation />} />
               <Route path="/meeting" element={<MeetingLobby />} />
               <Route path="/profile" element={<UserProfiles />} />
@@ -74,6 +86,12 @@ export default function App() {
                 <Route path="lookups" element={<AdminVocabularyLookups />} />
                 <Route path="import" element={<AdminVocabularyImport />} />
                 <Route path="review" element={<AdminVocabularyReview />} />
+              </Route>
+              <Route path="grammar-content">
+                <Route index element={<Navigate to="lookups" replace />} />
+                <Route path="lookups" element={<AdminGrammarLookups />} />
+                <Route path="import" element={<AdminGrammarImport />} />
+                <Route path="review" element={<AdminGrammarReview />} />
               </Route>
               <Route path="chat-scenarios" element={<AdminChatScenarios />} />
               <Route path="video-transcripts" element={<AdminVideoTranscripts />} />

@@ -12,6 +12,8 @@ from .database import (
     JlptExam, JlptPassage, JlptQuestion, JlptChoice,
     JlptTestAttempt, JlptTestAttemptAnswer,
     VocabularyCurriculum, VocabularyCategory, VocabularySet, VocabularyItem,
+    GrammarCurriculum, GrammarCategory, GrammarSet, GrammarPoint,
+    GrammarExercise, GrammarPointProgress,
 )
 __all__ = [
     'init_db',
@@ -44,4 +46,10 @@ __all__ = [
     'VocabularyCategory',
     'VocabularySet',
     'VocabularyItem',
+    'GrammarCurriculum',
+    'GrammarCategory',
+    'GrammarSet',
+    'GrammarPoint',
+    'GrammarExercise',
+    'GrammarPointProgress',
 ]

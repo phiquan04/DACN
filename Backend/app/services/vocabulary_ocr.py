@@ -15,23 +15,28 @@ sentences — when a field is missing from the source text, the LLM fills it
 in and flags it via is_meaning_ai_generated/is_example_ai_generated so the
 admin knows which fields to double-check during review.
 """
-import json
 import os
-import re
 import tempfile
 import time
 from typing import List
 
 import fitz
 import pdfplumber
-import requests as req
 from PIL import Image
 
+from app.services.openrouter_client import call_openrouter_json
 from app.services.practice_test_ocr import clean_text, ocr_page_with_vision
 
 PAGES_PER_BATCH = 1  # ~30 words/page in a typical textbook layout, each with 7 verbose JSON fields —
                       # even 2 pages/batch runs close to gpt-4o-mini's 16k output cap (the exact failure
                       # this batching exists to avoid), so 1 page/batch trades import speed for headroom
+
+# Spacing between successive batch calls, on top of call_openrouter_json's
+# own 429 retry/backoff — the free-tier model's per-minute limit is low
+# enough that firing many page-batches back-to-back for one PDF reliably
+# triggers 429 on nearly every request, so a fixed gap between calls avoids
+# hitting the limit in the first place instead of only reacting to it.
+BATCH_SPACING_SECONDS = 2.0
 
 
 def extract_pages_from_pdf(file_bytes: bytes) -> List[str]:
@@ -89,8 +94,6 @@ def extract_pages_from_pdf(file_bytes: bytes) -> List[str]:
 
 
 def _parse_vocabulary_chunk(chunk_text: str, level: str) -> dict:
-    api_key = os.environ.get("OPENROUTER_API_KEY", "")
-
     prompt = f"""Bạn là chuyên gia biên soạn tài liệu từ vựng tiếng Nhật, đang xử lý tài liệu trình độ JLPT {level}.
 
 Dưới đây là nội dung trích xuất từ MỘT PHẦN của file PDF từ vựng (vài trang liên tiếp). Do PDF gốc thường trình bày dạng bảng (kanji - âm Hán Việt - cách đọc - nghĩa), khi trích xuất thành text các cột có thể bị dồn lại không theo đúng hàng — hãy tự suy luận lại để ghép đúng kanji với âm Hán Việt, cách đọc và nghĩa tương ứng dựa vào ngữ cảnh và thứ tự xuất hiện.
@@ -128,28 +131,7 @@ Format JSON:
 ===NỘI DUNG TRÍCH XUẤT===
 {chunk_text}"""
 
-    response = req.post(
-        "https://openrouter.ai/api/v1/chat/completions",
-        headers={
-            "Authorization": f"Bearer {api_key}",
-            "Content-Type": "application/json",
-        },
-        json={
-            "model": "minimax/minimax-m3:free",  # free tier — same model already used for vision OCR
-                                                  # in practice_test_ocr.py; avoids needing OpenRouter credits
-            "messages": [{"role": "user", "content": prompt}],
-            "temperature": 0.2,
-            "max_tokens": 16000,
-        },
-        timeout=180,
-    )
-    response.raise_for_status()
-    raw = response.json()['choices'][0]['message']['content'].strip()
-    clean = re.sub(r'```json|```', '', raw).strip()
-    try:
-        return json.loads(clean)
-    except json.JSONDecodeError as e:
-        raise ValueError(f"AI trả về JSON không hợp lệ cho một phần của file: {e}") from e
+    return call_openrouter_json(prompt)
 
 
 def parse_vocabulary_with_ai(pages: List[str], level: str) -> dict:
@@ -165,6 +147,8 @@ def parse_vocabulary_with_ai(pages: List[str], level: str) -> dict:
         batch_text = '\n'.join(p for p in pages[i:i + PAGES_PER_BATCH] if p.strip())
         if not batch_text.strip():
             continue
+        if i > 0:
+            time.sleep(BATCH_SPACING_SECONDS)
         try:
             result = _parse_vocabulary_chunk(batch_text, level)
             all_items.extend(result.get('items', []))
