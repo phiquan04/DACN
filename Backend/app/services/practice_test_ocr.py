@@ -17,8 +17,9 @@ import time
 import fitz
 import numpy as np
 import pdfplumber
-import requests as req
 from PIL import Image, ImageEnhance
+
+from app.services.openrouter_client import call_openrouter_json, post_chat_completion
 
 NOISE_PATTERNS = [
     r'小程序[：:].+', r'日[语語]轻松考', r'打开小程序.+',
@@ -112,6 +113,16 @@ def ocr_page_with_vision(pil_img: Image.Image, api_key: str, page_type: str = 'e
             "Ignore any Chinese watermarks, advertisements, or colored overlay text. "
             "Output plain text only, no markdown, no explanations."
         )
+    elif page_type == 'grammar':
+        instruction = (
+            "This is a page from a Japanese grammar (bunpou) study book for JLPT prep — each "
+            "entry usually shows a grammar pattern/structure, a usage explanation, and one or "
+            "more example sentences (sometimes with a Vietnamese or English translation). "
+            "Extract ALL text exactly as written, preserving which explanation/example belongs "
+            "to which grammar pattern as best you can. "
+            "Ignore any Chinese watermarks, advertisements, or colored overlay text. "
+            "Output plain text only, no markdown, no explanations."
+        )
     else:
         instruction = (
             "This is a JLPT Japanese language test question page. "
@@ -121,37 +132,29 @@ def ocr_page_with_vision(pil_img: Image.Image, api_key: str, page_type: str = 'e
             "Output plain text only, no markdown, no explanations."
         )
 
-    response = req.post(
-        "https://openrouter.ai/api/v1/chat/completions",
-        headers={
-            "Authorization": f"Bearer {api_key}",
-            "Content-Type": "application/json",
-        },
-        json={
-            "model": "minimax/minimax-m3:free",   # free tier — chậm hơn (~35s/trang) nhưng OCR chính xác
-            "messages": [
-                {
-                    "role": "system",
-                    "content": "You are an OCR assistant specialized in Japanese text extraction. You always extract text faithfully without refusal."
-                },
-                {
-                    "role": "user",
-                    "content": [
-                        {
-                            "type": "image_url",
-                            "image_url": {"url": f"data:image/jpeg;base64,{b64}"}
-                        },
-                        {"type": "text", "text": instruction}
-                    ]
-                }
-            ],
-            "max_tokens": 2000,
-            "temperature": 0,
-        },
-        timeout=60
+    # free tier (minimax/minimax-m3:free) — chậm hơn (~35s/trang) nhưng OCR chính xác.
+    # Retried on 429 by post_chat_completion (see app/services/openrouter_client.py) —
+    # a multi-page PDF firing one vision call per page back-to-back reliably
+    # trips the free tier's rate limit otherwise.
+    result = post_chat_completion(
+        [
+            {
+                "role": "system",
+                "content": "You are an OCR assistant specialized in Japanese text extraction. You always extract text faithfully without refusal."
+            },
+            {
+                "role": "user",
+                "content": [
+                    {
+                        "type": "image_url",
+                        "image_url": {"url": f"data:image/jpeg;base64,{b64}"}
+                    },
+                    {"type": "text", "text": instruction}
+                ]
+            }
+        ],
+        max_tokens=2000, temperature=0, timeout=60,
     )
-    response.raise_for_status()
-    result = response.json()['choices'][0]['message']['content'].strip()
 
     # Nếu model vẫn từ chối → trả chuỗi rỗng
     refusal_patterns = ['申し訳', "I'm sorry", "I cannot", "I can't", "cannot assist"]
@@ -230,8 +233,6 @@ def extract_text_from_pdf(file_storage, page_type: str = 'exam') -> str:
 
 
 def parse_exam_with_claude(exam_text: str, answer_text: str) -> dict:
-    api_key = os.environ.get("OPENROUTER_API_KEY", "")
-
     prompt = f"""Dưới đây là nội dung đề thi JLPT và đáp án.
 Hãy trích xuất toàn bộ câu hỏi và trả về JSON theo đúng format sau.
 QUAN TRỌNG: Chỉ trả về JSON thuần túy, không có markdown, không giải thích.
@@ -268,25 +269,7 @@ Format JSON:
 ===ĐÁP ÁN===
 {answer_text}"""
 
-    response = req.post(
-        "https://openrouter.ai/api/v1/chat/completions",
-        headers={
-            "Authorization": f"Bearer {api_key}",
-            "Content-Type": "application/json",
-        },
-        json={
-            "model": "minimax/minimax-m3:free",
-            "messages": [{"role": "user", "content": prompt}],
-            "temperature": 0.1,
-            "max_tokens": 8000,
-        },
-        timeout=180
-    )
-
-    response.raise_for_status()
-    raw = response.json()['choices'][0]['message']['content'].strip()
-    clean = re.sub(r'```json|```', '', raw).strip()
-    return json.loads(clean)
+    return call_openrouter_json(prompt, temperature=0.1, max_tokens=8000)
 
 
 def _render_mondai_structure(mondai_templates: list) -> str:
@@ -310,7 +293,6 @@ def parse_exam_with_mondai_structure(exam_text: str, answer_text: str, mondai_te
     an optional shared passage_text for reading-comprehension groups. When no
     answer key was supplied, correct_no is left null for every question so
     the admin fills it in during review."""
-    api_key = os.environ.get("OPENROUTER_API_KEY", "")
     structure_text = _render_mondai_structure(mondai_templates)
     has_answer = bool(answer_text.strip())
 
@@ -364,25 +346,7 @@ Format JSON:
     if has_answer:
         prompt += f"\n\n===ĐÁP ÁN===\n{answer_text}"
 
-    response = req.post(
-        "https://openrouter.ai/api/v1/chat/completions",
-        headers={
-            "Authorization": f"Bearer {api_key}",
-            "Content-Type": "application/json",
-        },
-        json={
-            "model": "openai/gpt-4o-mini",
-            "messages": [{"role": "user", "content": prompt}],
-            "temperature": 0.1,
-            "max_tokens": 8000,
-        },
-        timeout=180
-    )
-
-    response.raise_for_status()
-    raw = response.json()['choices'][0]['message']['content'].strip()
-    clean = re.sub(r'```json|```', '', raw).strip()
-    return json.loads(clean)
+    return call_openrouter_json(prompt, model="openai/gpt-4o-mini", temperature=0.1, max_tokens=8000)
 
 
 def ai_preprocess_mondai_questions(
@@ -401,8 +365,6 @@ def ai_preprocess_mondai_questions(
     access to the original page image, so it can misjudge which word to
     underline; the admin still confirms every question afterwards.
     """
-    api_key = os.environ.get("OPENROUTER_API_KEY", "")
-
     answer_instruction = (
         "Chưa có đáp án cho các câu này — hãy tự xác định correct_no (1-4) chính xác nhất dựa trên "
         "kiến thức tiếng Nhật của bạn."
@@ -444,22 +406,5 @@ thuần túy, không markdown, không giải thích thêm, đúng format:
 ===CÂU HỎI===
 {json.dumps(questions, ensure_ascii=False, indent=2)}"""
 
-    response = req.post(
-        "https://openrouter.ai/api/v1/chat/completions",
-        headers={
-            "Authorization": f"Bearer {api_key}",
-            "Content-Type": "application/json",
-        },
-        json={
-            "model": "openai/gpt-4o-mini",
-            "messages": [{"role": "user", "content": prompt}],
-            "temperature": 0.1,
-            "max_tokens": 8000,
-        },
-        timeout=180
-    )
-
-    response.raise_for_status()
-    raw = response.json()['choices'][0]['message']['content'].strip()
-    clean = re.sub(r'```json|```', '', raw).strip()
-    return json.loads(clean).get('questions', [])
+    result = call_openrouter_json(prompt, model="openai/gpt-4o-mini", temperature=0.1, max_tokens=8000)
+    return result.get('questions', [])

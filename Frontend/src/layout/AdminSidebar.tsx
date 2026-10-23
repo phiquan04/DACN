@@ -49,6 +49,16 @@ const navGroups: NavGroup[] = [
           { name: "Duyệt bộ từ vựng", path: "/admin/vocabulary-content/review", icon: <CheckLineIcon /> },
         ],
       },
+      {
+        icon: <PageIcon />,
+        name: "Kho ngữ pháp",
+        path: "/admin/grammar-content",
+        subItems: [
+          { name: "Giáo trình & Danh mục", path: "/admin/grammar-content/lookups", icon: <FolderIcon /> },
+          { name: "Import bộ ngữ pháp", path: "/admin/grammar-content/import", icon: <UploadIcon /> },
+          { name: "Duyệt bộ ngữ pháp", path: "/admin/grammar-content/review", icon: <CheckLineIcon /> },
+        ],
+      },
       { icon: <ChatIcon />, name: "Kịch bản chat", path: "/admin/chat-scenarios" },
       { icon: <VideoIcon />, name: "Bản dịch video", path: "/admin/video-transcripts" },
     ],
