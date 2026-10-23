@@ -9,6 +9,10 @@ import {
   markAllNotificationsRead,
   markNotificationRead,
 } from "../../services/notificationApi";
+import { useNotificationStream } from "../../hooks/useNotificationStream";
+
+// Mirrors LIST_LIMIT in Backend/app/routes/notifications.py.
+const MAX_LISTED = 30;
 
 function formatRelativeTime(iso: string): string {
   // The backend serializes naive UTC datetimes with no timezone suffix —
@@ -60,11 +64,28 @@ export default function NotificationDropdown() {
   const [loading, setLoading] = useState(false);
   const [unreadCount, setUnreadCount] = useState(0);
 
+  // Initial count for this tab. Only the tab holding the live stream gets a
+  // "ready" event, so the others need this one-off fetch to start correct.
   useEffect(() => {
     fetchUnreadCount()
       .then((res) => setUnreadCount(res.unread_count))
       .catch(() => {});
   }, []);
+
+  // Live updates (SSE). Every event carries the server's unread count, so it
+  // simply overwrites ours. That also corrects the optimistic updates below.
+  useNotificationStream((event) => {
+    setUnreadCount(event.unread_count);
+    if (event.type === "notification") {
+      const incoming = event.notification;
+      setNotifications((prev) =>
+        prev.some((n) => n.id === incoming.id) ? prev : [incoming, ...prev].slice(0, MAX_LISTED)
+      );
+    } else if (event.type === "unread_count" && event.unread_count === 0) {
+      // Read-all from another tab: grey out what this tab already shows.
+      setNotifications((prev) => prev.map((n) => (n.is_read ? n : { ...n, is_read: true })));
+    }
+  });
 
   const toggleDropdown = () => {
     const opening = !isOpen;
