@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { useToast } from "../../context/ToastContext";
+import { useSetUrlParams, useUrlEnum, useUrlNumber, useUrlSearchInput } from "../../hooks/useUrlState";
 import { ApiError } from "../../services/httpClient";
 import {
   Curriculum,
@@ -31,16 +32,19 @@ import { BoxCubeIcon, ChevronLeftIcon } from "../../icons";
 
 const ITEMS_PAGE_SIZE = 30;
 
-export default function ReviewVocabularySets({ focusSetId }: { focusSetId?: number | null }) {
+export default function ReviewVocabularySets() {
   const { showToast } = useToast();
   const [sets, setSets] = useState<VocabularySetSummary[]>([]);
   const [loadingList, setLoadingList] = useState(true);
   const [curriculums, setCurriculums] = useState<Curriculum[]>([]);
   const [categories, setCategories] = useState<VocabCategory[]>([]);
-  const [search, setSearch] = useState("");
+  const [search, setSearch] = useUrlSearchInput("q");
   const [filters, setFilters] = useState<VocabularySetFilterValues>(EMPTY_FILTERS);
-  const [activeTab, setActiveTab] = useState<"active" | "locked">("active");
-  const [selectedId, setSelectedId] = useState<number | null>(focusSetId ?? null);
+  const [activeTab, setActiveTab] = useUrlEnum<"active" | "locked">("tab", ["active", "locked"], "active");
+  // Bộ đang mở nằm trên URL (?setId=) và đổi theo mỗi lần chọn bộ khác — trước
+  // đây URL chỉ được đọc lúc mở trang, nên tải lại sẽ nhảy về bộ ban đầu.
+  const [selectedId, setSelectedId] = useUrlNumber("setId", null, "push");
+  const setUrlParams = useSetUrlParams();
   const [detail, setDetail] = useState<VocabularySetReview | null>(null);
   const [loadingDetail, setLoadingDetail] = useState(false);
   const [publishing, setPublishing] = useState(false);
@@ -61,10 +65,6 @@ export default function ReviewVocabularySets({ focusSetId }: { focusSetId?: numb
     fetchCurriculums().then(setCurriculums).catch(() => {});
     fetchCategories().then(setCategories).catch(() => {});
   }, []);
-
-  useEffect(() => {
-    if (focusSetId) setSelectedId(focusSetId);
-  }, [focusSetId]);
 
   useEffect(() => {
     setItemsPage(1);
@@ -162,16 +162,16 @@ export default function ReviewVocabularySets({ focusSetId }: { focusSetId?: numb
     try {
       await deleteVocabularySet(setId);
       showToast("Đã xóa bộ từ vựng", "success");
-      if (selectedId === setId) setSelectedId(null);
+      // replace: Back không được quay lại bộ vừa xóa.
+      if (selectedId === setId) setUrlParams({ setId: null }, "replace");
       await loadList();
     } catch (err) {
       // 409 = đã có học viên học, backend tự động khóa set thay vì xóa — đưa
       // admin sang tab "Đã khóa" để họ thấy ngay kết quả (thông báo lỗi đã
       // được errorReporter toàn cục hiển thị rồi, message giải thích lý do).
       if (err instanceof ApiError && err.status === 409) {
-        if (selectedId === setId) setSelectedId(null);
         await loadList();
-        setActiveTab("locked");
+        setUrlParams({ setId: selectedId === setId ? null : selectedId, tab: "locked" }, "replace");
       }
     }
   };

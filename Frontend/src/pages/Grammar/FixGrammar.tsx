@@ -1,4 +1,3 @@
-import { useState } from "react";
 import PageMeta from "../../components/common/PageMeta";
 import Button from "../../components/ui/button/Button";
 import { useToast } from "../../context/ToastContext";
@@ -10,6 +9,7 @@ import ExplanationList from "./components/ExplanationList";
 import ErrorStatsCard from "./components/ErrorStatsCard";
 import HistoryTab from "./components/HistoryTab";
 import { CheckIcon } from "../../icons/custom";
+import { useUrlEnum } from "../../hooks/useUrlState";
 
 type Tab = "check" | "history";
 
@@ -22,7 +22,7 @@ function tabButtonClass(isActive: boolean) {
 }
 
 export default function FixGrammar() {
-  const [activeTab, setActiveTab] = useState<Tab>("check");
+  const [activeTab, setActiveTab] = useUrlEnum<Tab>("tab", ["check", "history"], "check");
   const { showToast } = useToast();
   const { stats: errorStats, loading: statsLoading } = useGrammarErrorStats();
   const {

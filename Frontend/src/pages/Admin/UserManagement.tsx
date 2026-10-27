@@ -3,6 +3,7 @@ import PageMeta from "../../components/common/PageMeta";
 import { usePageHeader } from "../../context/PageHeaderContext";
 import { useToast } from "../../context/ToastContext";
 import { getStoredUser } from "../../services/authApi";
+import { useSetUrlParams, useUrlNumber, useUrlSearchInput, useUrlString } from "../../hooks/useUrlState";
 import {
   AdminUserDetail,
   AdminUserSummary,
@@ -82,15 +83,40 @@ export default function UserManagement() {
   const [items, setItems] = useState<AdminUserSummary[]>([]);
   const [total, setTotal] = useState(0);
   const [pageSize, setPageSize] = useState(20);
-  const [page, setPage] = useState(1);
+  // Bộ lọc, trang và người dùng đang mở nằm trên URL -> tải lại / Back / gửi
+  // link cho đồng nghiệp ("xem giúp user này") đều mở đúng chỗ.
+  const [page, setPage] = useUrlNumber("page", 1);
   const [loadingList, setLoadingList] = useState(true);
-  const [search, setSearch] = useState("");
-  const [role, setRole] = useState<UserRoleFilter>("");
-  const [status, setStatus] = useState<UserStatusFilter>("");
-  const [jlptLevel, setJlptLevel] = useState<JlptLevelFilter>("");
+  const [search, setSearchInput] = useUrlSearchInput("q");
+  const [roleParam, setRoleParam] = useUrlString("role");
+  const [statusParam, setStatusParam] = useUrlString("status");
+  const [jlptParam, setJlptParam] = useUrlString("jlpt");
+  const role = roleParam as UserRoleFilter;
+  const status = statusParam as UserStatusFilter;
+  const jlptLevel = jlptParam as JlptLevelFilter;
+  // Filter/search changes reset back to page 1 instead of staying on a page
+  // that may no longer exist for the new result set. Done in the setters, not
+  // an effect — an effect would also fire on load and wipe a ?page= from the URL.
+  const setSearch = (value: string) => {
+    setSearchInput(value);
+    setPage(1);
+  };
+  const setRole = (value: UserRoleFilter) => {
+    setRoleParam(value);
+    setPage(1);
+  };
+  const setStatus = (value: UserStatusFilter) => {
+    setStatusParam(value);
+    setPage(1);
+  };
+  const setJlptLevel = (value: JlptLevelFilter) => {
+    setJlptParam(value);
+    setPage(1);
+  };
   const [stats, setStats] = useState<Stats | null>(null);
 
-  const [selectedId, setSelectedId] = useState<number | null>(null);
+  const [selectedId, setSelectedId] = useUrlNumber("user", null, "push");
+  const setUrlParams = useSetUrlParams();
   const [detail, setDetail] = useState<AdminUserDetail | null>(null);
   const [loadingDetail, setLoadingDetail] = useState(false);
   const [lockTarget, setLockTarget] = useState<{ id: number; username: string } | null>(null);
@@ -144,27 +170,40 @@ export default function UserManagement() {
     loadStats();
   }, [loadStats]);
 
-  // Filter/search changes reset back to page 1 instead of staying on a page
-  // that may no longer exist for the new result set.
-  useEffect(() => {
-    setPage(1);
-  }, [search, role, status, jlptLevel]);
-
   // Selection is scoped to what's currently loaded — clear it whenever the
   // result set underneath it changes so stale ids can't linger.
   useEffect(() => {
     setSelectedIds(new Set());
   }, [search, role, status, jlptLevel, page]);
 
-  const openDetail = async (id: number) => {
-    setSelectedId(id);
-    setLoadingDetail(true);
-    try {
-      setDetail(await fetchUserDetail(id));
-    } finally {
-      setLoadingDetail(false);
+  // ?tab= belongs to the detail view (UserDetailView) — reset it on the way in and out.
+  const openDetail = (id: number) => setUrlParams({ user: id, tab: null }, "push");
+  const closeDetail = () => setUrlParams({ user: null, tab: null }, "push");
+
+  // ?user= -> load that user's detail (opening a row, a reload, Back/Forward, a shared link).
+  useEffect(() => {
+    if (selectedId === null) {
+      setDetail(null);
+      return;
     }
-  };
+    let cancelled = false;
+    setLoadingDetail(true);
+    fetchUserDetail(selectedId)
+      .then((d) => {
+        if (!cancelled) setDetail(d);
+      })
+      .catch(() => {
+        // reported globally; drop the dead id so the list shows instead of "Đang tải..."
+        if (!cancelled) setSelectedId(null);
+      })
+      .finally(() => {
+        if (!cancelled) setLoadingDetail(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedId]);
 
   const refreshDetail = async () => {
     if (!selectedId) return;
@@ -362,10 +401,7 @@ export default function UserManagement() {
           <UserDetailView
             user={detail}
             isSelf={detail.id === currentUserId}
-            onBack={() => {
-              setSelectedId(null);
-              setDetail(null);
-            }}
+            onBack={closeDetail}
             onRequestEdit={() => openEdit(detail.id)}
             onRequestResetPassword={() => setResetPasswordTarget({ id: detail.id, username: detail.username })}
             onRequestLock={() => setLockTarget({ id: detail.id, username: detail.username })}

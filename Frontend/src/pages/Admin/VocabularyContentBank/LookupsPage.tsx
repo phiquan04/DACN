@@ -64,6 +64,7 @@ export default function LookupsPage() {
         </div>
         <div className="grid gap-5 lg:grid-cols-2">
           <LookupManager
+            urlKey="curriculum"
             title="Bộ giáo trình"
             hint="Ví dụ: Mimikara Oboeru N2, Shinkanzen Master N3..."
             icon={<FolderIcon />}
@@ -84,6 +85,7 @@ export default function LookupsPage() {
             }}
           />
           <LookupManager
+            urlKey="category"
             title="Danh mục nội dung"
             hint="Ví dụ: Đời sống, Môi trường, Kinh doanh..."
             icon={<ListIcon />}

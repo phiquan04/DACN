@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { SECTION_LABELS, TakeExam, TakeMondai, TakeQuestion } from "../../services/jlptApi";
 import FormattedText from "./FormattedText";
 import { CloseLineIcon, ShootingStarIcon } from "../../icons";
+import { readExamDraft, saveExamDraft } from "./examDraft";
 
 function formatClock(totalSeconds: number): string {
   const s = Math.max(0, totalSeconds);
@@ -142,10 +143,12 @@ export default function TakeExamView({
 }) {
   // When the learner opened the exam — the attempt row is only created on
   // submit, so the time taken has to be measured here and sent along.
-  const startedAtRef = useRef(Date.now());
-  const [answers, setAnswers] = useState<Record<number, number>>({});
-  const [marked, setMarked] = useState<Set<number>>(new Set());
-  const [activeSectionIdx, setActiveSectionIdx] = useState(0);
+  // Bài làm dở (nếu có) từ lần trước tải lại trang — đọc một lần khi mở đề.
+  const [draft] = useState(() => readExamDraft(exam.id));
+  const startedAtRef = useRef(draft?.startedAt ?? Date.now());
+  const [answers, setAnswers] = useState<Record<number, number>>(draft?.answers ?? {});
+  const [marked, setMarked] = useState<Set<number>>(() => new Set(draft?.marked ?? []));
+  const [activeSectionIdx, setActiveSectionIdx] = useState(draft?.activeSectionIdx ?? 0);
   const [viewMode, setViewMode] = useState<"one" | "all">("all");
   const [activeQuestionIdx, setActiveQuestionIdx] = useState(0);
 
@@ -155,8 +158,18 @@ export default function TakeExamView({
     [activeSection]
   );
 
-  const [remainingSeconds, setRemainingSeconds] = useState(() => (activeSection?.time_minutes ?? 0) * 60);
+  const [remainingSeconds, setRemainingSeconds] = useState(() => {
+    if (!draft) return (activeSection?.time_minutes ?? 0) * 60;
+    // Đồng hồ vẫn chạy trong lúc trang tải lại.
+    return Math.max(0, draft.remainingSeconds - Math.round((Date.now() - draft.savedAt) / 1000));
+  });
+  // Only reset the clock on an actual section switch — not on mount, which would
+  // throw away the time restored from a draft (a ref, so StrictMode's double
+  // effect run in dev doesn't reset it either).
+  const prevSectionIdxRef = useRef(activeSectionIdx);
   useEffect(() => {
+    if (prevSectionIdxRef.current === activeSectionIdx) return;
+    prevSectionIdxRef.current = activeSectionIdx;
     setRemainingSeconds((activeSection?.time_minutes ?? 0) * 60);
     setActiveQuestionIdx(0);
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -178,6 +191,29 @@ export default function TakeExamView({
     activeSection?.time_minutes && sectionQuestions.length
       ? Math.round((activeSection.time_minutes * 60) / sectionQuestions.length)
       : null;
+
+  useEffect(() => {
+    if (answeredCount === 0 && marked.size === 0) return;
+    saveExamDraft(exam.id, {
+      answers,
+      marked: Array.from(marked),
+      activeSectionIdx,
+      remainingSeconds,
+      startedAt: startedAtRef.current,
+      savedAt: Date.now(),
+    });
+  }, [exam.id, answers, marked, activeSectionIdx, remainingSeconds, answeredCount]);
+
+  // Đóng tab sẽ mất bài nháp (sessionStorage gắn với tab) -> hỏi lại trước khi rời trang.
+  useEffect(() => {
+    if (answeredCount === 0 || submitting) return;
+    const handler = (e: BeforeUnloadEvent) => {
+      e.preventDefault();
+      e.returnValue = "";
+    };
+    window.addEventListener("beforeunload", handler);
+    return () => window.removeEventListener("beforeunload", handler);
+  }, [answeredCount, submitting]);
 
   const handleSelect = (questionId: number, choiceNo: number) => {
     setAnswers((prev) => ({ ...prev, [questionId]: choiceNo }));

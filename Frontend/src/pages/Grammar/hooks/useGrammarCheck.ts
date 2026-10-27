@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import {
   correctGrammar,
   fetchAlternatives,
@@ -12,14 +12,43 @@ export interface CorrectionResult {
   historyId: number | null;
 }
 
+/** Câu đang nhập + kết quả kiểm tra gần nhất, giữ trong sessionStorage để tải
+ * lại trang không mất câu đang gõ dở hay kết quả vừa kiểm tra. Not the URL — a
+ * sentence can be long and is work in progress, not a place worth linking to. */
+const DRAFT_KEY = "grammar:draft";
+
+interface GrammarDraft {
+  sentence: string;
+  result: CorrectionResult | null;
+  alternatives: string[];
+}
+
+function readDraft(): GrammarDraft | null {
+  try {
+    const raw = sessionStorage.getItem(DRAFT_KEY);
+    return raw ? (JSON.parse(raw) as GrammarDraft) : null;
+  } catch {
+    return null;
+  }
+}
+
 /** Grammar-check flow: submit a sentence for correction (with per-error explanation
  * grounded on the model's diff), then optionally ask for alternative phrasings. */
 export function useGrammarCheck() {
-  const [sentence, setSentence] = useState("");
-  const [result, setResult] = useState<CorrectionResult | null>(null);
+  const [draft] = useState(readDraft);
+  const [sentence, setSentence] = useState(draft?.sentence ?? "");
+  const [result, setResult] = useState<CorrectionResult | null>(draft?.result ?? null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [alternatives, setAlternatives] = useState<string[]>([]);
+  const [alternatives, setAlternatives] = useState<string[]>(draft?.alternatives ?? []);
+
+  useEffect(() => {
+    try {
+      sessionStorage.setItem(DRAFT_KEY, JSON.stringify({ sentence, result, alternatives } satisfies GrammarDraft));
+    } catch {
+      // storage blocked — the page just won't survive a reload
+    }
+  }, [sentence, result, alternatives]);
   const [altLoading, setAltLoading] = useState(false);
   const [altError, setAltError] = useState<string | null>(null);
 

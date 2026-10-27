@@ -1,9 +1,11 @@
-import { useEffect, useState } from "react";
+import { useEffect } from "react";
 import ComponentCard from "../../components/common/ComponentCard";
 import PageMeta from "../../components/common/PageMeta";
 import JapaneseVideoTranscript, {
   type InitialSession,
 } from "../../components/japanese/JapaneseVideoTranscript";
+import { saveVideoSession } from "../../components/japanese/videoSessionCache";
+import { useSetUrlParams, useUrlEnum } from "../../hooks/useUrlState";
 import VideoHistoryTab from "../../components/japanese/components/VideoHistoryTab";
 import { usePageHeader } from "../../context/PageHeaderContext";
 
@@ -22,19 +24,19 @@ function tabSubtitleClass(isActive: boolean) {
 }
 
 export default function JapaneseWatch() {
-  const [activeTab, setActiveTab] = useState<Tab>("watch");
-  const [session, setSession] = useState<InitialSession | undefined>(undefined);
-  const [sessionKey, setSessionKey] = useState(0);
+  const [activeTab, setActiveTab] = useUrlEnum<Tab>("tab", ["watch", "history"], "watch");
+  const setUrlParams = useSetUrlParams();
   const { setPageHeader } = usePageHeader();
 
   useEffect(() => {
     setPageHeader("Học qua YouTube", "Xem video tiếng Nhật với transcript tự động và dịch tiếng Việt");
   }, [setPageHeader]);
 
+  // Mở lại một video trong Lịch sử = chuyển màn (push): video + script vào
+  // cache trước, rồi ?v= trỏ tới nó để JapaneseVideoTranscript hiển thị ngay.
   const handleOpenHistory = (loaded: InitialSession) => {
-    setSession(loaded);
-    setSessionKey((k) => k + 1);
-    setActiveTab("watch");
+    saveVideoSession(loaded);
+    setUrlParams({ tab: null, v: loaded.video.id }, "push");
   };
 
   return (
@@ -63,7 +65,7 @@ export default function JapaneseWatch() {
           <VideoHistoryTab active={activeTab === "history"} onOpen={handleOpenHistory} />
         ) : (
           <ComponentCard title="Xem và học tiếng Nhật">
-            <JapaneseVideoTranscript key={sessionKey} initialSession={session} />
+            <JapaneseVideoTranscript />
           </ComponentCard>
         )}
       </div>

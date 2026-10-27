@@ -4,6 +4,7 @@ import {
   BatchSource, MySetDetail, createMyItem, deleteMyItem, deleteMySet, fetchMySet, speakJapanese,
 } from "../../services/vocabularyLearningApi";
 import Pagination from "../ui/pagination";
+import { useUrlNumber, useUrlSearchInput } from "../../hooks/useUrlState";
 import { CreateWordModal } from "./MyVocabularyShared";
 import ProgressBar from "./ProgressBar";
 import { SourceOption, StudyModeList, StudySessionSettings, useStudyConfig } from "./StudyConfigPanel";
@@ -27,8 +28,14 @@ export default function MySetDetailView({
   const [detail, setDetail] = useState<MySetDetail | null>(null);
   const [loading, setLoading] = useState(true);
   const [showCreateWord, setShowCreateWord] = useState(false);
-  const [page, setPage] = useState(1);
-  const [search, setSearch] = useState("");
+  // Trang / ô tìm nằm trên URL -> tải lại hoặc Back vẫn giữ đúng chỗ.
+  const [page, setPage] = useUrlNumber("page", 1);
+  const [search, setSearchInput] = useUrlSearchInput("search");
+  // Về trang 1 ngay trong handler (effect sẽ xoá mất ?page= lúc mở trang).
+  const setSearch = (value: string) => {
+    setSearchInput(value);
+    setPage(1);
+  };
   const [source, setSource] = useState<BatchSource>("sequential");
   const { mode, setMode, count, customCount, selectPreset, changeCustomCount } = useStudyConfig();
   const listTopRef = useRef<HTMLDivElement>(null);
@@ -45,10 +52,6 @@ export default function MySetDetailView({
   };
 
   useEffect(load, [setId]);
-
-  useEffect(() => {
-    setPage(1);
-  }, [search]);
 
   const handlePageChange = (newPage: number) => {
     setPage(newPage);

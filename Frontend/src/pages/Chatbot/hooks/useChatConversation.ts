@@ -4,7 +4,9 @@ import { parseApiDate } from "../../../utils/datetime";
 import { useSpeech } from "../../../hooks/useSpeech";
 import { useVoiceInput } from "../../../hooks/useVoiceInput";
 import { checkHealth } from "../../../services/httpClient";
+import { useSetUrlParams, useUrlNumber } from "../../../hooks/useUrlState";
 import {
+  fetchConversationDetail,
   fetchScenarios,
   startConversation,
   streamChatMessage,
@@ -25,6 +27,13 @@ export function useChatConversation() {
   const [scenariosLoading, setScenariosLoading] = useState(true);
   const [activeScenario, setActiveScenario] = useState<ChatScenario | null>(null);
   const [conversationId, setConversationId] = useState<number | null>(null);
+  // Cuộc hội thoại đang mở nằm trên URL (?c=<id>) -> tải lại trang / Back /
+  // Forward mở lại đúng cuộc đó. The ref is set synchronously wherever the
+  // conversation changes so the URL effect below can tell its own URL writes
+  // apart from Back/Forward or a reload.
+  const [urlConversationId] = useUrlNumber("c", null);
+  const setUrlParams = useSetUrlParams();
+  const conversationIdRef = useRef<number | null>(null);
   const [situationContext, setSituationContext] = useState<string | null>(null);
   const [situationModalOpen, setSituationModalOpen] = useState(false);
   const [situationModalMode, setSituationModalMode] = useState<"select" | "edit">("select");
@@ -80,7 +89,10 @@ export function useChatConversation() {
       setSuggestions([]);
       try {
         const res = await startConversation(scenario?.id, context);
+        conversationIdRef.current = res.conversation_id;
         setConversationId(res.conversation_id);
+        // replace: bắt đầu cuộc mới (kể cả cuộc tự do lúc mở trang) không tạo thêm mục Back.
+        setUrlParams({ c: res.conversation_id }, "replace");
         setActiveScenario(scenario);
         setSituationContext(res.situation_context);
 
@@ -108,12 +120,13 @@ export function useChatConversation() {
         setIsLoading(false);
       }
     },
-    [speak, stop, stopListening]
+    [setUrlParams, speak, stop, stopListening]
   );
 
-  // Start a free-chat conversation on first load
+  // Start a free-chat conversation on first load — unless the URL already
+  // points at one (reload / Back), which the ?c= effect below reopens instead.
   useEffect(() => {
-    initConversation(null);
+    if (urlConversationId === null) initConversation(null);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -175,6 +188,7 @@ export function useChatConversation() {
       stop();
       stopListening();
       setSuggestions([]);
+      conversationIdRef.current = detail.id;
       setConversationId(detail.id);
       setSituationContext(detail.situation_context);
       setActiveScenario(
@@ -201,6 +215,18 @@ export function useChatConversation() {
     },
     [stop, stopListening, scenarios]
   );
+
+  // ?c= points at a conversation that isn't the open one (page reload,
+  // Back/Forward) -> reopen it. If it can't be loaded (deleted, not signed in,
+  // someone else's), fall back to a fresh free chat.
+  useEffect(() => {
+    if (urlConversationId === null || urlConversationId === conversationIdRef.current) return;
+    conversationIdRef.current = urlConversationId;
+    fetchConversationDetail(urlConversationId)
+      .then(loadConversation)
+      .catch(() => initConversation(null));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [urlConversationId]);
 
   const handleSend = useCallback(
     async (text: string) => {

@@ -1,5 +1,7 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { markVideoWatched } from "../../services/videoLearnApi";
+import { useSetUrlParams, useUrlEnum, useUrlString } from "../../hooks/useUrlState";
+import { readVideoSession, saveVideoSession } from "./videoSessionCache";
 import type { DisplayMode, Segment, YouTubeVideo } from "./japaneseVideoUtils";
 import { useYouTubePlayer } from "./hooks/useYouTubePlayer";
 import { useTranscription } from "./hooks/useTranscription";
@@ -9,32 +11,62 @@ import ModeToggle from "./components/ModeToggle";
 import SegmentRow from "./components/SegmentRow";
 import RelatedVideos from "./components/RelatedVideos";
 
-/** Preloads a previously-saved video + script (from Lịch sử) straight into the player, skipping /transcribe. */
+/** A previously-saved video + script (from Lịch sử), shown straight in the player, skipping /transcribe. */
 export interface InitialSession {
   video: YouTubeVideo;
   segments: Segment[];
 }
 
-export default function JapaneseVideoTranscript({ initialSession }: { initialSession?: InitialSession }) {
-  const [selectedVideo, setSelectedVideo] = useState<YouTubeVideo | null>(initialSession?.video ?? null);
-  const [mode, setMode] = useState<DisplayMode>("both");
+/** Placeholder for a `?v=` link opened in a fresh tab (nothing cached) — the
+ * player only needs the id; the title just stays blank until re-selected. */
+function videoFromIdOnly(id: string): YouTubeVideo {
+  return { id, title: "", channelId: "", channelTitle: "", thumbnail: "", duration: "", publishedAt: "" };
+}
 
-  const transcription = useTranscription(initialSession?.segments ?? []);
+/**
+ * Video đang xem nằm trên URL (?v=<YouTube id>), còn bản thân video + script được
+ * giữ trong sessionStorage (videoSessionCache) -> tải lại trang / Back / Forward
+ * mở lại đúng video, kèm script đã tạo, không phải chạy lại /transcribe.
+ */
+export default function JapaneseVideoTranscript() {
+  const [urlVideoId] = useUrlString("v");
+  const setUrlParams = useSetUrlParams();
+  const [selectedVideo, setSelectedVideo] = useState<YouTubeVideo | null>(null);
+  const [mode, setMode] = useUrlEnum<DisplayMode>("sub", ["both", "jp", "vn"], "both");
+
+  const transcription = useTranscription();
   const player = useYouTubePlayer(selectedVideo, transcription.segments);
+
+  // URL -> player: covers a reload, Back/Forward, opening from Lịch sử and picking a search result.
+  useEffect(() => {
+    if ((selectedVideo?.id ?? "") === urlVideoId) return;
+    player.setActiveIdx(-1);
+    if (!urlVideoId) {
+      setSelectedVideo(null);
+      transcription.reset();
+      return;
+    }
+    const cached = readVideoSession(urlVideoId);
+    setSelectedVideo(cached?.video ?? videoFromIdOnly(urlVideoId));
+    transcription.restore(cached?.segments ?? []);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [urlVideoId]);
+
+  // Keep the cached copy's script current once a transcription finishes.
+  useEffect(() => {
+    if (selectedVideo && transcription.status === "done" && transcription.segments.length > 0) {
+      saveVideoSession({ video: selectedVideo, segments: transcription.segments });
+    }
+  }, [selectedVideo, transcription.status, transcription.segments]);
 
   // ── Select video (no auto-transcribe) ──
   const handleSelectVideo = (video: YouTubeVideo) => {
-    setSelectedVideo(video);
-    transcription.reset();
-    player.setActiveIdx(-1);
+    saveVideoSession({ video, segments: [] });
     markVideoWatched(video);
+    setUrlParams({ v: video.id }, "push");
   };
 
-  const handleBack = () => {
-    setSelectedVideo(null);
-    transcription.reset();
-    player.setActiveIdx(-1);
-  };
+  const handleBack = () => setUrlParams({ v: null }, "push");
 
   const handleStartTranscribe = () => {
     player.setActiveIdx(-1);

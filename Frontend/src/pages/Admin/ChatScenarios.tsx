@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import PageMeta from "../../components/common/PageMeta";
 import { usePageHeader } from "../../context/PageHeaderContext";
 import { useToast } from "../../context/ToastContext";
+import { useUrlEnum, useUrlSearchInput, useUrlString } from "../../hooks/useUrlState";
 import {
   AdminScenario,
   ScenarioPayload,
@@ -30,9 +31,10 @@ export default function ChatScenarios() {
   const [saving, setSaving] = useState(false);
   const [togglingId, setTogglingId] = useState<number | null>(null);
 
-  const [search, setSearch] = useState("");
-  const [level, setLevel] = useState("");
-  const [status, setStatus] = useState<StatusFilter>("");
+  // Bộ lọc nằm trên URL -> tải lại / Back / gửi link giữ nguyên.
+  const [search, setSearch] = useUrlSearchInput("q");
+  const [level, setLevel] = useUrlString("level");
+  const [status, setStatus] = useUrlEnum<StatusFilter>("status", ["", "active", "inactive"], "");
 
   useEffect(() => {
     setPageHeader("Kịch bản chat", "Thiết kế các tình huống hội thoại giúp học viên luyện tập thực tế.");

@@ -24,6 +24,13 @@ export function useTranscription(initialSegments: Segment[] = []) {
     setErrorMsg("");
   }, []);
 
+  /** Shows an already-made script (e.g. restored after a reload) without calling /transcribe. */
+  const restore = useCallback((saved: Segment[]) => {
+    setSegments(saved);
+    setStatus(saved.length > 0 ? "done" : "idle");
+    setErrorMsg("");
+  }, []);
+
   // ── Start transcription manually ──
   const startTranscribe = useCallback(async (video: YouTubeVideo | null) => {
     if (!video) return;
@@ -125,5 +132,5 @@ export function useTranscription(initialSegments: Segment[] = []) {
     [segments, showToast]
   );
 
-  return { segments, status, errorMsg, toast, reset, startTranscribe, copyAll, exportSRT };
+  return { segments, status, errorMsg, toast, reset, restore, startTranscribe, copyAll, exportSRT };
 }

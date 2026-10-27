@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { JLPT_LEVELS, JlptLevel } from "../../services/jlptApi";
+import { useUrlEnum } from "../../hooks/useUrlState";
 import {
   MyCurriculum,
   StudyOverview,
@@ -67,8 +68,8 @@ export default function LibraryView({
   onStartDueQuick: () => void;
   onStartBookmarked: (mode: StudyMode, count: number) => void;
 }) {
-  const [tab, setTab] = useState<Tab>("sets");
-  const [level, setLevel] = useState<JlptLevel | "ALL">("ALL");
+  const [tab, setTab] = useUrlEnum<Tab>("tab", ["sets", "mine", "myLists", "achievements"], "sets");
+  const [level, setLevel] = useUrlEnum<JlptLevel | "ALL">("level", ["ALL", ...JLPT_LEVELS], "ALL");
   const [sets, setSets] = useState<VocabularySetProgress[]>([]);
   const [loadingSets, setLoadingSets] = useState(true);
   const [overview, setOverview] = useState<StudyOverview | null>(null);

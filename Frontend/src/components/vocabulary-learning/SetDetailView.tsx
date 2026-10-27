@@ -11,6 +11,7 @@ import {
 import AddToMineModal from "./AddToMineModal";
 import BookmarkToggle from "./BookmarkToggle";
 import Pagination from "../ui/pagination";
+import { useUrlEnum, useUrlNumber, useUrlSearchInput } from "../../hooks/useUrlState";
 import ProgressBar from "./ProgressBar";
 import { SourceOption, StudyModeList, StudySessionSettings, useStudyConfig } from "./StudyConfigPanel";
 import { StudyMode } from "./types";
@@ -32,15 +33,30 @@ export default function SetDetailView({
 }: {
   setId: number;
   onBack: () => void;
-  onStart: (mode: StudyMode, count: number, source: BatchSource) => void;
+  onStart: (mode: StudyMode, count: number, source: BatchSource, setName: string) => void;
   starting?: boolean;
 }) {
   const [detail, setDetail] = useState<VocabularySetLearningDetail | null>(null);
   const [loading, setLoading] = useState(true);
   const [source, setSource] = useState<BatchSource>("sequential");
-  const [page, setPage] = useState(1);
-  const [search, setSearch] = useState("");
-  const [statusFilter, setStatusFilter] = useState<"all" | "learned" | "reviewing" | "new">("all");
+  // Trang / ô tìm / bộ lọc nằm trên URL -> tải lại hoặc Back vẫn giữ đúng chỗ.
+  const [page, setPage] = useUrlNumber("page", 1);
+  const [search, setSearchInput] = useUrlSearchInput("search");
+  const [statusFilter, setStatusFilterParam] = useUrlEnum<"all" | "learned" | "reviewing" | "new">(
+    "status",
+    ["all", "learned", "reviewing", "new"],
+    "all"
+  );
+  // Đổi ô tìm / bộ lọc -> về trang 1 (ngay trong handler, không dùng effect:
+  // effect sẽ chạy cả lúc mở trang và xoá mất ?page= vừa khôi phục từ URL).
+  const setSearch = (value: string) => {
+    setSearchInput(value);
+    setPage(1);
+  };
+  const setStatusFilter = (value: typeof statusFilter) => {
+    setStatusFilterParam(value);
+    setPage(1);
+  };
   const [addToMineItemId, setAddToMineItemId] = useState<number | null>(null);
   const { mode, setMode, count, customCount, selectPreset, changeCustomCount } = useStudyConfig();
   const listTopRef = useRef<HTMLDivElement>(null);
@@ -52,15 +68,10 @@ export default function SetDetailView({
 
   useEffect(() => {
     setLoading(true);
-    setPage(1);
     fetchSetForLearning(setId)
       .then(setDetail)
       .finally(() => setLoading(false));
   }, [setId]);
-
-  useEffect(() => {
-    setPage(1);
-  }, [search, statusFilter]);
 
   const handleToggleBookmark = async (itemId: number) => {
     try {
@@ -322,7 +333,7 @@ export default function SetDetailView({
             <button
               type="button"
               disabled={starting || count < 1}
-              onClick={() => onStart(mode, count, source)}
+              onClick={() => onStart(mode, count, source, detail.set_name)}
               className="mt-5 w-full rounded-lg bg-gradient-to-r from-brand-500 to-brand-600 px-5 py-2.5 text-sm font-medium text-white transition hover:from-brand-600 hover:to-brand-700 disabled:cursor-not-allowed disabled:from-brand-300 disabled:to-brand-300"
             >
               {starting ? "Đang chuẩn bị..." : "Bắt đầu học"}

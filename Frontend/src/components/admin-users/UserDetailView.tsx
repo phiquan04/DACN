@@ -8,6 +8,7 @@ import {
   fetchUserLearningStats,
 } from "../../services/adminUserApi";
 import { formatApiDate, formatApiDateTime } from "../../utils/datetime";
+import { useUrlEnum } from "../../hooks/useUrlState";
 import { LockIcon, UnlockIcon } from "../admin-jlpt/icons";
 import { ChevronLeftIcon, ShootingStarIcon } from "../../icons";
 import { AccountStatusBadge, EmailVerifiedBadge, JlptLevelBadge } from "./badges";
@@ -51,7 +52,11 @@ export default function UserDetailView({
   onUnlock,
   onQuickUpdate,
 }: Props) {
-  const [tab, setTab] = useState<ProfileTabKey>("overview");
+  const [tab, setTab] = useUrlEnum<ProfileTabKey>(
+    "tab",
+    ["overview", "personal", "vocabulary", "jlpt", "conversation", "listening"],
+    "overview"
+  );
   const [stats, setStats] = useState<AdminUserLearningStats | null>(null);
   const [loadingStats, setLoadingStats] = useState(true);
   const [activity, setActivity] = useState<AdminActivityEntry[]>([]);

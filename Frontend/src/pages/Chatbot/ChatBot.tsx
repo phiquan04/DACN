@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef } from "react";
 import PageMeta from "../../components/common/PageMeta";
 import { getStoredUser } from "../../services/authApi";
 import ScenarioSidebar from "./components/ScenarioSidebar";
@@ -10,6 +10,7 @@ import { AlertIcon } from "./components/icons";
 import { RefreshIcon } from "../../icons/custom";
 import { useChatConversation } from "./hooks/useChatConversation";
 import { useConversationHistory } from "./hooks/useConversationHistory";
+import { useSetUrlParams, useUrlEnum } from "../../hooks/useUrlState";
 
 type SidebarTab = "scenarios" | "history";
 
@@ -24,7 +25,8 @@ function sidebarTabClass(isActive: boolean) {
 export default function ChatBot() {
   const chat = useChatConversation();
   const chatEndRef = useRef<HTMLDivElement>(null);
-  const [sidebarTab, setSidebarTab] = useState<SidebarTab>("scenarios");
+  const [sidebarTab, setSidebarTab] = useUrlEnum<SidebarTab>("panel", ["scenarios", "history"], "scenarios");
+  const setUrlParams = useSetUrlParams();
   const currentUser = getStoredUser();
   const history = useConversationHistory(sidebarTab === "history" && !!currentUser);
 
@@ -42,7 +44,11 @@ export default function ChatBot() {
 
   const handleResumeHistory = async (id: number) => {
     const detail = await history.resume(id);
-    if (detail) chat.loadConversation(detail);
+    if (detail) {
+      chat.loadConversation(detail);
+      // push: mở một cuộc cũ là chuyển màn -> Back quay lại cuộc đang nói trước đó.
+      setUrlParams({ c: detail.id }, "push");
+    }
   };
 
   return (

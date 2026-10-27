@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { useToast } from "../../context/ToastContext";
+import { useSetUrlParams, useUrlNumber } from "../../hooks/useUrlState";
 import {
   ExamReview,
   ExamSummary,
@@ -36,11 +37,14 @@ function StatusBadge({ status }: { status: string }) {
   );
 }
 
-export default function ReviewExams({ focusExamId }: { focusExamId?: number | null }) {
+export default function ReviewExams() {
   const { showToast } = useToast();
   const [exams, setExams] = useState<ExamSummary[]>([]);
   const [loadingList, setLoadingList] = useState(true);
-  const [selectedId, setSelectedId] = useState<number | null>(focusExamId ?? null);
+  // Đề đang mở nằm trên URL (?examId=) và đổi theo mỗi lần chọn đề khác — trước
+  // đây URL chỉ được đọc lúc mở trang, nên tải lại sẽ nhảy về đề ban đầu.
+  const [selectedId, setSelectedId] = useUrlNumber("examId", null, "push");
+  const setUrlParams = useSetUrlParams();
   const [detail, setDetail] = useState<ExamReview | null>(null);
   const [loadingDetail, setLoadingDetail] = useState(false);
   const [publishing, setPublishing] = useState(false);
@@ -58,10 +62,6 @@ export default function ReviewExams({ focusExamId }: { focusExamId?: number | nu
   useEffect(() => {
     loadList();
   }, []);
-
-  useEffect(() => {
-    if (focusExamId) setSelectedId(focusExamId);
-  }, [focusExamId]);
 
   useEffect(() => {
     if (!selectedId) {
@@ -153,7 +153,8 @@ export default function ReviewExams({ focusExamId }: { focusExamId?: number | nu
     try {
       await deleteExam(examId);
       showToast("Đã xóa đề thi", "success");
-      if (selectedId === examId) setSelectedId(null);
+      // replace: Back không được quay lại đề vừa xóa.
+      if (selectedId === examId) setUrlParams({ examId: null }, "replace");
       await loadList();
     } catch {
       // reported globally
