@@ -1,4 +1,4 @@
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import PageMeta from "../../components/common/PageMeta";
 import { getStoredUser } from "../../services/authApi";
 import ScenarioSidebar from "./components/ScenarioSidebar";
@@ -8,6 +8,7 @@ import ChatInput from "./components/ChatInput";
 import SituationModal from "./components/SituationModal";
 import { AlertIcon } from "./components/icons";
 import { RefreshIcon } from "../../icons/custom";
+import { CloseLineIcon, ListIcon } from "../../icons";
 import { useChatConversation } from "./hooks/useChatConversation";
 import { useConversationHistory } from "./hooks/useConversationHistory";
 import { useSetUrlParams, useUrlEnum } from "../../hooks/useUrlState";
@@ -27,6 +28,9 @@ export default function ChatBot() {
   const chatEndRef = useRef<HTMLDivElement>(null);
   const [sidebarTab, setSidebarTab] = useUrlEnum<SidebarTab>("panel", ["scenarios", "history"], "scenarios");
   const setUrlParams = useSetUrlParams();
+  // Below lg the scenario/history list is a slide-over drawer (a fixed 320px
+  // column would leave the chat itself almost no width on a phone).
+  const [panelOpen, setPanelOpen] = useState(false);
   const currentUser = getStoredUser();
   const history = useConversationHistory(sidebarTab === "history" && !!currentUser);
 
@@ -46,6 +50,7 @@ export default function ChatBot() {
     const detail = await history.resume(id);
     if (detail) {
       chat.loadConversation(detail);
+      setPanelOpen(false);
       // push: mở một cuộc cũ là chuyển màn -> Back quay lại cuộc đang nói trước đó.
       setUrlParams({ c: detail.id }, "push");
     }
@@ -62,11 +67,35 @@ export default function ChatBot() {
         </div>
       )}
 
-      <div className="flex min-h-0 flex-1 overflow-hidden rounded-xl border border-gray-200 bg-white shadow-sm dark:border-gray-700 dark:bg-gray-900">
-        {/* Sidebar */}
-        <aside className="flex w-80 shrink-0 flex-col border-r border-gray-200 dark:border-gray-700">
+      <div className="relative flex min-h-0 flex-1 overflow-hidden rounded-xl border border-gray-200 bg-white shadow-sm dark:border-gray-700 dark:bg-gray-900">
+        {/* Backdrop for the drawer (below lg only) */}
+        {panelOpen && (
+          <button
+            type="button"
+            aria-label="Đóng danh sách"
+            onClick={() => setPanelOpen(false)}
+            className="absolute inset-0 z-10 bg-gray-900/30 lg:hidden"
+          />
+        )}
+
+        {/* Sidebar: static column on lg+, slide-over drawer below */}
+        <aside
+          className={`absolute inset-y-0 left-0 z-20 flex w-[85%] max-w-80 shrink-0 flex-col border-r border-gray-200 bg-white transition-transform duration-300 ease-in-out dark:border-gray-700 dark:bg-gray-900 lg:static lg:w-80 lg:max-w-none lg:translate-x-0 ${
+            panelOpen ? "translate-x-0" : "-translate-x-full"
+          }`}
+        >
           <div className="shrink-0 px-4 pt-4">
-            <h2 className="text-base font-bold text-gray-800 dark:text-white/90">Luyện hội thoại</h2>
+            <div className="flex items-start justify-between gap-2">
+              <h2 className="text-base font-bold text-gray-800 dark:text-white/90">Luyện hội thoại</h2>
+              <button
+                type="button"
+                onClick={() => setPanelOpen(false)}
+                aria-label="Đóng danh sách"
+                className="-mr-1 flex h-8 w-8 items-center justify-center rounded-lg text-gray-500 hover:bg-gray-100 dark:text-gray-400 dark:hover:bg-white/5 lg:hidden"
+              >
+                <CloseLineIcon className="h-5 w-5" />
+              </button>
+            </div>
             <p className="mt-0.5 text-xs text-gray-500 dark:text-gray-400">Chọn bối cảnh hoặc xem lại hội thoại cũ</p>
             <div className="mt-3 flex gap-2">
               <button className={sidebarTabClass(sidebarTab === "scenarios")} onClick={() => setSidebarTab("scenarios")}>
@@ -86,6 +115,7 @@ export default function ChatBot() {
                 onSelect={(scenario) => {
                   chat.handleSelectScenario(scenario);
                   setSidebarTab("scenarios");
+                  setPanelOpen(false);
                 }}
                 loading={chat.scenariosLoading}
               />
@@ -111,19 +141,30 @@ export default function ChatBot() {
 
         {/* Chat panel */}
         <main className="flex min-w-0 flex-1 flex-col">
-          <div className="flex shrink-0 items-center gap-3 border-b border-gray-200 px-6 py-4 dark:border-gray-700">
-            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-brand-500 text-sm font-bold text-white">
+          <div className="flex shrink-0 items-center gap-2 border-b border-gray-200 px-4 py-3 dark:border-gray-700 sm:gap-3 sm:px-6 sm:py-4">
+            <button
+              type="button"
+              onClick={() => setPanelOpen(true)}
+              aria-label="Tình huống và lịch sử"
+              title="Tình huống và lịch sử"
+              className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg border border-gray-200 text-gray-600 hover:bg-gray-50 dark:border-gray-700 dark:text-gray-300 dark:hover:bg-white/5 lg:hidden"
+            >
+              <ListIcon className="h-5 w-5" />
+            </button>
+            <div className="hidden h-10 w-10 sm:flex shrink-0 items-center justify-center rounded-full bg-brand-500 text-sm font-bold text-white">
               AI
             </div>
             <div className="min-w-0 flex-1">
-              <p className="text-sm font-bold text-gray-800 dark:text-white/90">Manabi Sensei</p>
-              <p className="flex items-center gap-1.5 text-xs text-gray-500 dark:text-gray-400">
+              <p className="truncate text-sm font-bold text-gray-800 dark:text-white/90">Manabi Sensei</p>
+              <p className="flex min-w-0 items-center gap-1.5 text-xs text-gray-500 dark:text-gray-400">
                 <span
                   className={`h-2 w-2 rounded-full ${
                     chat.backendStatus === "ok" ? "animate-pulse bg-emerald-400" : "bg-red-400"
                   }`}
                 />
-                {chat.isThinking ? "Đang suy nghĩ..." : chat.isSpeaking ? "Đang nói..." : `Đang nghe... (${statusLabel})`}
+                <span className="truncate">
+                  {chat.isThinking ? "Đang suy nghĩ..." : chat.isSpeaking ? "Đang nói..." : `Đang nghe... (${statusLabel})`}
+                </span>
               </p>
             </div>
             {chat.activeScenario && (
@@ -145,11 +186,11 @@ export default function ChatBot() {
               className="flex items-center gap-1.5 rounded-lg border border-gray-200 bg-gray-50 px-3 py-1.5 text-xs text-gray-500 transition-colors hover:bg-gray-100 hover:text-gray-800 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-400 dark:hover:bg-gray-700"
             >
               <RefreshIcon className="h-3.5 w-3.5" />
-              Bắt đầu lại
+              <span className="hidden sm:inline">Bắt đầu lại</span>
             </button>
           </div>
 
-          <div className="flex-1 space-y-4 overflow-y-auto px-6 py-5">
+          <div className="flex-1 space-y-4 overflow-y-auto px-4 py-4 sm:px-6 sm:py-5">
             {chat.messages.map((msg, i) => (
               <ChatMessage key={i} message={msg} />
             ))}
@@ -171,7 +212,7 @@ export default function ChatBot() {
           </div>
 
           {chat.suggestions.length > 0 && (
-            <div className="flex shrink-0 flex-wrap gap-2 px-6 pb-3">
+            <div className="flex shrink-0 flex-wrap gap-2 px-4 pb-3 sm:px-6">
               {chat.suggestions.map((s, i) => (
                 <button
                   key={i}

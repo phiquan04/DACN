@@ -47,7 +47,7 @@ export default function ImagesCard({ word, images, loading, uploading, currentUs
                   <button
                     onClick={() => onDelete(img)}
                     title="Xóa ảnh"
-                    className="absolute -top-1.5 -right-1.5 hidden h-6 w-6 items-center justify-center rounded-full bg-error text-on-error text-sm group-hover:flex"
+                    className="absolute -top-1.5 -right-1.5 hidden h-6 w-6 items-center justify-center rounded-full bg-error text-on-error text-sm group-hover:flex [@media(hover:none)]:flex"
                   >
                     ×
                   </button>

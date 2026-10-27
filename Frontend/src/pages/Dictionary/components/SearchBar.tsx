@@ -11,8 +11,8 @@ interface SearchBarProps {
 
 export default function SearchBar({ searchTerm, onSearchTermChange, loading, onSubmit, onOpenDraw }: SearchBarProps) {
   return (
-    <form onSubmit={onSubmit} className="flex gap-3 items-center">
-      <div className="relative flex-1">
+    <form onSubmit={onSubmit} className="flex items-center gap-2 sm:gap-3">
+      <div className="relative min-w-0 flex-1">
         <InputField
           id="search"
           type="text"
@@ -48,7 +48,7 @@ export default function SearchBar({ searchTerm, onSearchTermChange, loading, onS
       <button
         type="submit"
         disabled={loading}
-        className="shrink-0 rounded-lg bg-gradient-to-r from-brand-500 to-brand-600 px-6 py-3 text-sm font-semibold text-white shadow-theme-xs transition hover:from-brand-600 hover:to-brand-700 disabled:opacity-50"
+        className="shrink-0 rounded-lg bg-gradient-to-r from-brand-500 to-brand-600 px-4 py-3 sm:px-6 text-sm font-semibold text-white shadow-theme-xs transition hover:from-brand-600 hover:to-brand-700 disabled:opacity-50"
       >
         {loading ? "Đang tìm..." : "Tra cứu"}
       </button>

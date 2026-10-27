@@ -18,11 +18,13 @@ export default function HistorySidebar({
   onClearAll,
 }: HistorySidebarProps) {
   return (
-    // The <aside> stays full height so the column divider runs the whole card;
-    // the inner panel sticks just below the app header (sticky top-0, ~77px)
-    // while the lookup column scrolls with the page, and scrolls its own list.
-    <aside className="w-80 shrink-0 p-6">
-      <div className="sticky top-24 flex max-h-[calc(100vh-8rem)] flex-col">
+    // lg+: a side column. The <aside> stays full height so the column divider
+    // runs the whole card; the inner panel sticks just below the app header
+    // (sticky top-0, ~77px) while the lookup column scrolls with the page, and
+    // scrolls its own list. Below lg it stacks under the lookup at full width,
+    // with a capped list height so a long history doesn't push the page on forever.
+    <aside className="w-full shrink-0 p-4 sm:p-6 lg:w-80">
+      <div className="flex max-h-[28rem] flex-col lg:sticky lg:top-24 lg:max-h-[calc(100vh-8rem)]">
         {/* Header */}
         <div className="flex items-center justify-between border-b border-gray-200 pb-4 mb-4 dark:border-gray-700">
           <div className="flex items-center gap-2">
@@ -82,7 +84,7 @@ export default function HistorySidebar({
               >
                 <button
                   onClick={(e) => onDeleteItem(e, item)}
-                  className="absolute right-2.5 top-2.5 shrink-0 text-outline-variant opacity-0 transition-all hover:text-error group-hover:opacity-100 dark:text-gray-600 dark:hover:text-red-400"
+                  className="absolute right-2.5 top-2.5 shrink-0 text-outline-variant opacity-0 transition-all hover:text-error group-hover:opacity-100 [@media(hover:none)]:opacity-100 dark:text-gray-600 dark:hover:text-red-400"
                   title="Xóa mục này"
                 >
                   <svg xmlns="http://www.w3.org/2000/svg" className="h-3.5 w-3.5" viewBox="0 0 20 20" fill="currentColor">

@@ -24,7 +24,7 @@ export default function MeetingLobby() {
     <>
       <PageMeta title="Phòng học trực tuyến | Manabi AI" description="Tạo hoặc tham gia phòng học tiếng Nhật." />
       <div className="flex h-full items-center justify-center">
-        <div className="w-full max-w-xl rounded-xl border border-gray-200 bg-white p-8 shadow-sm dark:border-gray-700 dark:bg-gray-900">
+        <div className="w-full max-w-xl rounded-xl border border-gray-200 bg-white p-5 shadow-sm sm:p-8 dark:border-gray-700 dark:bg-gray-900">
           <div className="mb-6 flex justify-center">
             <div className="inline-flex h-14 w-14 items-center justify-center rounded-xl bg-brand-50 dark:bg-brand-500/20">
               <svg className="h-7 w-7 text-brand-600 dark:text-brand-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">

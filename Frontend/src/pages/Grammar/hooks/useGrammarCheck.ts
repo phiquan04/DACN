@@ -49,6 +49,18 @@ export function useGrammarCheck() {
       // storage blocked — the page just won't survive a reload
     }
   }, [sentence, result, alternatives]);
+
+  // Rời sang trang khác -> xoá bản nháp, quay lại sẽ là trạng thái ban đầu. Tải lại
+  // trang không chạy cleanup nên câu/kết quả vẫn được giữ qua reload.
+  useEffect(() => {
+    return () => {
+      try {
+        sessionStorage.removeItem(DRAFT_KEY);
+      } catch {
+        // storage blocked — nothing was saved anyway
+      }
+    };
+  }, []);
   const [altLoading, setAltLoading] = useState(false);
   const [altError, setAltError] = useState<string | null>(null);
 

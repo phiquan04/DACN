@@ -275,7 +275,7 @@ export default function TakeExamView({
     <div className="space-y-4">
       <div className="rounded-xl border border-gray-200 bg-white p-4 shadow-sm dark:border-gray-700 dark:bg-gray-900">
         <div className="flex flex-wrap items-center justify-between gap-3">
-          <div className="flex items-center gap-3">
+          <div className="flex min-w-0 items-center gap-3">
             <button
               type="button"
               onClick={onCancel}
@@ -284,8 +284,8 @@ export default function TakeExamView({
               <CloseLineIcon className="h-3.5 w-3.5" />
               Thoát
             </button>
-            <div>
-              <div className="flex items-center gap-2">
+            <div className="min-w-0">
+              <div className="flex flex-wrap items-center gap-2">
                 <span className="rounded-full bg-emerald-100 px-2 py-0.5 text-[10px] font-bold text-emerald-700 dark:bg-emerald-500/20 dark:text-emerald-300">
                   {exam.level}
                 </span>
