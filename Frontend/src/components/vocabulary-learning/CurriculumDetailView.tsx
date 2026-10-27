@@ -9,6 +9,13 @@ function isInProgress(s: VocabularySetProgress): boolean {
   return ((s.learned_count + s.reviewing_count) / s.item_count) * 100 > 1;
 }
 
+/** A set has been studied before once any of its words has progress (learned or
+ * reviewing) — unlike `isInProgress`, no 1% threshold: a single studied word is
+ * enough for the button to say "continue" rather than "start". */
+function hasStarted(s: VocabularySetProgress): boolean {
+  return s.learned_count + s.reviewing_count > 0;
+}
+
 export default function CurriculumDetailView({
   curriculumName,
   sets,
@@ -122,7 +129,7 @@ export default function CurriculumDetailView({
                 onClick={() => onSelectSet(s)}
                 className="shrink-0 rounded-lg bg-gradient-to-r from-brand-500 to-brand-600 px-4 py-2 text-xs font-medium text-white hover:from-brand-600 hover:to-brand-700"
               >
-                Tiếp tục học
+                {hasStarted(s) ? "Tiếp tục học" : "Bắt đầu học"}
               </button>
             </div>
           ))}

@@ -61,7 +61,7 @@ export default function Vocabulary() {
     <>
       <PageMeta
         title="Tra cứu từ vựng tiếng Nhật"
-        description="Trang tra cứu từ điển Nhật - Việt (JMdict-EDICT)"
+        description="Trang tra cứu từ điển Nhật - Việt"
       />
 
       {/* Two-column layout: one shared card surface so content sits above the page background, split by a vertical divider */}

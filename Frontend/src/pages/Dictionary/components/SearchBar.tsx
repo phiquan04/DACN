@@ -16,7 +16,7 @@ export default function SearchBar({ searchTerm, onSearchTermChange, loading, onS
         <InputField
           id="search"
           type="text"
-          placeholder="Nhập từ tiếng Nhật (kanji, hiragana)..."
+          placeholder="Nhập từ tiếng Nhật"
           value={searchTerm}
           onChange={(e) => onSearchTermChange(e.target.value)}
           disabled={loading}
