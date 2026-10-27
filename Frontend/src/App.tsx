@@ -1,5 +1,5 @@
 import { lazy, Suspense } from "react";
-import { Navigate, Route, BrowserRouter as Router, Routes } from "react-router";
+import { Navigate, Route, BrowserRouter as Router, Routes, useLocation } from "react-router";
 import { ScrollToTop } from "./components/common/ScrollToTop";
 import PageLoader from "./components/common/PageLoader";
 import AppLayout from "./layout/AppLayout";
@@ -41,6 +41,12 @@ const UserProfiles = lazy(() => import("./pages/UserProfiles"));
 const JapaneseWatch = lazy(() => import("./pages/VideoLearn/JapaneseWatch"));
 const VocabularyLearningPage = lazy(() => import("./pages/VocabularyLearning/VocabularyLearningPage"));
 
+/** `<Navigate>` that carries the current `?query` along (a bare `to` would drop it). */
+function RedirectKeepingSearch({ to }: { to: string }) {
+  const { search } = useLocation();
+  return <Navigate to={{ pathname: to, search }} replace />;
+}
+
 export default function App() {
   useOnlineHeartbeat();
 
@@ -53,7 +59,8 @@ export default function App() {
             {/* Dashboard Layout */}
             <Route element={<AppLayout />}>
               <Route path="/dictionary" element={<Vocabulary />} />
-              <Route index path="/" element={<Vocabulary />} />
+              {/* Một địa chỉ duy nhất cho trang tra cứu -> link chia sẻ (?q=...) luôn thống nhất */}
+              <Route index path="/" element={<RedirectKeepingSearch to="/dictionary" />} />
               <Route path="/vocabulary" element={<VocabularyLearningPage />} />
 
               {/* Others Page */}
@@ -69,7 +76,7 @@ export default function App() {
               <Route path="/calendar" element={<Calendar />} />
               <Route path="/chat-bot" element={<ChatBot />} />
               <Route path="/jlpt-practice" element={<JLPTPracticePage />} />
-              <Route path="/line-chart" element={<JapaneseWatch />} />
+              <Route path="/video-learn" element={<JapaneseWatch />} />
             </Route>
              <Route path="/meeting/room/:roomID" element={<MeetingRoom />} />
 

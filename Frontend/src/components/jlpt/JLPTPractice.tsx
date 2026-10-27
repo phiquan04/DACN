@@ -29,9 +29,10 @@ import PracticeTabs, { PracticeTab } from "./PracticeTabs";
 import PredictedScoreCard from "./PredictedScoreCard";
 import RegistrationInfoCard from "./RegistrationInfoCard";
 import TakeExamView from "./TakeExamView";
+import { clearExamDraft } from "./examDraft";
+import { useSetUrlParams, useUrlEnum, useUrlNumber, useUrlSearchInput, useUrlString } from "../../hooks/useUrlState";
 import WeakMondaiCard from "./WeakMondaiCard";
 
-type View = "browse" | "take" | "result" | "history-detail";
 const DEFAULT_LEVEL: JlptLevel = "N3";
 
 function isJlptLevel(value?: string | null): value is JlptLevel {
@@ -42,14 +43,23 @@ export default function JLPTPractice() {
   const { showToast } = useToast();
   const currentUser = getStoredUser();
 
-  const [view, setView] = useState<View>("browse");
-  const [tab, setTab] = useState<PracticeTab>("exams");
-
-  const [level, setLevel] = useState<JlptLevel | "ALL">("ALL");
-  const [userPickedLevel, setUserPickedLevel] = useState(false);
-  const [search, setSearch] = useState("");
-  const [year, setYear] = useState<number | "ALL">("ALL");
-  const [status, setStatus] = useState<ExamStatusFilter>("all");
+  // Tab, bộ lọc, đề đang làm (?exam=) và bài làm đang xem (?attempt=) nằm trên
+  // URL -> tải lại trang / Back / gửi link đều giữ nguyên chỗ đang xem.
+  const setUrlParams = useSetUrlParams();
+  const [tab, setTab] = useUrlEnum<PracticeTab>("tab", ["exams", "history"], "exams");
+  // "" = learner hasn't picked a level yet -> fall back to their target level.
+  const [pickedLevel, setPickedLevel] = useUrlString("level");
+  const [search, setSearch] = useUrlSearchInput("search");
+  const [yearParam, setYearParam] = useUrlNumber("year", null);
+  const year: number | "ALL" = yearParam ?? "ALL";
+  const setYear = (y: number | "ALL") => setYearParam(y === "ALL" ? null : y);
+  const [status, setStatus] = useUrlEnum<ExamStatusFilter>(
+    "status",
+    ["all", "not_done", "done", "passed", "failed"],
+    "all"
+  );
+  const [examParam] = useUrlNumber("exam", null);
+  const [attemptParam] = useUrlNumber("attempt", null);
 
   const [exams, setExams] = useState<PublishedExamSummary[]>([]);
   const [loadingExams, setLoadingExams] = useState(true);
@@ -66,6 +76,8 @@ export default function JLPTPractice() {
   const [loadingAttemptDetail, setLoadingAttemptDetail] = useState(false);
 
   const targetLevel = isJlptLevel(profile?.target_jlpt_level) ? (profile!.target_jlpt_level as JlptLevel) : undefined;
+  const level: JlptLevel | "ALL" =
+    pickedLevel === "ALL" || isJlptLevel(pickedLevel) ? (pickedLevel as JlptLevel | "ALL") : targetLevel ?? "ALL";
   const dashboardLevel: JlptLevel = level === "ALL" ? targetLevel ?? DEFAULT_LEVEL : level;
 
   // Guards against a race where the initial "ALL" fetch (issued before the
@@ -117,19 +129,50 @@ export default function JLPTPractice() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [currentUser?.id, dashboardLevel]);
 
-  // Once we learn the learner's target level, default the exam-list filter
-  // to it — but only if they haven't already picked a filter themselves.
-  useEffect(() => {
-    if (targetLevel && !userPickedLevel) {
-      setLevel(targetLevel);
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [targetLevel]);
+  // Until the learner picks a level themselves, `level` follows their target
+  // level once the profile loads (see its derivation above).
+  const handleLevelChange = (lv: JlptLevel | "ALL") => setPickedLevel(lv);
 
-  const handleLevelChange = (lv: JlptLevel | "ALL") => {
-    setUserPickedLevel(true);
-    setLevel(lv);
-  };
+  // ?exam= / ?attempt= -> load what the URL points at. Covers starting an exam,
+  // opening an attempt, a reload mid-exam (answers come back from the draft),
+  // and Back/Forward between them.
+  useEffect(() => {
+    let cancelled = false;
+    if (examParam) {
+      if (activeExam?.id === examParam && !result) return;
+      setResult(null);
+      fetchExamToTake(examParam)
+        .then((exam) => {
+          if (!cancelled) setActiveExam(exam);
+        })
+        .catch(() => {
+          // reported globally
+        });
+    } else if (attemptParam) {
+      if (result?.attempt_id === attemptParam) return;
+      setLoadingAttemptDetail(true);
+      fetchAttemptDetail(attemptParam)
+        .then((detail) => {
+          if (cancelled) return;
+          setActiveExam(detail.exam);
+          setResult(detail.result);
+        })
+        .catch(() => {
+          // reported globally
+        })
+        .finally(() => {
+          if (!cancelled) setLoadingAttemptDetail(false);
+        });
+    } else if (activeExam || result) {
+      setActiveExam(null);
+      setResult(null);
+      loadExams(level);
+    }
+    return () => {
+      cancelled = true;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [examParam, attemptParam]);
 
   const years = useMemo(() => {
     const set = new Set<number>();
@@ -177,15 +220,7 @@ export default function JLPTPractice() {
     return { total, done, notDone: total - done, passed, failed: done - passed, inProgress: 0 };
   }, [filteredExams, passedExamIds]);
 
-  const handleStart = async (examId: number) => {
-    try {
-      const exam = await fetchExamToTake(examId);
-      setActiveExam(exam);
-      setView("take");
-    } catch {
-      // reported globally
-    }
-  };
+  const handleStart = (examId: number) => setUrlParams({ exam: examId, attempt: null }, "push");
 
   const handleSubmit = async (
     answers: { question_id: number; selected_choice_no: number | null }[],
@@ -199,8 +234,11 @@ export default function JLPTPractice() {
     setSubmitting(true);
     try {
       const res = await submitAttempt(activeExam.id, answers, elapsedSeconds);
+      clearExamDraft(activeExam.id);
       setResult(res);
-      setView("result");
+      // Thay ?exam= bằng ?attempt= (replace): tải lại trang sẽ hiện kết quả,
+      // không mở lại đề; Back quay về danh sách đề thay vì về bài vừa nộp.
+      setUrlParams({ exam: null, attempt: res.attempt_id }, "replace");
       loadDashboard();
       loadAttempts();
     } catch {
@@ -210,51 +248,35 @@ export default function JLPTPractice() {
     }
   };
 
-  const handleBackToBrowse = () => {
-    setActiveExam(null);
-    setResult(null);
-    setView("browse");
-    loadExams(level);
+  const handleBackToList = () => setUrlParams({ exam: null, attempt: null }, "push");
+
+  const handleCancelExam = () => {
+    if (activeExam) clearExamDraft(activeExam.id);
+    handleBackToList();
   };
 
-  const handleSelectAttempt = async (attemptId: number) => {
-    setLoadingAttemptDetail(true);
-    try {
-      const detail = await fetchAttemptDetail(attemptId);
-      setActiveExam(detail.exam);
-      setResult(detail.result);
-      setView("history-detail");
-    } catch {
-      // reported globally
-    } finally {
-      setLoadingAttemptDetail(false);
-    }
-  };
+  const handleSelectAttempt = (attemptId: number) => setUrlParams({ exam: null, attempt: attemptId }, "push");
 
-  const handleBackToHistory = () => {
-    setActiveExam(null);
-    setResult(null);
-    setTab("history");
-    setView("browse");
-  };
-
-  if (view === "take" && activeExam) {
+  if (examParam && activeExam?.id === examParam && !result) {
     return (
       <TakeExamView
+        // remount per exam so the draft for *this* exam is the one restored
+        key={activeExam.id}
         exam={activeExam}
         onSubmit={handleSubmit}
-        onCancel={handleBackToBrowse}
+        onCancel={handleCancelExam}
         submitting={submitting}
       />
     );
   }
 
-  if (view === "result" && activeExam && result) {
-    return <ExamResultView exam={activeExam} result={result} onBack={handleBackToBrowse} />;
-  }
-
-  if (view === "history-detail" && activeExam && result) {
-    return <ExamResultView exam={activeExam} result={result} onBack={handleBackToHistory} backLabel="Quay lại lịch sử" />;
+  if (attemptParam && activeExam && result?.attempt_id === attemptParam) {
+    // Mở từ tab Lịch sử -> nút quay lại về Lịch sử; vừa nộp xong -> về danh sách đề.
+    return tab === "history" ? (
+      <ExamResultView exam={activeExam} result={result} onBack={handleBackToList} backLabel="Quay lại lịch sử" />
+    ) : (
+      <ExamResultView exam={activeExam} result={result} onBack={handleBackToList} />
+    );
   }
 
   return (

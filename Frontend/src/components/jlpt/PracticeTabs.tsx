@@ -19,7 +19,7 @@ export default function PracticeTabs({
   const counts: Record<PracticeTab, number> = { exams: examCount, history: historyCount };
 
   return (
-    <div className="flex w-fit gap-1 rounded-lg bg-gray-100 p-1 dark:bg-gray-800">
+    <div className="flex w-fit max-w-full gap-1 overflow-x-auto rounded-lg bg-gray-100 p-1 dark:bg-gray-800">
       {TABS.map(({ key, title }) => {
         const isActive = active === key;
         return (
@@ -27,7 +27,7 @@ export default function PracticeTabs({
             key={key}
             type="button"
             onClick={() => onChange(key)}
-            className={`rounded-md px-4 py-1.5 text-sm font-medium transition-colors ${
+            className={`shrink-0 whitespace-nowrap rounded-md px-3 py-1.5 text-sm font-medium transition-colors sm:px-4 ${
               isActive
                 ? "bg-white text-brand-600 shadow-sm dark:bg-gray-900 dark:text-brand-400"
                 : "text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200"

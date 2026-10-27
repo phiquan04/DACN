@@ -1,23 +1,25 @@
-import { useEffect, useState } from "react";
+import { useEffect } from "react";
 import { useSearchParams } from "react-router-dom";
 import PageMeta from "../../components/common/PageMeta";
 import PredefinedMode from "./components/PredefinedMode";
 import VoiceMode from "./components/VoiceMode";
+import { useUrlEnum } from "../../hooks/useUrlState";
 
 export default function CheckPronunciation() {
-  const [activeMode, setActiveMode] = useState<"predefined" | "voice">("predefined");
+  const [activeMode, setActiveMode] = useUrlEnum<"predefined" | "voice">("mode", ["predefined", "voice"], "predefined");
   const [searchParams] = useSearchParams();
 
-  // Xử lý query param khi vào trang (từ từ điển chuyển sang)
+  // Xử lý query param khi vào trang (từ từ điển chuyển sang). Link từ từ điển
+  // không có ?mode= nên đã mặc định ở chế độ "Từ có sẵn"; phụ thuộc vào từng
+  // giá trị chứ không phải cả searchParams, để đổi ?mode= không chạy lại effect.
+  const word = searchParams.get("word");
+  const reading = searchParams.get("reading");
+  const meaning = searchParams.get("meaning");
   useEffect(() => {
-    const word = searchParams.get("word");
-    const reading = searchParams.get("reading");
-    const meaning = searchParams.get("meaning");
     if (word) {
       sessionStorage.setItem("practiceWord", JSON.stringify({ word, reading: reading || "", meaning: meaning || "" }));
-      setActiveMode("predefined");
     }
-  }, [searchParams]);
+  }, [word, reading, meaning]);
 
   return (
     <>

@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import PageMeta from "../../components/common/PageMeta";
 import { usePageHeader } from "../../context/PageHeaderContext";
+import { useUrlEnum, useUrlNumber, useUrlSearchInput } from "../../hooks/useUrlState";
 import { useToast } from "../../context/ToastContext";
 import StatCard from "../../components/admin-vocabulary/StatCard";
 import Pagination from "../../components/admin-users/Pagination";
@@ -45,12 +46,35 @@ export default function DictionaryModeration() {
     setPageHeader("Kiểm duyệt từ điển", "Quản lý ảnh minh hoạ và bình luận do cộng đồng đóng góp.");
   }, [setPageHeader]);
 
-  const [tab, setTab] = useState<Tab>("images");
-  const [search, setSearch] = useState("");
-  const [statusFilter, setStatusFilter] = useState<ModerationStatus | "">("");
-  const [sort, setSort] = useState<DictionarySortOrder>("newest");
+  // Tab, bộ lọc, sắp xếp và trang nằm trên URL -> tải lại / Back / gửi link giữ đúng chỗ.
+  const [tab, setTabParam] = useUrlEnum<Tab>("tab", ["images", "comments"], "images");
+  const [search, setSearchInput] = useUrlSearchInput("q");
+  const [statusFilter, setStatusParam] = useUrlEnum<ModerationStatus | "">(
+    "status",
+    ["", "pending", "approved", "flagged"],
+    ""
+  );
+  const [sort, setSortParam] = useUrlEnum<DictionarySortOrder>("sort", ["newest", "score_asc", "score_desc"], "newest");
   const [showSortMenu, setShowSortMenu] = useState(false);
-  const [page, setPage] = useState(1);
+  const [page, setPage] = useUrlNumber("page", 1);
+  // Changing the tab/filters goes back to page 1 — in the setters rather than an
+  // effect, which would also fire on load and wipe a ?page= restored from the URL.
+  const setTab = (value: Tab) => {
+    setTabParam(value);
+    setPage(1);
+  };
+  const setSearch = (value: string) => {
+    setSearchInput(value);
+    setPage(1);
+  };
+  const setStatusFilter = (value: ModerationStatus | "") => {
+    setStatusParam(value);
+    setPage(1);
+  };
+  const setSort = (value: DictionarySortOrder) => {
+    setSortParam(value);
+    setPage(1);
+  };
 
   const [stats, setStats] = useState<AdminDictionaryStats | null>(null);
   const [tabCounts, setTabCounts] = useState({ images: 0, comments: 0 });
@@ -107,7 +131,7 @@ export default function DictionaryModeration() {
     } finally {
       if (requestId === listRequestRef.current) setLoading(false);
     }
-  }, [tab, search, statusFilter, sort, page]);
+  }, [tab, search, statusFilter, sort, page, setPage]);
 
   useEffect(() => {
     loadCounts();
@@ -116,10 +140,6 @@ export default function DictionaryModeration() {
   useEffect(() => {
     loadList();
   }, [loadList]);
-
-  useEffect(() => {
-    setPage(1);
-  }, [tab, search, statusFilter, sort]);
 
   const refreshAll = async () => {
     await Promise.all([loadList(), loadCounts()]);

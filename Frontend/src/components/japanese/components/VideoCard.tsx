@@ -30,7 +30,7 @@ export default function VideoCard({
           <span className="scale-0 text-3xl transition group-hover:scale-100">▶</span>
         </div>
         {/* Transcript badge */}
-        <div className="absolute top-1.5 left-1.5 opacity-0 group-hover:opacity-100 transition">
+        <div className="absolute top-1.5 left-1.5 opacity-0 group-hover:opacity-100 transition [@media(hover:none)]:opacity-100">
           <span className="rounded-full bg-yellow-400 px-2 py-0.5 text-[10px] font-bold text-black">
             TRANSCRIPT
           </span>

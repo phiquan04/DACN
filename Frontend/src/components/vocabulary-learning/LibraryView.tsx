@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { JLPT_LEVELS, JlptLevel } from "../../services/jlptApi";
+import { useUrlEnum } from "../../hooks/useUrlState";
 import {
   MyCurriculum,
   StudyOverview,
@@ -67,8 +68,8 @@ export default function LibraryView({
   onStartDueQuick: () => void;
   onStartBookmarked: (mode: StudyMode, count: number) => void;
 }) {
-  const [tab, setTab] = useState<Tab>("sets");
-  const [level, setLevel] = useState<JlptLevel | "ALL">("ALL");
+  const [tab, setTab] = useUrlEnum<Tab>("tab", ["sets", "mine", "myLists", "achievements"], "sets");
+  const [level, setLevel] = useUrlEnum<JlptLevel | "ALL">("level", ["ALL", ...JLPT_LEVELS], "ALL");
   const [sets, setSets] = useState<VocabularySetProgress[]>([]);
   const [loadingSets, setLoadingSets] = useState(true);
   const [overview, setOverview] = useState<StudyOverview | null>(null);
@@ -246,7 +247,7 @@ export default function LibraryView({
       )}
 
       <div className="rounded-xl border border-gray-200 bg-white p-5 shadow-sm dark:border-gray-700 dark:bg-gray-900">
-        <div className="mb-5 flex w-fit gap-1 rounded-lg bg-gray-100 p-1 dark:bg-gray-800">
+        <div className="mb-5 flex w-fit max-w-full gap-1 overflow-x-auto rounded-lg bg-gray-100 p-1 dark:bg-gray-800">
           {(
             [
               { id: "sets" as Tab, label: "Các bộ từ vựng" },
@@ -259,7 +260,7 @@ export default function LibraryView({
               key={t.id}
               type="button"
               onClick={() => setTab(t.id)}
-              className={`rounded-md px-4 py-1.5 text-sm font-medium transition-colors ${
+              className={`shrink-0 whitespace-nowrap rounded-md px-3 py-1.5 text-sm font-medium transition-colors sm:px-4 ${
                 tab === t.id
                   ? "bg-white text-brand-600 shadow-sm dark:bg-gray-900 dark:text-brand-400"
                   : "text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200"

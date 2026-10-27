@@ -1,4 +1,5 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import { useSetUrlParams, useUrlNumber } from "../../hooks/useUrlState";
 import {
   BatchSource,
   MyCurriculum,
@@ -7,6 +8,7 @@ import {
   VocabularySetProgress,
   fetchBookmarkedBatch,
   fetchDueBatch,
+  fetchLibrarySets,
   fetchMyCurriculums,
   fetchMyStudyBatch,
   fetchStudyBatch,
@@ -21,19 +23,35 @@ import SetDetailView from "./SetDetailView";
 import SummaryView from "./SummaryView";
 import { BatchOrigin, SessionResult, StudyMode } from "./types";
 
-type View = "library" | "curriculum" | "detail" | "session" | "summary" | "myCurriculum" | "mySet";
+// Which screen is open lives in the URL, so a reload, Back/Forward and a shared
+// link land on the same screen:
+//   (none)                          library (its own ?tab= / ?level=)
+//   ?curriculum=<id>                a curriculum's set list
+//   ?set=<id>[&curriculum=<id>]     a public set (curriculum kept so "back" returns to it)
+//   ?myCurriculum=<id>[&mySet=<id>] the learner's own curriculum / set
+//   ...&study=1                     a study session on top of the screen it was started from
+// Child screens' own params (?page= / ?search= / ?status=) are dropped when leaving them.
+const DETAIL_PARAMS = { page: null, search: null, status: null };
+const SCREEN_PARAMS = { curriculum: null, set: null, myCurriculum: null, mySet: null, study: null, ...DETAIL_PARAMS };
 
 const DUE_QUICK_COUNT = 40;
 
+type SessionPhase = "session" | "summary";
+
 export default function VocabularyLearningHome() {
-  const [view, setView] = useState<View>("library");
-  const [curriculumGroup, setCurriculumGroup] = useState<{ name: string; sets: VocabularySetProgress[] } | null>(null);
-  const [selectedSet, setSelectedSet] = useState<VocabularySetProgress | null>(null);
+  const setUrlParams = useSetUrlParams();
+  const [curriculumId] = useUrlNumber("curriculum", null);
+  const [setId] = useUrlNumber("set", null);
+  const [myCurriculumId] = useUrlNumber("myCurriculum", null);
+  const [mySetId] = useUrlNumber("mySet", null);
+  const [studyParam] = useUrlNumber("study", null);
+
+  const [curriculumGroup, setCurriculumGroup] = useState<{ id: number; name: string; sets: VocabularySetProgress[] } | null>(null);
   const [myCurriculum, setMyCurriculum] = useState<MyCurriculum | null>(null);
-  const [mySetId, setMySetId] = useState<number | null>(null);
   const [origin, setOrigin] = useState<BatchOrigin | null>(null);
   const [mode, setMode] = useState<StudyMode>("flashcard");
   const [batch, setBatch] = useState<VocabularyLearningItem[]>([]);
+  const [phase, setPhase] = useState<SessionPhase>("session");
   const [lastSetConfig, setLastSetConfig] = useState<{ source: BatchSource; count: number } | null>(null);
   const [result, setResult] = useState<SessionResult | null>(null);
   const [streakDays, setStreakDays] = useState<number | null>(null);
@@ -44,88 +62,121 @@ export default function VocabularyLearningHome() {
   // route to MySetDetailView (+ fetchMyStudyBatch) or SetDetailView (+ fetchStudyBatch).
   const [sessionFromMySet, setSessionFromMySet] = useState(false);
 
+  // ?curriculum= opened directly (reload / link) -> rebuild its set list from the library.
+  useEffect(() => {
+    if (curriculumId === null || curriculumGroup?.id === curriculumId) return;
+    fetchLibrarySets()
+      .then((all) => {
+        const sets = all.filter((s) => s.curriculum_id === curriculumId);
+        if (sets.length === 0) {
+          setUrlParams(SCREEN_PARAMS, "replace");
+          return;
+        }
+        setCurriculumGroup({ id: curriculumId, name: sets[0].curriculum_name || sets[0].set_name, sets });
+      })
+      .catch(() => {});
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [curriculumId]);
+
+  // ?myCurriculum= opened directly -> look the curriculum up by id.
+  useEffect(() => {
+    if (myCurriculumId === null || myCurriculum?.id === myCurriculumId) return;
+    fetchMyCurriculums()
+      .then((all) => {
+        const found = all.find((c) => c.id === myCurriculumId);
+        if (found) setMyCurriculum(found);
+        else setUrlParams(SCREEN_PARAMS, "replace");
+      })
+      .catch(() => {});
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [myCurriculumId]);
+
+  // ?study=1 without a batch in memory (page reloaded mid-session — the batch is
+  // random and isn't kept) -> drop it and show the screen the session started from.
+  const sessionActive = studyParam !== null && (phase === "summary" ? !!result && !!origin : batch.length > 0);
+  useEffect(() => {
+    if (studyParam !== null && !sessionActive) setUrlParams({ study: null }, "replace");
+  }, [studyParam, sessionActive, setUrlParams]);
+
+  const startSession = (items: VocabularyLearningItem[], studyMode: StudyMode, sessionOrigin: BatchOrigin) => {
+    setBatch(items);
+    setMode(studyMode);
+    setOrigin(sessionOrigin);
+    setResult(null);
+    setPhase("session");
+    setUrlParams({ study: 1 }, "push");
+  };
+
   const backToLibrary = () => {
-    setView("library");
-    setCurriculumGroup(null);
-    setSelectedSet(null);
-    setMyCurriculum(null);
-    setMySetId(null);
-    setOrigin(null);
     setBatch([]);
     setResult(null);
+    setOrigin(null);
     setSessionFromMySet(false);
+    setUrlParams(SCREEN_PARAMS, "push");
   };
 
   const handleOpenMyCurriculum = (curriculum: MyCurriculum) => {
     setMyCurriculum(curriculum);
-    setView("myCurriculum");
+    setUrlParams({ myCurriculum: curriculum.id }, "push");
   };
 
-  const handleBackFromMyCurriculum = () => {
-    setMyCurriculum(null);
-    setView("library");
-  };
+  const handleBackFromMyCurriculum = () => setUrlParams({ myCurriculum: null }, "push");
 
+  // Đã xoá -> replace để nút Back không quay lại màn của thứ không còn tồn tại.
   const handleMyCurriculumDeleted = () => {
     setMyCurriculum(null);
-    setView("library");
+    setUrlParams({ myCurriculum: null, mySet: null, ...DETAIL_PARAMS }, "replace");
   };
 
-  const handleOpenMySet = (set: MySet) => {
-    setMySetId(set.id);
-    setView("mySet");
-  };
+  const handleOpenMySet = (set: MySet) => setUrlParams({ mySet: set.id }, "push");
 
-  const handleBackFromMySet = () => {
-    // Item counts on the set cards can be stale after adding/removing words
-    // inside MySetDetailView — refresh the curriculum on the way back rather
-    // than carrying the snapshot taken when it was first opened.
+  // Item counts on the set cards can be stale after adding/removing words
+  // inside MySetDetailView — refresh the curriculum on the way back rather
+  // than carrying the snapshot taken when it was first opened.
+  const refreshMyCurriculum = () => {
     if (myCurriculum) {
       fetchMyCurriculums()
         .then((all) => setMyCurriculum(all.find((c) => c.id === myCurriculum.id) ?? myCurriculum))
         .catch(() => {});
     }
-    setView("myCurriculum");
+  };
+
+  const handleBackFromMySet = () => {
+    refreshMyCurriculum();
+    setUrlParams({ mySet: null, ...DETAIL_PARAMS }, "push");
   };
 
   const handleMySetDeleted = () => {
-    setMySetId(null);
     // Same refresh as a plain "back": without it the deleted bài would still
     // be listed in the curriculum snapshot.
-    handleBackFromMySet();
+    refreshMyCurriculum();
+    setUrlParams({ mySet: null, ...DETAIL_PARAMS }, "replace");
   };
 
   const handleSelectCurriculum = (name: string, sets: VocabularySetProgress[]) => {
-    setCurriculumGroup({ name, sets });
-    setView("curriculum");
+    const id = sets[0]?.curriculum_id;
+    if (id == null) return;
+    setCurriculumGroup({ id, name, sets });
+    setUrlParams({ curriculum: id }, "push");
   };
 
-  const handleBackFromCurriculum = () => {
-    setCurriculumGroup(null);
-    setView("library");
-  };
+  const handleBackFromCurriculum = () => setUrlParams({ curriculum: null }, "push");
 
-  const handleSelectSet = (set: VocabularySetProgress) => {
-    setSelectedSet(set);
-    setView("detail");
-  };
+  const handleSelectSet = (set: VocabularySetProgress) => setUrlParams({ set: set.id }, "push");
 
   // A set can be opened either straight from the library (standalone, no
-  // curriculum) or from inside a curriculum's set list — "back" needs to
-  // return to whichever of those the user actually came from.
-  const handleBackFromDetail = () => setView(curriculumGroup ? "curriculum" : "library");
+  // curriculum) or from inside a curriculum's set list — ?curriculum= stays in
+  // the URL in the latter case, so dropping ?set= returns to wherever it came from.
+  const handleBackFromDetail = () => setUrlParams({ set: null, ...DETAIL_PARAMS }, "push");
 
-  const handleStartFromDetail = async (studyMode: StudyMode, count: number, source: BatchSource) => {
-    if (!selectedSet) return;
+  const handleStartFromDetail = async (studyMode: StudyMode, count: number, source: BatchSource, setName: string) => {
+    if (setId === null) return;
     setStarting(true);
     try {
-      const items = await fetchStudyBatch(selectedSet.id, source, count);
-      setBatch(items);
-      setMode(studyMode);
-      setOrigin({ kind: "set", setId: selectedSet.id, setName: selectedSet.set_name, source });
+      const items = await fetchStudyBatch(setId, source, count);
       setLastSetConfig({ source, count });
       setSessionFromMySet(false);
-      setView("session");
+      startSession(items, studyMode, { kind: "set", setId, setName, source });
     } catch {
       // reported globally via the toast
     } finally {
@@ -139,12 +190,9 @@ export default function VocabularyLearningHome() {
     try {
       const items = await fetchMyStudyBatch(mySetId, source, count);
       const setName = myCurriculum?.sets.find((s) => s.id === mySetId)?.set_name ?? "";
-      setBatch(items);
-      setMode(studyMode);
-      setOrigin({ kind: "set", setId: mySetId, setName, source });
       setLastSetConfig({ source, count });
       setSessionFromMySet(true);
-      setView("session");
+      startSession(items, studyMode, { kind: "set", setId: mySetId, setName, source });
     } catch {
       // reported globally via the toast
     } finally {
@@ -156,10 +204,7 @@ export default function VocabularyLearningHome() {
     setStarting(true);
     try {
       const items = await fetchDueBatch(DUE_QUICK_COUNT);
-      setBatch(items);
-      setMode("flashcard");
-      setOrigin({ kind: "due" });
-      setView("session");
+      startSession(items, "flashcard", { kind: "due" });
     } catch {
       // reported globally
     } finally {
@@ -171,10 +216,7 @@ export default function VocabularyLearningHome() {
     setStarting(true);
     try {
       const items = await fetchBookmarkedBatch(count);
-      setBatch(items);
-      setMode(studyMode);
-      setOrigin({ kind: "bookmarked" });
-      setView("session");
+      startSession(items, studyMode, { kind: "bookmarked" });
     } catch {
       // reported globally
     } finally {
@@ -184,10 +226,16 @@ export default function VocabularyLearningHome() {
 
   const handleSessionComplete = (sessionResult: SessionResult) => {
     setResult(sessionResult);
-    setView("summary");
+    setPhase("summary");
     fetchStudyOverview()
       .then((overview) => setStreakDays(overview.streak_days))
       .catch(() => setStreakDays(null));
+  };
+
+  const handleBackToDetail = () => {
+    setBatch([]);
+    setResult(null);
+    setUrlParams({ study: null }, "push");
   };
 
   const handleContinueNextBatch = async () => {
@@ -199,22 +247,20 @@ export default function VocabularyLearningHome() {
         : await fetchStudyBatch(origin.setId, lastSetConfig.source, lastSetConfig.count);
       setBatch(items);
       setResult(null);
-      setView("session");
+      setPhase("session");
     } catch {
       // no more words available at this source — surfaced via toast, fall back to the set detail screen
-      setView(sessionFromMySet ? "mySet" : "detail");
+      handleBackToDetail();
     } finally {
       setStarting(false);
     }
   };
 
-  const handleBackToDetail = () => setView(sessionFromMySet ? "mySet" : "detail");
-
-  if (view === "session") {
+  if (sessionActive && phase === "session") {
     return <SessionView batch={batch} mode={mode} onExit={backToLibrary} onComplete={handleSessionComplete} />;
   }
 
-  if (view === "summary" && result && origin) {
+  if (sessionActive && phase === "summary" && result && origin) {
     return (
       <SummaryView
         result={result}
@@ -227,31 +273,10 @@ export default function VocabularyLearningHome() {
     );
   }
 
-  if (view === "detail" && selectedSet) {
-    return (
-      <SetDetailView
-        setId={selectedSet.id}
-        onBack={handleBackFromDetail}
-        onStart={handleStartFromDetail}
-        starting={starting}
-      />
-    );
-  }
-
-  if (view === "curriculum" && curriculumGroup) {
-    return (
-      <CurriculumDetailView
-        curriculumName={curriculumGroup.name}
-        sets={curriculumGroup.sets}
-        onSelectSet={handleSelectSet}
-        onBack={handleBackFromCurriculum}
-      />
-    );
-  }
-
-  if (view === "mySet" && mySetId !== null) {
+  if (mySetId !== null && myCurriculumId !== null) {
     return (
       <MySetDetailView
+        key={mySetId}
         setId={mySetId}
         onBack={handleBackFromMySet}
         onDeleted={handleMySetDeleted}
@@ -261,14 +286,41 @@ export default function VocabularyLearningHome() {
     );
   }
 
-  if (view === "myCurriculum" && myCurriculum) {
-    return (
+  if (myCurriculumId !== null) {
+    return myCurriculum?.id === myCurriculumId ? (
       <MyCurriculumDetailView
         curriculum={myCurriculum}
         onBack={handleBackFromMyCurriculum}
         onOpenSet={handleOpenMySet}
         onDeleted={handleMyCurriculumDeleted}
       />
+    ) : (
+      <p className="text-sm text-gray-500 dark:text-gray-400">Đang tải...</p>
+    );
+  }
+
+  if (setId !== null) {
+    return (
+      <SetDetailView
+        key={setId}
+        setId={setId}
+        onBack={handleBackFromDetail}
+        onStart={handleStartFromDetail}
+        starting={starting}
+      />
+    );
+  }
+
+  if (curriculumId !== null) {
+    return curriculumGroup?.id === curriculumId ? (
+      <CurriculumDetailView
+        curriculumName={curriculumGroup.name}
+        sets={curriculumGroup.sets}
+        onSelectSet={handleSelectSet}
+        onBack={handleBackFromCurriculum}
+      />
+    ) : (
+      <p className="text-sm text-gray-500 dark:text-gray-400">Đang tải...</p>
     );
   }
 

@@ -1,5 +1,6 @@
-import { useCallback, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useCallback, useEffect, useRef, useState } from "react";
+import { useNavigate, useSearchParams } from "react-router-dom";
+import { useSetUrlParams, useUrlEnum } from "../../../hooks/useUrlState";
 import {
   lookupWord,
   fetchExamples,
@@ -10,6 +11,7 @@ import {
   type SearchHistoryItem,
   type User,
 } from "../../../services/api";
+import { readRecentLookup, saveRecentLookup } from "./recentLookups";
 
 interface UseDictionaryLookupOptions {
   currentUser: User | null;
@@ -34,12 +36,31 @@ export function useDictionaryLookup({
 }: UseDictionaryLookupOptions) {
   const navigate = useNavigate();
 
+  // Từ đang xem được giữ trên URL (?q=...) để tải lại trang, chia sẻ link và
+  // nút Back/Forward của trình duyệt đều hiển thị đúng từ đó.
+  const [searchParams] = useSearchParams();
+  const setUrlParams = useSetUrlParams();
+  const urlWord = searchParams.get("q") ?? "";
+  /** The term most recently passed to a lookup — lets the URL-sync effect tell
+   * a URL change it caused itself apart from one made by Back/Forward or a reload. */
+  const lastRequestedRef = useRef("");
+
+  const syncUrl = useCallback(
+    (word: string) => {
+      lastRequestedRef.current = word;
+      if (word === urlWord) return;
+      // Từ mới -> luôn mở tab Từ vựng; giữ tab khi chỉ là tải lại cùng một từ.
+      setUrlParams({ q: word, tab: null }, "push");
+    },
+    [setUrlParams, urlWord]
+  );
+
   const [searchTerm, setSearchTerm] = useState("");
   const [results, setResults] = useState<DictionaryResult[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [searchPerformed, setSearchPerformed] = useState(false);
-  const [activeTab, setActiveTab] = useState<"vocab" | "kanji">("vocab");
+  const [activeTab, setActiveTab] = useUrlEnum("tab", ["vocab", "kanji"] as const, "vocab");
 
   const [examplesData, setExamplesData] = useState<{ japanese: string; vietnamese: string }[]>([]);
   const [synonymsData, setSynonymsData] = useState<string[]>([]);
@@ -79,35 +100,45 @@ export function useDictionaryLookup({
     }
   }, []);
 
-  /** Renders a fully-cached history item instantly (no API calls) and, best-effort,
-   * backfills kanji for older entries saved before that field existed. Shared by
-   * both a sidebar history click and re-searching a word already in history. */
-  const displayCachedItem = useCallback(
-    (item: SearchHistoryItem) => {
+  /** Renders an already-resolved result instantly (no API calls). `term` is what
+   * goes in the URL — it can differ from `result.word` (typing ねこ resolves to 猫),
+   * and keeping the typed term stops Back from bouncing between the two. */
+  const displayResolved = useCallback(
+    (term: string, result: DictionaryResult) => {
+      syncUrl(term);
+      saveRecentLookup(term, result);
       setError("");
       setSearchPerformed(true);
-      setSearchTerm(item.word);
+      setSearchTerm(term);
       setLoading(false);
-      setActiveTab("vocab");
-      setCurrentWord(item.word);
-      setResults([
-        {
-          word: item.word,
-          reading: item.reading,
-          definitions: item.definitions,
-          examples: item.examples ?? [],
-          synonyms: item.synonyms ?? [],
-          jlpt: item.jlpt || "N/A",
-          frequency: item.frequency || "N/A",
-          kanji: item.kanji ?? [],
-        },
-      ]);
-      setExamplesData(item.examples ?? []);
-      setSynonymsData(item.synonyms ?? []);
+      setCurrentWord(result.word);
+      setResults([result]);
+      setExamplesData(result.examples);
+      setSynonymsData(result.synonyms);
       setLoadingExamples(false);
       setLoadingSynonyms(false);
       onWordReset();
-      onWordResolved(item.word);
+      onWordResolved(result.word);
+    },
+    [onWordReset, onWordResolved, syncUrl]
+  );
+
+  /** Renders a fully-cached history item instantly and, best-effort, backfills
+   * kanji for older entries saved before that field existed. Shared by both a
+   * sidebar history click and re-searching a word already in history. */
+  const displayCachedItem = useCallback(
+    (item: SearchHistoryItem) => {
+      const cachedResult: DictionaryResult = {
+        word: item.word,
+        reading: item.reading,
+        definitions: item.definitions,
+        examples: item.examples ?? [],
+        synonyms: item.synonyms ?? [],
+        jlpt: item.jlpt || "N/A",
+        frequency: item.frequency || "N/A",
+        kanji: item.kanji ?? [],
+      };
+      displayResolved(item.word, cachedResult);
 
       // Bản ghi lịch sử cũ (lưu trước khi có trường kanji) chưa có sẵn hán
       // tự -> tra lại một lần để bổ sung, các lần bấm sau sẽ hiện ngay lập tức.
@@ -115,6 +146,7 @@ export function useDictionaryLookup({
         lookupWord(item.word)
           .then((res) => {
             setResults((prev) => prev.map((r) => (r.word === item.word ? { ...r, kanji: res.kanji } : r)));
+            saveRecentLookup(item.word, { ...cachedResult, kanji: res.kanji });
             if (currentUser && res.kanji.length > 0) {
               saveSearchHistory({
                 userId: currentUser.id,
@@ -135,12 +167,13 @@ export function useDictionaryLookup({
           });
       }
     },
-    [currentUser, onSaved, onWordReset, onWordResolved]
+    [currentUser, displayResolved, onSaved]
   );
 
   const performSearch = useCallback(
     async (term: string) => {
       const trimmed = term.trim();
+      syncUrl(trimmed);
       if (!trimmed) {
         setResults([]);
         setSearchPerformed(false);
@@ -161,11 +194,19 @@ export function useDictionaryLookup({
         return;
       }
 
+      // Tra trong tab này gần đây (kể cả trước khi tải lại trang / bấm Back)
+      // -> hiển thị ngay từ sessionStorage. Có tác dụng cả khi chưa đăng nhập
+      // hoặc lịch sử tra cứu chưa tải xong.
+      const recent = readRecentLookup(trimmed);
+      if (recent) {
+        displayResolved(trimmed, recent);
+        return;
+      }
+
       setLoading(true);
       setError("");
       setSearchPerformed(true);
       setSearchTerm(trimmed);
-      setActiveTab("vocab");
       // Reset ngay khi bắt đầu tìm từ mới
       setExamplesData([]);
       setSynonymsData([]);
@@ -188,6 +229,7 @@ export function useDictionaryLookup({
             loadSynonyms(result.word),
           ]);
           onWordResolved(result.word);
+          saveRecentLookup(trimmed, { ...result, examples, synonyms });
 
           if (currentUser) {
             await saveSearchHistory({
@@ -216,8 +258,14 @@ export function useDictionaryLookup({
         setLoading(false);
       }
     },
-    [currentUser, displayCachedItem, historyItems, loadExamples, loadSynonyms, onWordReset, onWordResolved, onSaved]
+    [currentUser, displayCachedItem, displayResolved, historyItems, loadExamples, loadSynonyms, onWordReset, onWordResolved, onSaved, syncUrl]
   );
+
+  // URL đổi mà không phải do chính trang này tra cứu (tải lại trang, mở link
+  // có sẵn ?q=, bấm Back/Forward) -> tra cứu theo từ trên URL.
+  useEffect(() => {
+    if (urlWord !== lastRequestedRef.current) performSearch(urlWord);
+  }, [urlWord, performSearch]);
 
   const handleSearch = useCallback(
     (e: React.FormEvent) => {

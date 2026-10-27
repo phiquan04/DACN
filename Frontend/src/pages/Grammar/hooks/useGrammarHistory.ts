@@ -7,18 +7,21 @@ import {
   type GrammarHistoryItem,
   type GrammarHistoryStatus,
 } from "../../../services/grammarApi";
+import { useUrlEnum, useUrlNumber } from "../../../hooks/useUrlState";
 
 /** Paginated grammar-check history (max 10 cards/page), filterable by whether the
  * sentence had errors, plus on-demand detail loading for the modal. */
 export function useGrammarHistory(active: boolean) {
   const [items, setItems] = useState<GrammarHistoryItem[]>([]);
-  const [page, setPage] = useState(1);
+  // Trang + bộ lọc của Lịch sử nằm trên URL -> tải lại / Back giữ đúng chỗ đang xem.
+  const [urlPage, setUrlPage] = useUrlNumber("page", 1);
+  const [page, setPage] = useState(urlPage);
   const [pageSize, setPageSize] = useState(10);
   const [total, setTotal] = useState(0);
   const [totalPages, setTotalPages] = useState(1);
   const [totalAll, setTotalAll] = useState(0);
   const [totalChanged, setTotalChanged] = useState(0);
-  const [status, setStatus] = useState<GrammarHistoryStatus>("all");
+  const [status, setStatus] = useUrlEnum<GrammarHistoryStatus>("status", ["all", "changed", "unchanged"], "all");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -45,13 +48,17 @@ export function useGrammarHistory(active: boolean) {
   }, []);
 
   useEffect(() => {
-    if (active) load(1, status);
+    if (active) load(urlPage, status);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [active, status]);
+  }, [active, urlPage, status]);
 
-  const changeStatus = useCallback((next: GrammarHistoryStatus) => {
-    setStatus(next);
-  }, []);
+  const changeStatus = useCallback(
+    (next: GrammarHistoryStatus) => {
+      setStatus(next);
+      setUrlPage(1);
+    },
+    [setStatus, setUrlPage]
+  );
 
   const openDetail = useCallback(async (id: number) => {
     setDetailLoading(true);
@@ -86,7 +93,7 @@ export function useGrammarHistory(active: boolean) {
     changeStatus,
     loading,
     error,
-    load: (targetPage: number) => load(targetPage, status),
+    load: (targetPage: number) => setUrlPage(targetPage),
     openDetail,
     closeDetail,
     removeItem,

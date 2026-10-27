@@ -8,7 +8,7 @@ function KanjiStrokeDiagram({ literal }: { literal: string }) {
 
   if (failed) {
     return (
-      <span className="flex h-64 w-64 shrink-0 items-center justify-center text-[9rem] font-bold leading-none text-gray-900 dark:text-white">
+      <span className="flex h-48 w-48 shrink-0 items-center justify-center text-[7rem] font-bold sm:h-64 sm:w-64 sm:text-[9rem] leading-none text-gray-900 dark:text-white">
         {literal}
       </span>
     );
@@ -20,7 +20,7 @@ function KanjiStrokeDiagram({ literal }: { literal: string }) {
       alt={literal}
       title={`Thứ tự nét chữ "${literal}" — dữ liệu từ KanjiVG`}
       onError={() => setFailed(true)}
-      className="h-64 w-64 shrink-0 rounded-lg bg-white p-1 dark:bg-gray-50"
+      className="h-48 w-48 shrink-0 rounded-lg bg-white p-1 dark:bg-gray-50 sm:h-64 sm:w-64"
     />
   );
 }
@@ -28,9 +28,10 @@ function KanjiStrokeDiagram({ literal }: { literal: string }) {
 /** Detail panel for a single kanji — same info layout as before, just reused per-tab now. */
 function KanjiDetail({ k }: { k: KanjiInfo }) {
   return (
-    <div className="flex items-start gap-4">
+    // Phone: the stroke diagram sits above the details (side by side it would leave the text ~60px).
+    <div className="flex flex-col items-center gap-4 sm:flex-row sm:items-start">
       <KanjiStrokeDiagram literal={k.literal} />
-      <div className="min-w-0 flex-1 space-y-2">
+      <div className="w-full min-w-0 flex-1 space-y-2">
         <div className="flex flex-wrap items-center gap-2">
           {k.hanviet.length > 0 && (
             <span className="rounded-lg bg-primary-fixed px-3 py-1 text-sm font-semibold text-on-primary-fixed break-words">

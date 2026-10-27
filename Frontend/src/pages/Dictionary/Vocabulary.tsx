@@ -61,13 +61,14 @@ export default function Vocabulary() {
     <>
       <PageMeta
         title="Tra cứu từ vựng tiếng Nhật"
-        description="Trang tra cứu từ điển Nhật - Việt (JMdict-EDICT)"
+        description="Trang tra cứu từ điển Nhật - Việt"
       />
 
-      {/* Two-column layout: one shared card surface so content sits above the page background, split by a vertical divider */}
-      <div className="flex items-stretch divide-x divide-gray-200 rounded-2xl border border-gray-200 bg-white shadow-sm dark:divide-gray-700 dark:border-gray-700 dark:bg-gray-900">
+      {/* Two-column layout on lg+: one shared card surface so content sits above the page background, split by a vertical divider.
+          Below lg the history stacks under the lookup (a 320px side column would leave the lookup almost no width on a phone). */}
+      <div className="flex flex-col divide-y divide-gray-200 rounded-2xl border border-gray-200 bg-white shadow-sm dark:divide-gray-700 dark:border-gray-700 dark:bg-gray-900 lg:flex-row lg:items-stretch lg:divide-x lg:divide-y-0">
         {/* ===== LEFT: Dictionary lookup ===== */}
-        <div className="flex-1 min-w-0 space-y-6 p-6">
+        <div className="min-w-0 flex-1 space-y-6 p-4 sm:p-6">
           <SearchBar
             searchTerm={lookup.searchTerm}
             onSearchTermChange={lookup.setSearchTerm}
@@ -169,13 +170,13 @@ export default function Vocabulary() {
           )}
 
           {lookup.searchPerformed && lookup.results.length === 0 && !lookup.loading && (
-            <div className="flex min-h-[600px] flex-col items-center justify-center gap-4 rounded-2xl border border-gray-200 bg-gradient-to-b from-brand-50 to-white text-center text-on-surface-variant dark:border-gray-700 dark:from-gray-900 dark:to-gray-900 dark:text-gray-400">
+            <div className="flex min-h-[320px] flex-col items-center justify-center gap-4 rounded-2xl px-4 sm:min-h-[600px] border border-gray-200 bg-gradient-to-b from-brand-50 to-white text-center text-on-surface-variant dark:border-gray-700 dark:from-gray-900 dark:to-gray-900 dark:text-gray-400">
               {lookup.error ? "Lỗi khi tra cứu từ" : "Không tìm thấy từ vựng phù hợp."}
             </div>
           )}
 
           {!lookup.searchPerformed && (
-            <div className="flex min-h-[600px] flex-col items-center justify-center gap-5 rounded-2xl border border-gray-200 bg-gradient-to-b from-brand-50 to-white dark:border-gray-700 dark:from-gray-900 dark:to-gray-900">
+            <div className="flex min-h-[320px] flex-col items-center justify-center gap-5 rounded-2xl px-4 sm:min-h-[600px] border border-gray-200 bg-gradient-to-b from-brand-50 to-white dark:border-gray-700 dark:from-gray-900 dark:to-gray-900">
               <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-brand-100 text-2xl font-semibold text-brand-500 dark:bg-brand-500/20 dark:text-brand-300">
                 文
               </div>

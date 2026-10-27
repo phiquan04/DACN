@@ -45,7 +45,7 @@ export default function ChatMessage({ message }: Props) {
           AI
         </div>
       )}
-      <div className={`flex max-w-[70%] flex-col gap-1 ${isUser ? "items-end" : ""}`}>
+      <div className={`flex max-w-[85%] flex-col gap-1 sm:max-w-[70%] ${isUser ? "items-end" : ""}`}>
         <div
           lang="ja"
           className={`rounded-xl px-4 py-3 text-sm leading-relaxed break-words ${

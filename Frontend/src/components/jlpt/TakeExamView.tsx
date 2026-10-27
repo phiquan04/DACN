@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { SECTION_LABELS, TakeExam, TakeMondai, TakeQuestion } from "../../services/jlptApi";
 import FormattedText from "./FormattedText";
 import { CloseLineIcon, ShootingStarIcon } from "../../icons";
+import { readExamDraft, saveExamDraft } from "./examDraft";
 
 function formatClock(totalSeconds: number): string {
   const s = Math.max(0, totalSeconds);
@@ -142,10 +143,12 @@ export default function TakeExamView({
 }) {
   // When the learner opened the exam — the attempt row is only created on
   // submit, so the time taken has to be measured here and sent along.
-  const startedAtRef = useRef(Date.now());
-  const [answers, setAnswers] = useState<Record<number, number>>({});
-  const [marked, setMarked] = useState<Set<number>>(new Set());
-  const [activeSectionIdx, setActiveSectionIdx] = useState(0);
+  // Bài làm dở (nếu có) từ lần trước tải lại trang — đọc một lần khi mở đề.
+  const [draft] = useState(() => readExamDraft(exam.id));
+  const startedAtRef = useRef(draft?.startedAt ?? Date.now());
+  const [answers, setAnswers] = useState<Record<number, number>>(draft?.answers ?? {});
+  const [marked, setMarked] = useState<Set<number>>(() => new Set(draft?.marked ?? []));
+  const [activeSectionIdx, setActiveSectionIdx] = useState(draft?.activeSectionIdx ?? 0);
   const [viewMode, setViewMode] = useState<"one" | "all">("all");
   const [activeQuestionIdx, setActiveQuestionIdx] = useState(0);
 
@@ -155,8 +158,18 @@ export default function TakeExamView({
     [activeSection]
   );
 
-  const [remainingSeconds, setRemainingSeconds] = useState(() => (activeSection?.time_minutes ?? 0) * 60);
+  const [remainingSeconds, setRemainingSeconds] = useState(() => {
+    if (!draft) return (activeSection?.time_minutes ?? 0) * 60;
+    // Đồng hồ vẫn chạy trong lúc trang tải lại.
+    return Math.max(0, draft.remainingSeconds - Math.round((Date.now() - draft.savedAt) / 1000));
+  });
+  // Only reset the clock on an actual section switch — not on mount, which would
+  // throw away the time restored from a draft (a ref, so StrictMode's double
+  // effect run in dev doesn't reset it either).
+  const prevSectionIdxRef = useRef(activeSectionIdx);
   useEffect(() => {
+    if (prevSectionIdxRef.current === activeSectionIdx) return;
+    prevSectionIdxRef.current = activeSectionIdx;
     setRemainingSeconds((activeSection?.time_minutes ?? 0) * 60);
     setActiveQuestionIdx(0);
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -178,6 +191,29 @@ export default function TakeExamView({
     activeSection?.time_minutes && sectionQuestions.length
       ? Math.round((activeSection.time_minutes * 60) / sectionQuestions.length)
       : null;
+
+  useEffect(() => {
+    if (answeredCount === 0 && marked.size === 0) return;
+    saveExamDraft(exam.id, {
+      answers,
+      marked: Array.from(marked),
+      activeSectionIdx,
+      remainingSeconds,
+      startedAt: startedAtRef.current,
+      savedAt: Date.now(),
+    });
+  }, [exam.id, answers, marked, activeSectionIdx, remainingSeconds, answeredCount]);
+
+  // Đóng tab sẽ mất bài nháp (sessionStorage gắn với tab) -> hỏi lại trước khi rời trang.
+  useEffect(() => {
+    if (answeredCount === 0 || submitting) return;
+    const handler = (e: BeforeUnloadEvent) => {
+      e.preventDefault();
+      e.returnValue = "";
+    };
+    window.addEventListener("beforeunload", handler);
+    return () => window.removeEventListener("beforeunload", handler);
+  }, [answeredCount, submitting]);
 
   const handleSelect = (questionId: number, choiceNo: number) => {
     setAnswers((prev) => ({ ...prev, [questionId]: choiceNo }));
@@ -239,7 +275,7 @@ export default function TakeExamView({
     <div className="space-y-4">
       <div className="rounded-xl border border-gray-200 bg-white p-4 shadow-sm dark:border-gray-700 dark:bg-gray-900">
         <div className="flex flex-wrap items-center justify-between gap-3">
-          <div className="flex items-center gap-3">
+          <div className="flex min-w-0 items-center gap-3">
             <button
               type="button"
               onClick={onCancel}
@@ -248,8 +284,8 @@ export default function TakeExamView({
               <CloseLineIcon className="h-3.5 w-3.5" />
               Thoát
             </button>
-            <div>
-              <div className="flex items-center gap-2">
+            <div className="min-w-0">
+              <div className="flex flex-wrap items-center gap-2">
                 <span className="rounded-full bg-emerald-100 px-2 py-0.5 text-[10px] font-bold text-emerald-700 dark:bg-emerald-500/20 dark:text-emerald-300">
                   {exam.level}
                 </span>

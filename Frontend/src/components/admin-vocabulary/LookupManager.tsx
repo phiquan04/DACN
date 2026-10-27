@@ -1,5 +1,6 @@
-import { ReactNode, useEffect, useMemo, useState } from "react";
+import { ReactNode, useMemo, useState } from "react";
 import { useToast } from "../../context/ToastContext";
+import { useUrlNumber, useUrlSearchInput } from "../../hooks/useUrlState";
 import { PencilIcon, PlusIcon, TrashIcon } from "../admin-jlpt/icons";
 
 export interface LookupItem {
@@ -10,6 +11,9 @@ export interface LookupItem {
 }
 
 interface Props {
+  /** Prefix for this list's URL params (`<urlKey>Q`, `<urlKey>Page`) — two
+   * managers share one page, so each needs its own names. */
+  urlKey: string;
   title: string;
   hint: string;
   icon: ReactNode;
@@ -30,10 +34,16 @@ const PAGE_SIZE = 10;
  * every import. Data fetching/mutation lives in the parent page (so it can
  * show aggregate counts); this component only owns UI state (search,
  * pagination, inline add/edit forms). */
-export default function LookupManager({ title, hint, icon, hasDescription, items, loading, onCreate, onUpdate, onDelete }: Props) {
+export default function LookupManager({ urlKey, title, hint, icon, hasDescription, items, loading, onCreate, onUpdate, onDelete }: Props) {
   const { showToast } = useToast();
-  const [search, setSearch] = useState("");
-  const [page, setPage] = useState(1);
+  // Ô tìm + trang nằm trên URL -> tải lại / Back giữ nguyên.
+  const [search, setSearchInput] = useUrlSearchInput(`${urlKey}Q`);
+  const [page, setPage] = useUrlNumber(`${urlKey}Page`, 1);
+  // Về trang 1 ngay trong handler (effect sẽ xoá mất ?page= lúc mở trang).
+  const setSearch = (value: string) => {
+    setSearchInput(value);
+    setPage(1);
+  };
   const [creating, setCreating] = useState(false);
   const [newName, setNewName] = useState("");
   const [newDescription, setNewDescription] = useState("");
@@ -49,10 +59,6 @@ export default function LookupManager({ title, hint, icon, hasDescription, items
   const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
   const currentPage = Math.min(page, totalPages);
   const pageItems = filtered.slice((currentPage - 1) * PAGE_SIZE, currentPage * PAGE_SIZE);
-
-  useEffect(() => {
-    setPage(1);
-  }, [search]);
 
   const resetCreateForm = () => {
     setCreating(false);
@@ -267,7 +273,7 @@ export default function LookupManager({ title, hint, icon, hasDescription, items
           <div className="mt-1 flex items-center justify-between border-t border-gray-100 pt-3 dark:border-gray-800">
             <button
               type="button"
-              onClick={() => setPage((p) => Math.max(1, p - 1))}
+              onClick={() => setPage(Math.max(1, currentPage - 1))}
               disabled={currentPage <= 1}
               className="rounded-lg border border-gray-200 px-3 py-1.5 text-xs font-medium text-gray-600 hover:bg-gray-50 disabled:opacity-40 dark:border-gray-700 dark:text-gray-300 dark:hover:bg-gray-800"
             >
@@ -278,7 +284,7 @@ export default function LookupManager({ title, hint, icon, hasDescription, items
             </span>
             <button
               type="button"
-              onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+              onClick={() => setPage(Math.min(totalPages, currentPage + 1))}
               disabled={currentPage >= totalPages}
               className="rounded-lg border border-gray-200 px-3 py-1.5 text-xs font-medium text-gray-600 hover:bg-gray-50 disabled:opacity-40 dark:border-gray-700 dark:text-gray-300 dark:hover:bg-gray-800"
             >

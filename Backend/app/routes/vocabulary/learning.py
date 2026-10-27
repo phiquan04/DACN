@@ -135,6 +135,14 @@ def _studied_today_count(db: Session, user_id: int, today) -> int:
     ).scalar() or 0
 
 
+def _natural_key(text: Optional[str]) -> list:
+    """Sort key that orders embedded numbers by value: "Phần 2" < "Phần 10"
+    (a plain string sort gives "Phần 1, Phần 10, Phần 11, Phần 2"). re.split
+    with a capture group always alternates text/number, so lists compare
+    str-to-str and int-to-int."""
+    return [int(part) if part.isdigit() else part.casefold() for part in re.split(r"(\d+)", text or "")]
+
+
 def _published_set_query(db: Session):
     return db.query(VocabularySet).filter(
         VocabularySet.status == 'published', VocabularySet.is_locked.is_(False), VocabularySet.is_private.is_(False),
@@ -356,7 +364,13 @@ def list_library_sets(
     )
     if level:
         query = query.filter(VocabularySet.level == level)
-    sets = query.order_by(VocabularySet.set_name).all()
+    # Các phần của một bộ thường trùng tên ("Từ vựng ôn thi JLPT") và chỉ khác
+    # nhau ở mô tả ("Phần 1", "Phần 2"...) -> sắp theo tên rồi mô tả, kiểu tự
+    # nhiên; id làm tiêu chí cuối để thứ tự luôn cố định giữa các lần tải.
+    sets = sorted(
+        query.all(),
+        key=lambda s: (_natural_key(s.set_name), _natural_key(s.description), s.id),
+    )
 
     all_item_ids = [i.id for s in sets for i in s.items]
     progress_by_item = _progress_map(db, current_user.id, all_item_ids)

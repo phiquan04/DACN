@@ -68,7 +68,7 @@ const navItems: NavItem[] = [
   {
     name: "Học qua Youtube",
     icon: <VideoIcon />,
-    path: "/line-chart",
+    path: "/video-learn",
   },
   {
     name: "Luyện đề JLPT",

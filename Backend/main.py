@@ -20,6 +20,7 @@ if hasattr(sys.stdout, "reconfigure"):
     sys.stdout.reconfigure(encoding="utf-8", errors="replace")
     sys.stderr.reconfigure(encoding="utf-8", errors="replace")
 
+import asyncio
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
@@ -30,15 +31,19 @@ from fastapi.responses import JSONResponse
 from config import get_config
 from app.models import init_db
 from app.routes import register_routers
+from app.services.notification_hub import notification_hub
 from app.services.reminder_scheduler import start_reminder_scheduler, stop_reminder_scheduler
 
 def app():
     """Application factory"""
     cfg = get_config()
 
-    # Study-reminder email job (see app/services/reminder_scheduler.py)
+    # Study-reminder email job (see app/services/reminder_scheduler.py), and
+    # the notification SSE hub (app/services/notification_hub.py), which needs
+    # the server's event loop to hand events over from sync routes' threads.
     @asynccontextmanager
     async def lifespan(_app):
+        notification_hub.start(asyncio.get_running_loop())
         start_reminder_scheduler()
         try:
             yield

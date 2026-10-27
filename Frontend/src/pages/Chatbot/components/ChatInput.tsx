@@ -43,7 +43,7 @@ export default function ChatInput({
   const displayValue = isListening ? transcript : text;
 
   return (
-    <div className="border-t border-gray-200 px-6 py-4 dark:border-gray-700">
+    <div className="border-t border-gray-200 px-4 py-3 dark:border-gray-700 sm:px-6 sm:py-4">
       <div className="flex items-center gap-2.5">
         <textarea
           ref={inputRef}
@@ -54,7 +54,7 @@ export default function ChatInput({
           placeholder={isListening ? "Đang nghe..." : "Nhập câu trả lời bằng tiếng Nhật hoặc tiếng Việt..."}
           rows={1}
           disabled={isLoading || isListening}
-          className="h-[42px] flex-1 resize-none rounded-lg border border-gray-300 bg-gray-50 px-4 py-2.5 text-sm leading-relaxed text-gray-900 outline-none focus:border-brand-500 focus:ring-1 focus:ring-brand-500 disabled:opacity-60 dark:border-gray-600 dark:bg-gray-800 dark:text-white/90 dark:focus:border-brand-400"
+          className="h-[42px] min-w-0 flex-1 resize-none rounded-lg border border-gray-300 bg-gray-50 px-4 py-2.5 text-sm leading-relaxed text-gray-900 outline-none focus:border-brand-500 focus:ring-1 focus:ring-brand-500 disabled:opacity-60 dark:border-gray-600 dark:bg-gray-800 dark:text-white/90 dark:focus:border-brand-400"
         />
         <div className="flex shrink-0 items-center gap-2">
           {voiceSupported && (
